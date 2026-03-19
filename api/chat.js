@@ -83,7 +83,9 @@ function buildPrompt({ userText, nasaData, files }) {
 async function callGroq(prompt) {
   // Note: Groq uses an OpenAI-compatible endpoint. See https://console.groq.com/docs/
   const endpoint = 'https://api.groq.com/openai/v1/responses';
-  const model = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
+  // Prefer a Llama model that is strong and reasonably cost-effective.
+  // You can override via env var GROQ_MODEL (e.g. 'llama-3.3-70b-versatile').
+  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
   const body = {
     model,
     input: prompt,
@@ -108,7 +110,7 @@ async function callGroq(prompt) {
       });
 
       const json = await res.json();
-      const candidate =
+      let candidate =
         json?.output_text ||
         json?.text ||
         json?.choices?.[0]?.text ||
@@ -116,6 +118,11 @@ async function callGroq(prompt) {
         json?.output?.[0]?.content ||
         json?.result?.[0]?.content ||
         null;
+
+      // Ensure we return a string (avoids [object Object] in the chat UI).
+      if (candidate && typeof candidate !== 'string') {
+        candidate = JSON.stringify(candidate, null, 2);
+      }
 
       if (res.ok && candidate) {
         return candidate;
