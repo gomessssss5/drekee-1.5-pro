@@ -122,8 +122,8 @@ async function callGroq(prompt) {
   // Note: Groq uses an OpenAI-compatible endpoint. See https://console.groq.com/docs/
   const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
   // Prefer a Llama model that is strong and reasonably cost-effective.
-  // You can override via env var GROQ_MODEL (e.g. 'llama3-70b-8192').
-  const model = process.env.GROQ_MODEL || 'llama3-70b-8192';
+  // You can override via env var GROQ_MODEL.
+  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
   const body = {
     model,
     messages: [{ role: 'user', content: prompt }],
