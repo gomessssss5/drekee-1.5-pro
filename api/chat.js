@@ -105,8 +105,8 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   if (!apiKey) throw new Error(`${apiKeyVar} not configured`);
 
   const model = options.model || 'llama-3.3-70b-versatile';
-  const maxTokens = options.maxTokens || 1000;
-  const temperature = options.temperature !== undefined ? options.temperature : 0.3;
+  const maxTokens = options.maxTokens || 2000;
+  const temperature = options.temperature !== undefined ? options.temperature : 0.25;
 
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -144,7 +144,7 @@ async function callGemini(prompt) {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 800,
+        maxOutputTokens: 1300,
       },
     }),
   });
@@ -256,7 +256,8 @@ Siga EXATAMENTE este processo:
 2. Organize seu raciocínio de forma clara e didática.
 3. Inclua informações factuais e, se disponível, use dados da NASA (quando solicitados).
 4. Evite generalidades, seja direto e confiável.
-5. Ao final, inclua apenas a tag: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
+5. Se a resposta for longa, não pare no meio de uma frase; continue até concluir a explicação.
+6. Ao final, inclua apenas a tag: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
 
 Seja honesto e preciso. Não especule.`;
 
