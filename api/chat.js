@@ -220,7 +220,10 @@ async function handler(req, res) {
     return res.status(200).json({ response: responseText });
   } catch (err) {
     console.error('AI request failed', err);
-    return res.status(200).json({ response: 'Desculpe, não consegui processar sua solicitação agora. Tente novamente em alguns instantes.' });
+    return res.status(200).json({
+      response: 'Desculpe, não consegui processar sua solicitação agora. Tente novamente em alguns instantes.',
+      error: err?.message || String(err),
+    });
   }
 }
 

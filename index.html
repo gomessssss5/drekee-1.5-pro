@@ -923,8 +923,15 @@
       });
 
       const json = await resp.json();
+      console.debug('API response', json);
+
       const aiText = json?.response || 'Desculpe, não consegui gerar uma resposta no momento.';
       addMessage('ai', aiText);
+
+      if (json?.error) {
+        // Mostra erro de backend para facilitar debugging
+        addMessage('ai', `<em style="color:#f87171;font-size:0.8rem;">(debug) ${json.error}</em>`);
+      }
     } catch (err) {
       console.error(err);
       addMessage('ai', '<em style="color:#64748b;font-size:0.85rem;">Erro ao gerar resposta. Tente novamente.</em>');
