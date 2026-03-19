@@ -50,48 +50,95 @@ async function searchTavily(query) {
   }
 }
 
+// ============ TRANSLATE PORTUGUESE TO ENGLISH (Science Terms) ============
+function translateNasaQuery(query) {
+  const translations = {
+    // English base terms (return as-is)
+    'moon': 'moon', 'mars': 'mars', 'sun': 'sun', 'galaxy': 'galaxy',
+    // Portuguese to English
+    'lua': 'moon', 'marte': 'mars', 'sol': 'sun', 'galáxia': 'galaxy',
+    'imagem': 'image', 'telescópio': 'telescope', 'satélite': 'satellite',
+    'planeta': 'planet', 'estrela': 'star', 'buraco negro': 'black hole',
+    'nebulosa': 'nebula', 'cometa': 'comet', 'asteroide': 'asteroid',
+    'eclipse': 'eclipse', 'aurora': 'aurora', 'vulcão': 'volcano',
+    'cratera': 'crater', 'superfície': 'surface', 'atmosfera': 'atmosphere',
+    'espaço': 'space', 'universo': 'universe', 'cosmologia': 'cosmology',
+    'astrofísica': 'astrophysics', 'astrologia': 'astronomy',
+    'estrutura': 'structure', 'fenômeno': 'phenomenon',
+  };
+
+  const lowerQuery = query.toLowerCase();
+  let translated = query;
+
+  // Check if query needs translation (has Portuguese words)
+  for (const [pt, en] of Object.entries(translations)) {
+    if (lowerQuery.includes(pt)) {
+      translated = translated.replace(new RegExp(pt, 'gi'), en);
+    }
+  }
+
+  return translated;
+}
+
 // ============ NASA Image/Video Library (search) ============
 async function searchNasaMedia(query) {
   if (!query) return null;
 
   try {
-    const res = await fetch(`https://images-api.nasa.gov/search?q=${encodeURIComponent(query)}&media_type=image,video`);
+    // Translate query to English if needed
+    const translatedQuery = translateNasaQuery(query);
+
+    // Build NASA API URL with better parameters
+    let searchUrl = `https://images-api.nasa.gov/search?` +
+      `q=${encodeURIComponent(translatedQuery)}&` +
+      `media_type=image,video&` +
+      `page_size=50`; // Request 50 results (API limit friendly)
+
+    const res = await fetch(searchUrl);
     if (!res.ok) return null;
     const json = await res.json();
     const items = json?.collection?.items || [];
 
-    const media = items
-      .slice(0, 8)
-      .map(item => {
-        const data = item.data?.[0] || {};
-        const links = item.links || [];
+    if (items.length === 0) return null;
 
-        const firstLink = links.find(l => l.href);
-        const imageLink = links.find(l =>
-          (l.render && l.render.toLowerCase().includes('image')) ||
-          (l.rel && l.rel.toLowerCase().includes('preview')) ||
-          (l.href && l.href.match(/\.(jpe?g|png|gif|webp)$/i))
-        )?.href;
-        const videoLink = links.find(l =>
-          (l.render && l.render.toLowerCase().includes('video')) ||
-          (l.rel && l.rel.toLowerCase().includes('enclosure')) ||
-          (l.href && l.href.match(/\.mp4($|\?)/i))
-        )?.href;
+    // Process and deduplicate by URL
+    const seenUrls = new Set();
+    const media = [];
 
-        const url = imageLink || videoLink || firstLink?.href || item.href;
-        const mediaType = (videoLink || (url && url.match(/\.mp4($|\?)/i))) ? 'video' : 'image';
+    for (const item of items) {
+      if (media.length >= 12) break; // Limit to 12 results max
 
-        return {
-          title: data.title,
-          description: data.description || data.photographer || '',
-          date: data.date_created,
-          url,
-          media_type: mediaType,
-        };
-      })
-      .filter(m => m.url);
+      const data = item.data?.[0] || {};
+      const links = item.links || [];
 
-    return media;
+      const firstLink = links.find(l => l.href);
+      const imageLink = links.find(l =>
+        (l.render && l.render.toLowerCase().includes('image')) ||
+        (l.rel && l.rel.toLowerCase().includes('preview')) ||
+        (l.href && l.href.match(/\.(jpe?g|png|gif|webp)$/i))
+      )?.href;
+      const videoLink = links.find(l =>
+        (l.render && l.render.toLowerCase().includes('video')) ||
+        (l.rel && l.rel.toLowerCase().includes('enclosure')) ||
+        (l.href && l.href.match(/\.mp4($|\?)/i))
+      )?.href;
+
+      const url = imageLink || videoLink || firstLink?.href || item.href;
+      if (!url || seenUrls.has(url)) continue; // Skip duplicates
+
+      seenUrls.add(url);
+      const mediaType = (videoLink || (url && url.match(/\.mp4($|\?)/i))) ? 'video' : 'image';
+
+      media.push({
+        title: data.title || 'NASA Image',
+        description: data.description || data.photographer || `Related to: ${translatedQuery}`,
+        date: data.date_created,
+        url,
+        media_type: mediaType,
+      });
+    }
+
+    return media.length > 0 ? media : null;
   } catch (err) {
     console.error('NASA media search error:', err);
     return null;
@@ -297,10 +344,40 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     logs.push('🚀 Buscando mídia da NASA...');
     let results = await searchNasaMedia(userQuestion);
 
-    // Alguns termos em português retornam poucos resultados; tente fallback em inglês.
+    // If no results, try alternative queries
     if (!results || results.length === 0) {
-      logs.push('🔁 Nenhum resultado encontrado com a busca original; tentando busca em inglês...');
-      results = await searchNasaMedia('nasa latest images');
+      logs.push('🔁 Tentando alternativa de busca...');
+      
+      // Try extracting main keywords
+      const keywords = userQuestion
+        .split(/\s+/)
+        .filter(w => w.length > 4)
+        .slice(0, 3)
+        .join(' ');
+      
+      if (keywords && keywords !== userQuestion) {
+        results = await searchNasaMedia(keywords);
+      }
+    }
+
+    // Last resort: if still no results, try broad category searches
+    if (!results || results.length === 0) {
+      logs.push('🔁 Buscando por categoria relacionada...');
+      // Try common NASA categories
+      const categoryFallbacks = [
+        'space exploration',
+        'earth observation', 
+        'astronomy',
+        'solar system'
+      ];
+      
+      for (const category of categoryFallbacks) {
+        results = await searchNasaMedia(category);
+        if (results && results.length > 0) {
+          logs.push(`✅ Dados encontrados em categoria: ${category}`);
+          break;
+        }
+      }
     }
 
     if (results && results.length > 0) {

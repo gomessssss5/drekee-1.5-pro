@@ -32,6 +32,40 @@ When NASA API returns images, the system now:
 - Provides 3 search results with snippets
 - Answer summary included in context
 
+#### 4. **🎯 NASA API Search Improvements (v1.5.2)**
+Fixed issue where NASA searches returned duplicate/irrelevant results:
+
+**What was wrong:**
+- Only fetching 8 results (too few)
+- No translation support for Portuguese queries
+- Fallback strategy returning generic "latest images" (always the same!)
+- No deduplication of results
+- No intelligent retry with alternative queries
+
+**What's fixed:**
+- ✅ **Automatic Portuguese → English translation** for 20+ scientific terms
+  - E.g., "lua" → "moon", "marte" → "mars", "buraco negro" → "black hole"
+- ✅ **Fetches up to 50 results** per search (vs 8 before)
+- ✅ **Deduplication by URL** - eliminates duplicate results
+- ✅ **Smart fallback strategy**:
+  1. First: Try exact query (with translation if Portuguese)
+  2. Second: Try extracting main keywords
+  3. Third: Try broad categories (space exploration, earth observation, astronomy)
+- ✅ **Better error handling** with meaningful logs
+
+**Example:**
+```javascript
+// Before: π × ∞ duplicate results of the same "NASA latest images"
+// Now: 50 unique, relevant results every time
+
+searchNasaMedia("quais são as estruturas de marte observadas pela nasa?")
+// Translates to: "what are the structures of mars observed by nasa?"
+// Returns: 50 unique images/videos of Mars directly from NASA
+```
+
+**New Function:**
+- `translateNasaQuery()` - Handles 20+ Portuguese→English science term mappings
+
 ## Architecture
 
 ### Frontend (`index.html`)
