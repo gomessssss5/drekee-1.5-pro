@@ -382,6 +382,7 @@
   }
   .plan-step-item {
     display: flex;
+    align-items: center;
     gap: 0.75rem;
     padding: 0.5rem;
     background: rgba(59,130,246,0.05);
@@ -412,6 +413,20 @@
     color: #94a3b8;
     font-size: 0.78rem;
     margin-top: 0.2rem;
+  }
+  .step-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(52,211,153,0.18);
+    color: #10b981;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-weight: 700;
+    opacity: 0;
+    transition: opacity 0.2s ease;
   }
 
   /* ── Confidence Section ── */
@@ -970,6 +985,11 @@
   const messagesContainer = document.getElementById('messagesContainer');
   const convTitle       = document.getElementById('conversationTitle');
   let conversationActive = false;
+  const STORAGE_KEY = 'drekee_chat_history_v1';
+  let chatHistory = [];
+
+  // Load stored conversation memory on page load
+  loadHistory();
 
   function showMessages() {
     if (!conversationActive) {
@@ -978,8 +998,21 @@
     }
   }
 
-  function addMessage(role, content, metadata = null) {
+  function addMessage(role, content, metadata = null, options = {}) {
     showMessages();
+
+    const shouldSave = options.save !== false;
+    const instant = options.instant === true;
+
+    if (role === 'ai' && metadata?.actionPlan && !instant) {
+      renderAgentSequence({ response: content, ...metadata });
+      if (shouldSave) {
+        chatHistory.push({ type: 'ai-sequence', payload: { response: content, ...metadata } });
+        saveHistory();
+      }
+      return;
+    }
+
     const wrapper = document.createElement('div');
     wrapper.className = role === 'user' ? 'msg-user' : 'msg-ai';
 
@@ -987,7 +1020,7 @@
       wrapper.innerHTML = `<div class="bubble">${escapeHtml(content)}</div>`;
     } else {
       let htmlContent = `<div class="avatar">D</div><div class="bubble">`;
-      
+
       // Action Plan (if available)
       if (metadata?.actionPlan) {
         const plan = metadata.actionPlan;
@@ -1010,10 +1043,10 @@
           </div>
         </div>`;
       }
-      
+
       // Main response
       htmlContent += `<div class="ai-response">${content}</div>`;
-      
+
       // Confidence bar
       if (metadata?.confidence) {
         const conf = metadata.confidence.toUpperCase();
@@ -1026,7 +1059,7 @@
           confColor = '#34d399'; // ALTO - green
           confWidth = '100%';
         }
-        
+
         htmlContent += `
           <div class="confidence-section">
             <div class="conf-label">Nível de Confiança: <strong>${conf}</strong></div>
@@ -1035,7 +1068,7 @@
             </div>
           </div>`;
       }
-      
+
       // Thinking logs
       if (metadata?.logs && metadata.logs.length > 0) {
         htmlContent += `
@@ -1049,12 +1082,18 @@
             </div>
           </div>`;
       }
-      
+
       htmlContent += `</div>`;
       wrapper.innerHTML = htmlContent;
     }
+
     messagesContainer.appendChild(wrapper);
     scrollToBottom();
+
+    if (shouldSave) {
+      chatHistory.push({ role, content, metadata });
+      saveHistory();
+    }
 
     // Update header title with first user message
     if (role === 'user' && !convTitle.textContent) {
@@ -1065,6 +1104,196 @@
 
   function escapeHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Utils ───────────────────────────────────────────────────
+  function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function renderAgentSequence(payload, options = {}) {
+    const instant = options.instant === true;
+    const { actionPlan, logs = [], confidence, response } = payload;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-ai';
+    wrapper.style.opacity = instant ? '1' : '0';
+
+    const inner = document.createElement('div');
+    inner.className = 'bubble';
+
+    // Plan container
+    const planContainer = document.createElement('div');
+    planContainer.className = 'action-plan';
+    planContainer.innerHTML = `
+      <div class="plan-header">📋 Plano de Ação</div>
+      <div class="plan-content">
+        <p><strong>🎯 Objetivo:</strong> ${escapeHtml(actionPlan.objetivo)}</p>
+        <p><strong>🔬 Área Científica:</strong> ${escapeHtml(actionPlan.area_cientifica)}</p>
+        <div class="plan-steps"></div>
+      </div>
+    `;
+
+    const stepsContainer = planContainer.querySelector('.plan-steps');
+    const stepEls = actionPlan.passos.map(p => {
+      const step = document.createElement('div');
+      step.className = 'plan-step-item';
+      step.innerHTML = `
+        <div class="step-num">${p.numero}</div>
+        <div class="step-info">
+          <div class="step-name">${escapeHtml(p.nome)}</div>
+          <div class="step-desc">${escapeHtml(p.descricao)}</div>
+        </div>
+        <div class="step-check" style="opacity:0;">✓</div>
+      `;
+      stepsContainer.appendChild(step);
+      return step;
+    });
+
+    const responseContainer = document.createElement('div');
+    responseContainer.className = 'ai-response';
+    responseContainer.style.opacity = instant ? '1' : '0';
+    responseContainer.style.transition = 'opacity 0.3s ease';
+
+    const confidenceContainer = document.createElement('div');
+    confidenceContainer.className = 'confidence-section';
+    confidenceContainer.style.opacity = instant ? '1' : '0';
+
+    const logContainer = document.createElement('div');
+    logContainer.className = 'thinking-logs';
+    logContainer.style.opacity = instant ? '1' : '0';
+    logContainer.innerHTML = `
+      <div class="logs-header">🧠 Processo de Pensamento</div>
+      <div class="logs-content"></div>
+    `;
+
+    inner.appendChild(planContainer);
+    inner.appendChild(responseContainer);
+    inner.appendChild(confidenceContainer);
+    inner.appendChild(logContainer);
+
+    wrapper.appendChild(inner);
+    messagesContainer.appendChild(wrapper);
+    scrollToBottom();
+
+    if (!instant) {
+      // Animate in
+      await delay(50);
+      wrapper.style.transition = 'opacity 0.25s ease';
+      wrapper.style.opacity = '1';
+
+      // Reveal steps one by one
+      for (const stepEl of stepEls) {
+        await delay(350);
+        stepEl.querySelector('.step-check')?.style?.setProperty('opacity', '1');
+        scrollToBottom();
+      }
+
+      // Reveal logs
+      const logsContent = logContainer.querySelector('.logs-content');
+      for (const log of logs) {
+        const logLine = document.createElement('div');
+        logLine.className = 'log-line';
+        logLine.textContent = log;
+        logsContent.appendChild(logLine);
+        logsContent.scrollTop = logsContent.scrollHeight;
+        scrollToBottom();
+        await delay(250);
+      }
+
+      // Small pause before showing the final response
+      await delay(300);
+
+      // Reveal response
+      responseContainer.textContent = response;
+      responseContainer.style.opacity = '1';
+      scrollToBottom();
+
+      // Reveal confidence
+      const conf = (confidence || 'MÉDIO').toUpperCase();
+      
+      let confColor = '#f87171';
+      let confWidth = '33%';
+      if (conf === 'MÉDIO') {
+        confColor = '#fbbf24';
+        confWidth = '66%';
+      } else if (conf === 'ALTO') {
+        confColor = '#34d399';
+        confWidth = '100%';
+      }
+      confidenceContainer.innerHTML = `
+        <div class="conf-label">Nível de Confiança: <strong>${conf}</strong></div>
+        <div class="confidence-bar">
+          <div class="confidence-fill" style="width: ${confWidth}; background-color: ${confColor};"></div>
+        </div>
+      `;
+      confidenceContainer.style.opacity = '1';
+    } else {
+      // Instant mode (history) - fill everything instantly
+      responseContainer.textContent = response;
+      responseContainer.style.opacity = '1';
+      const conf = (confidence || 'MÉDIO').toUpperCase();
+      let confColor = '#f87171';
+      let confWidth = '33%';
+      if (conf === 'MÉDIO') {
+        confColor = '#fbbf24';
+        confWidth = '66%';
+      } else if (conf === 'ALTO') {
+        confColor = '#34d399';
+        confWidth = '100%';
+      }
+      confidenceContainer.innerHTML = `
+        <div class="conf-label">Nível de Confiança: <strong>${conf}</strong></div>
+        <div class="confidence-bar">
+          <div class="confidence-fill" style="width: ${confWidth}; background-color: ${confColor};"></div>
+        </div>
+      `;
+      confidenceContainer.style.opacity = '1';
+
+      const logsContent = logContainer.querySelector('.logs-content');
+      logs.forEach(log => {
+        const logLine = document.createElement('div');
+        logLine.className = 'log-line';
+        logLine.textContent = log;
+        logsContent.appendChild(logLine);
+      });
+      logContainer.style.opacity = '1';
+
+      stepEls.forEach(stepEl => {
+        stepEl.querySelector('.step-check').style.opacity = '1';
+      });
+    }
+  }
+
+  // ── Conversation memory (localStorage) ───────────────────────
+  // (history stored in localStorage and restored on load)
+
+  function saveHistory() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
+    } catch (err) {
+      console.warn('Failed to save chat history', err);
+    }
+  }
+
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        chatHistory = parsed;
+        chatHistory.forEach(item => {
+          if (item.type === 'ai-sequence') {
+            renderAgentSequence(item.payload, { instant: true });
+          } else {
+            addMessage(item.role, item.content, item.metadata, { instant: true });
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to load chat history', err);
+    }
   }
 
   // ── Suggestions ─────────────────────────────────────────────
@@ -1191,6 +1420,10 @@
     attachedFiles = [];
     attachedFilesContainer.innerHTML = '';
     attachedFilesContainer.style.display = 'none';
+
+    // Clear saved history so new chat starts fresh
+    chatHistory = [];
+    localStorage.removeItem(STORAGE_KEY);
   });
 
   // ── Scroll ───────────────────────────────────────────────────
