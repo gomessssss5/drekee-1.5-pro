@@ -61,14 +61,25 @@ async function searchNasaMedia(query) {
     const items = json?.collection?.items || [];
 
     const media = items
-      .slice(0, 6)
+      .slice(0, 8)
       .map(item => {
         const data = item.data?.[0] || {};
         const links = item.links || [];
-        const imageLink = links.find(l => l.render === 'image' || l.rel === 'preview')?.href;
-        const videoLink = links.find(l => l.render === 'video' || l.rel === 'enclosure')?.href;
-        const url = imageLink || videoLink;
-        const mediaType = data.media_type || (videoLink ? 'video' : 'image');
+
+        const firstLink = links.find(l => l.href);
+        const imageLink = links.find(l =>
+          (l.render && l.render.toLowerCase().includes('image')) ||
+          (l.rel && l.rel.toLowerCase().includes('preview')) ||
+          (l.href && l.href.match(/\.(jpe?g|png|gif|webp)$/i))
+        )?.href;
+        const videoLink = links.find(l =>
+          (l.render && l.render.toLowerCase().includes('video')) ||
+          (l.rel && l.rel.toLowerCase().includes('enclosure')) ||
+          (l.href && l.href.match(/\.mp4($|\?)/i))
+        )?.href;
+
+        const url = imageLink || videoLink || firstLink?.href || item.href;
+        const mediaType = (videoLink || (url && url.match(/\.mp4($|\?)/i))) ? 'video' : 'image';
 
         return {
           title: data.title,
@@ -211,7 +222,14 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
 
   if (useNasa) {
     logs.push('🚀 Buscando mídia da NASA...');
-    const results = await searchNasaMedia(userQuestion);
+    let results = await searchNasaMedia(userQuestion);
+
+    // Alguns termos em português retornam poucos resultados; tente fallback em inglês.
+    if (!results || results.length === 0) {
+      logs.push('🔁 Nenhum resultado encontrado com a busca original; tentando busca em inglês...');
+      results = await searchNasaMedia('nasa latest images');
+    }
+
     if (results && results.length > 0) {
       nasaMedia = results;
       context += `\n\n🔭 Resultados da NASA (imagens/vídeos):\n`;
