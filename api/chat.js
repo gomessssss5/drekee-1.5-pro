@@ -91,6 +91,14 @@ function extractTextFromAIResponse(value) {
     return null;
   }
   if (typeof value === 'object') {
+    // Specific handling for OpenAI-compatible responses (e.g., Groq /chat/completions).
+    if (value.choices && Array.isArray(value.choices) && value.choices[0]?.message?.content) {
+      return value.choices[0].message.content;
+    }
+    if (value.choices && Array.isArray(value.choices) && value.choices[0]?.text) {
+      return value.choices[0].text;
+    }
+
     // Prefer common text fields.
     const priority = ['output_text', 'text', 'content', 'message', 'response', 'output', 'result'];
     for (const key of priority) {
@@ -112,14 +120,14 @@ function extractTextFromAIResponse(value) {
 
 async function callGroq(prompt) {
   // Note: Groq uses an OpenAI-compatible endpoint. See https://console.groq.com/docs/
-  const endpoint = 'https://api.groq.com/openai/v1/responses';
+  const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
   // Prefer a Llama model that is strong and reasonably cost-effective.
-  // You can override via env var GROQ_MODEL (e.g. 'llama-3.3-70b-versatile').
-  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  // You can override via env var GROQ_MODEL (e.g. 'llama3-70b-8192').
+  const model = process.env.GROQ_MODEL || 'llama3-70b-8192';
   const body = {
     model,
-    input: prompt,
-    max_output_tokens: 600,
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 600,
     temperature: 0.2,
   };
 
