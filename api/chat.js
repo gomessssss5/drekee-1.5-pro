@@ -83,7 +83,8 @@ function buildPrompt({ userText, nasaData, files }) {
 async function callGroq(prompt) {
   const endpoint = 'https://api.groq.ai/v1/completions';
   const body = {
-    model: 'groq-1.5',
+    // Groq disponibiliza vários modelos. Usamos o Llama 3.3 70b Versatile conforme solicitado.
+    model: 'llama-3.3-70b-versatile',
     prompt,
     max_tokens: 600,
     temperature: 0.2,

@@ -921,7 +921,13 @@
         throw new Error('O chat precisa rodar em um servidor HTTP (ex: Vercel / localhost) para funcionar.');
       }
 
-      const apiUrl = `${window.location.origin}/api/chat`;
+      const apiUrl = './api/chat';
+
+      // `fetch` falha com network error quando:
+      // - o servidor não existe (404/500 não falham)
+      // - a rota não está acessível
+      // - não há conexão
+      // Por isso mostramos o URL e, em caso de status != ok, o body.
       const resp = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -929,11 +935,16 @@
       });
 
       const respText = await resp.text();
+
       let json;
       try {
         json = JSON.parse(respText);
       } catch (parseErr) {
-        throw new Error(`Invalid JSON response from server: ${respText}`);
+        throw new Error(`Invalid JSON response from server (status ${resp.status}): ${respText}`);
+      }
+
+      if (!resp.ok) {
+        throw new Error(`Server returned ${resp.status}: ${JSON.stringify(json)}`);
       }
 
       console.debug('API response', json);
