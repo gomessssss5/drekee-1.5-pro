@@ -81,7 +81,8 @@ function buildPrompt({ userText, nasaData, files }) {
 }
 
 async function callGroq(prompt) {
-  const endpoint = 'https://api.groq.ai/v1/completions';
+  // Note: The correct Groq API hostname is api.groq.com (not api.groq.ai).
+  const endpoint = 'https://api.groq.com/v1/completions';
   const body = {
     // Groq disponibiliza vários modelos. Usamos o Llama 3.3 70b Versatile conforme solicitado.
     model: 'llama-3.3-70b-versatile',
@@ -90,7 +91,8 @@ async function callGroq(prompt) {
     temperature: 0.2,
   };
 
-  const keys = [process.env.GROQ_API_KEY_1, process.env.GROQ_API_KEY_2].filter(Boolean);
+  // Support both GROQ_API_KEY (single key) and GROQ_API_KEY_1 / GROQ_API_KEY_2 (multiple keys).
+  const keys = [process.env.GROQ_API_KEY, process.env.GROQ_API_KEY_1, process.env.GROQ_API_KEY_2].filter(Boolean);
   if (!keys.length) throw new Error('GROQ API key(s) not configured');
 
   let lastError;
