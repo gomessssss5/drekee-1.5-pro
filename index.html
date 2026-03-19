@@ -347,6 +347,151 @@
     font-size: 0.92rem; line-height: 1.7;
     backdrop-filter: blur(8px);
   }
+
+  /* ── Action Plan (Plano de Ação) ── */
+  .action-plan {
+    background: rgba(15,23,42,0.8);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+  .plan-header {
+    background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(99,102,241,0.15));
+    padding: 0.75rem 1rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(59,130,246,0.2);
+  }
+  .plan-content {
+    padding: 1rem;
+    font-size: 0.85rem;
+  }
+  .plan-content p {
+    margin: 0.5rem 0;
+    color: #cbd5e1;
+  }
+  .plan-content strong {
+    color: #60a5fa;
+  }
+  .plan-steps {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .plan-step-item {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    background: rgba(59,130,246,0.05);
+    border-radius: 4px;
+  }
+  .step-num {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    color: #fff;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-info {
+    flex: 1;
+  }
+  .step-name {
+    font-weight: 600;
+    color: #93c5fd;
+    font-size: 0.82rem;
+  }
+  .step-desc {
+    color: #94a3b8;
+    font-size: 0.78rem;
+    margin-top: 0.2rem;
+  }
+
+  /* ── Confidence Section ── */
+  .confidence-section {
+    margin: 1rem 0;
+    padding: 0.75rem;
+    background: rgba(15,23,42,0.7);
+    border-radius: 6px;
+    border-left: 3px solid rgba(59,130,246,0.4);
+  }
+  .conf-label {
+    font-size: 0.82rem;
+    color: #cbd5e1;
+    margin-bottom: 0.5rem;
+  }
+  .conf-label strong {
+    font-weight: 700;
+  }
+  .confidence-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(59,130,246,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .confidence-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+
+  /* ── Thinking Logs ── */
+  .thinking-logs {
+    margin-top: 1rem;
+    background: rgba(15,23,42,0.8);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(99,102,241,0.2);
+  }
+  .logs-header {
+    background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15));
+    padding: 0.75rem 1rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(99,102,241,0.2);
+  }
+  .logs-content {
+    padding: 0.75rem 1rem;
+    max-height: 180px;
+    overflow-y: auto;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+  }
+  .log-line {
+    color: #cbd5e1;
+    margin: 0.3rem 0;
+    line-height: 1.4;
+  }
+  .log-line:first-child {
+    margin-top: 0;
+  }
+  .logs-content::-webkit-scrollbar {
+    width: 4px;
+  }
+  .logs-content::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .logs-content::-webkit-scrollbar-thumb {
+    background: rgba(59,130,246,0.3);
+    border-radius: 2px;
+  }
+  .logs-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(59,130,246,0.5);
+  }
+
+  /* AI Response content */
+  .ai-response {
+    margin-bottom: 1rem;
+  }
+
   @keyframes msgRight { from{opacity:0;transform:translateX(16px) scale(0.97)} to{opacity:1;transform:none} }
   @keyframes msgLeft  { from{opacity:0;transform:translateX(-14px) scale(0.97)} to{opacity:1;transform:none} }
 
@@ -723,9 +868,9 @@
               </div>
 
               <!-- Back button -->
-              <a class="back-btn" href="https://drekee.vercel.app/code.html" title="Voltar para Drekee Code">
+              <a class="back-btn" href="https://drekee.vercel.app/code.html" title="Voltar para Drekee AI">
                 <span class="material-icons-outlined">arrow_back</span>
-                <span>Drekee Code</span>
+                <span>Drekee AI</span>
               </a>
             </div>
 
@@ -833,7 +978,7 @@
     }
   }
 
-  function addMessage(role, content) {
+  function addMessage(role, content, metadata = null) {
     showMessages();
     const wrapper = document.createElement('div');
     wrapper.className = role === 'user' ? 'msg-user' : 'msg-ai';
@@ -841,9 +986,72 @@
     if (role === 'user') {
       wrapper.innerHTML = `<div class="bubble">${escapeHtml(content)}</div>`;
     } else {
-      wrapper.innerHTML = `
-        <div class="avatar">D</div>
-        <div class="bubble">${content}</div>`;
+      let htmlContent = `<div class="avatar">D</div><div class="bubble">`;
+      
+      // Action Plan (if available)
+      if (metadata?.actionPlan) {
+        const plan = metadata.actionPlan;
+        htmlContent += `<div class="action-plan">
+          <div class="plan-header">📋 Plano de Ação</div>
+          <div class="plan-content">
+            <p><strong>🎯 Objetivo:</strong> ${escapeHtml(plan.objetivo)}</p>
+            <p><strong>🔬 Área Científica:</strong> ${escapeHtml(plan.area_cientifica)}</p>
+            <div class="plan-steps">
+              ${plan.passos.map((p, i) => `
+                <div class="plan-step-item">
+                  <div class="step-num">${p.numero}</div>
+                  <div class="step-info">
+                    <div class="step-name">${escapeHtml(p.nome)}</div>
+                    <div class="step-desc">${escapeHtml(p.descricao)}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>`;
+      }
+      
+      // Main response
+      htmlContent += `<div class="ai-response">${content}</div>`;
+      
+      // Confidence bar
+      if (metadata?.confidence) {
+        const conf = metadata.confidence.toUpperCase();
+        let confColor = '#f87171'; // BAIXO - red
+        let confWidth = '33%';
+        if (conf === 'MÉDIO') {
+          confColor = '#fbbf24'; // MÉDIO - yellow
+          confWidth = '66%';
+        } else if (conf === 'ALTO') {
+          confColor = '#34d399'; // ALTO - green
+          confWidth = '100%';
+        }
+        
+        htmlContent += `
+          <div class="confidence-section">
+            <div class="conf-label">Nível de Confiança: <strong>${conf}</strong></div>
+            <div class="confidence-bar">
+              <div class="confidence-fill" style="width: ${confWidth}; background-color: ${confColor};"></div>
+            </div>
+          </div>`;
+      }
+      
+      // Thinking logs
+      if (metadata?.logs && metadata.logs.length > 0) {
+        htmlContent += `
+          <div class="thinking-logs">
+            <div class="logs-header">🧠 Processo de Pensamento</div>
+            <div class="logs-content">
+              ${metadata.logs.map(log => {
+                const escaped = escapeHtml(log);
+                return `<div class="log-line">${escaped}</div>`;
+              }).join('')}
+            </div>
+          </div>`;
+      }
+      
+      htmlContent += `</div>`;
+      wrapper.innerHTML = htmlContent;
     }
     messagesContainer.appendChild(wrapper);
     scrollToBottom();
@@ -950,7 +1158,13 @@
       console.debug('API response', json);
 
       const aiText = json?.response || 'Desculpe, não consegui gerar uma resposta no momento.';
-      addMessage('ai', aiText);
+      const metadata = {
+        actionPlan: json?.actionPlan || null,
+        logs: json?.logs || [],
+        confidence: json?.confidence || 'MÉDIO',
+      };
+      
+      addMessage('ai', aiText, metadata);
 
       if (json?.error) {
         addMessage('ai', `<em style="color:#f87171;font-size:0.8rem;">(debug) ${json.error}</em>`);
