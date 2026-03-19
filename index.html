@@ -1060,6 +1060,35 @@
   // Load stored conversation memory on page load
   loadHistory();
 
+  function loadHistory() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        chatHistory = JSON.parse(saved);
+        // Restore messages to UI
+        chatHistory.forEach(item => {
+          if (item.type === 'ai-sequence') {
+            // Handle sequential AI messages
+            addMessage('ai', item.payload.response, item.payload, { save: false, instant: true });
+          } else {
+            // Handle regular messages
+            addMessage(item.role, item.content, item.metadata, { save: false, instant: true });
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to load chat history', err);
+    }
+  }
+
+  function saveHistory() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
+    } catch (err) {
+      console.warn('Failed to save chat history', err);
+    }
+  }
+
   function showMessages() {
     if (!conversationActive) {
       welcomeScreen.classList.add('hidden');
