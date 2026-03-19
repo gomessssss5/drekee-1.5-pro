@@ -81,13 +81,13 @@ function buildPrompt({ userText, nasaData, files }) {
 }
 
 async function callGroq(prompt) {
-  // Note: The correct Groq API hostname is api.groq.com (not api.groq.ai).
-  const endpoint = 'https://api.groq.com/v1/completions';
+  // Note: Groq uses an OpenAI-compatible endpoint. See https://console.groq.com/docs/
+  const endpoint = 'https://api.groq.com/openai/v1/responses';
+  const model = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
   const body = {
-    // Groq disponibiliza vários modelos. Usamos o Llama 3.3 70b Versatile conforme solicitado.
-    model: 'llama-3.3-70b-versatile',
-    prompt,
-    max_tokens: 600,
+    model,
+    input: prompt,
+    max_output_tokens: 600,
     temperature: 0.2,
   };
 
@@ -109,6 +109,7 @@ async function callGroq(prompt) {
 
       const json = await res.json();
       const candidate =
+        json?.output_text ||
         json?.text ||
         json?.choices?.[0]?.text ||
         json?.choices?.[0]?.message?.content ||
