@@ -916,6 +916,11 @@
         files: await serializeFiles(filesToSend),
       };
 
+      // Se você abrir o HTML direto (file://), não existe server.
+      if (window.location.protocol === 'file:' || window.location.origin === 'null') {
+        throw new Error('O chat precisa rodar em um servidor HTTP (ex: Vercel / localhost) para funcionar.');
+      }
+
       const apiUrl = `${window.location.origin}/api/chat`;
       const resp = await fetch(apiUrl, {
         method: 'POST',
