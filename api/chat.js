@@ -1,5 +1,5 @@
-// Drekee AI 1.5 Pro - Scientific Agent with multi-stage reasoning
-// Flow: GeneratePlan → ResearchExecution → ReviewValidation → ReturnWithLogs
+// Drekee AI 1.5 Pro - Cientific Agent
+// Fluxo: GeneratePlan -> Research/Reasoning -> Review -> Retornar logs + resposta + mídia
 
 const SCIENCE_SYSTEM_PROMPT = `Você é o Drekee AI 1.5 Pro, um agente científico avançado.
 
@@ -7,13 +7,14 @@ Seu objetivo é fornecer respostas científicas confiáveis, claras e acessívei
 
 Diretrizes:
 - Baseie respostas em conhecimento científico consolidado
-- Evite especulações, deixe claro quando há incerteza
+- Evite especulações; deixe claro quando há incerteza
 - Não invente dados, estudos ou fontes
 - Priorize explicações corretas, mesmo simplificadas
 - Seja didático e acessível
 - Organize respostas de forma clara
-- Mencione áreas científicas envolvidas
-- Indique nível de confiança (ALTO/MÉDIO/BAIXO)`;
+- Mencione a área científica envolvida
+- Indique nível de confiança (ALTO/MÉDIO/BAIXO)
+`;
 
 // ============ TAVILY API (Web Search) ============
 async function searchTavily(query) {
@@ -49,22 +50,39 @@ async function searchTavily(query) {
   }
 }
 
-// ============ NASA API ============
-async function fetchNasaInfo() {
-  const key = process.env.NASA_API_KEY;
-  if (!key) return null;
+// ============ NASA Image/Video Library (search) ============
+async function searchNasaMedia(query) {
+  if (!query) return null;
 
   try {
-    const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${encodeURIComponent(key)}`);
+    const res = await fetch(`https://images-api.nasa.gov/search?q=${encodeURIComponent(query)}&media_type=image,video`);
     if (!res.ok) return null;
-    const data = await res.json();
-    return {
-      title: data.title,
-      date: data.date,
-      explanation: data.explanation,
-    };
+    const json = await res.json();
+    const items = json?.collection?.items || [];
+
+    const media = items
+      .slice(0, 6)
+      .map(item => {
+        const data = item.data?.[0] || {};
+        const links = item.links || [];
+        const imageLink = links.find(l => l.render === 'image' || l.rel === 'preview')?.href;
+        const videoLink = links.find(l => l.render === 'video' || l.rel === 'enclosure')?.href;
+        const url = imageLink || videoLink;
+        const mediaType = data.media_type || (videoLink ? 'video' : 'image');
+
+        return {
+          title: data.title,
+          description: data.description || data.photographer || '',
+          date: data.date_created,
+          url,
+          media_type: mediaType,
+        };
+      })
+      .filter(m => m.url);
+
+    return media;
   } catch (err) {
-    console.error('NASA fetch error:', err);
+    console.error('NASA media search error:', err);
     return null;
   }
 }
@@ -73,7 +91,6 @@ async function fetchNasaInfo() {
 async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
   const apiKey = process.env[apiKeyVar] || process.env.GROQ_API_KEY;
-  
   if (!apiKey) throw new Error(`${apiKeyVar} not configured`);
 
   const model = options.model || 'llama-3.3-70b-versatile';
@@ -129,7 +146,7 @@ async function callGemini(prompt) {
   return json.candidates?.[0]?.content?.parts?.[0]?.text || null;
 }
 
-// ============ STEP 1: Generate Action Plan ============
+// ============ STEP 1: Generate Action Plan (internal) ============
 async function generateActionPlan(userQuestion) {
   const prompt = `Você é um planejador científico. Para a pergunta, crie um plano de ação:
 
@@ -146,8 +163,7 @@ Retorne APENAS JSON válido (sem markdown):
       "descricao": "O que será feito"
     }
   ],
-  "precisa_busca_web": true/false,
-  "precisa_nasa": true/false
+  "precisa_busca_web": true/false
 }`;
 
   const response = await callGroq(
@@ -155,7 +171,7 @@ Retorne APENAS JSON válido (sem markdown):
     'GROQ_API_KEY_2',
     { maxTokens: 800, temperature: 0.2 }
   );
-  
+
   try {
     return JSON.parse(response);
   } catch (e) {
@@ -163,23 +179,22 @@ Retorne APENAS JSON válido (sem markdown):
     return {
       objetivo: 'Responder à pergunta',
       area_cientifica: 'Geral',
-      passos: [{ numero: 1, nome: 'Pesquisa', descricao: 'Pesquisar a resposta' }],
+      passos: [{ numero: 1, nome: 'Responder', descricao: 'Gerar uma resposta clara e precisa' }],
       precisa_busca_web: true,
-      precisa_nasa: false,
     };
   }
 }
 
 // ============ STEP 2: Execute Research & Reasoning ============
-async function executeAgentPlan(userQuestion, actionPlan, logs) {
-  logs.push('📋 Plano de ação gerado');
-  logs.push(`🎯 Objetivo: ${actionPlan.objetivo}`);
-  logs.push(`🔬 Área: ${actionPlan.area_cientifica}`);
+async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
+  const useNasa = options.useNasa === true;
+
+  logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   let context = '';
+  let nasaMedia = [];
 
-  // Search Tavily if needed
-  if (actionPlan.precisa_busca_web) {
+  if (actionPlan?.precisa_busca_web) {
     logs.push('🌐 Buscando na web (Tavily)...');
     const searchResult = await searchTavily(userQuestion);
     if (searchResult) {
@@ -194,28 +209,24 @@ async function executeAgentPlan(userQuestion, actionPlan, logs) {
     }
   }
 
-  // Search NASA if space-related
-  if (actionPlan.precisa_nasa) {
-    logs.push('🚀 Buscando dados da NASA...');
-    const nasaData = await fetchNasaInfo();
-    if (nasaData) {
-      context += `\n\n🔭 Dados NASA (APOD):\n${nasaData.title}\nData: ${nasaData.date}\nExplicação: ${nasaData.explanation}`;
+  if (useNasa) {
+    logs.push('🚀 Buscando mídia da NASA...');
+    const results = await searchNasaMedia(userQuestion);
+    if (results && results.length > 0) {
+      nasaMedia = results;
+      context += `\n\n🔭 Resultados da NASA (imagens/vídeos):\n`;
+      results.slice(0, 5).forEach((item, i) => {
+        context += `${i + 1}. ${item.title} - ${item.url}\n`;
+      });
       logs.push('✅ Dados da NASA coletados');
     } else {
-      logs.push('⚠️ NASA API não disponível');
+      logs.push('⚠️ Nenhum resultado da NASA encontrado');
     }
   }
 
-  // Execute reasoning with context
   logs.push('🧠 Processando e raciocinando...');
-  const planSummary = actionPlan.passos
-    .map(p => `${p.numero}. ${p.nome}: ${p.descricao}`)
-    .join('\n');
 
   const executionPrompt = `${SCIENCE_SYSTEM_PROMPT}
-
-PLANO DE AÇÃO:
-${planSummary}
 
 CONTEXTO PESQUISADO:
 ${context || 'Nenhum contexto externo necessário'}
@@ -223,13 +234,11 @@ ${context || 'Nenhum contexto externo necessário'}
 PERGUNTA DO USUÁRIO: "${userQuestion}"
 
 Siga EXATAMENTE este processo:
-1. Entenda profundamente a pergunta
-2. Use o plano de ação acima para orientar sua resposta
-3. Identifique a área científica principal
-4. Analise o contexto pesquisado se disponível
-5. Raciocine com base em FATOS consolidados
-6. Organize a resposta clara e didaticamente
-7. AO FINAL, indique: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
+1. Entenda profundamente a pergunta.
+2. Organize seu raciocínio de forma clara e didática.
+3. Inclua informações factuais e, se disponível, use dados da NASA (quando solicitados).
+4. Evite generalidades, seja direto e confiável.
+5. Ao final, inclua apenas a tag: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
 
 Seja honesto e preciso. Não especule.`;
 
@@ -240,7 +249,7 @@ Seja honesto e preciso. Não especule.`;
   );
 
   logs.push('✅ Resposta gerada pela IA principal');
-  return response;
+  return { response, media: nasaMedia };
 }
 
 // ============ STEP 3: Review with Gemini ============
@@ -266,12 +275,10 @@ ${response}
   return await callGemini(reviewPrompt);
 }
 
-// ============ Extract Confidence Level ============
+// ============ EXTRACT CONFIDENCE ============
 function extractConfidenceLevel(response) {
   const match = response.match(/\[CONFIANÇA:\s*(ALTO|MÉDIO|BAIXO)\]/i);
-  if (match) {
-    return match[1].toUpperCase();
-  }
+  if (match) return match[1].toUpperCase();
   return 'MÉDIO';
 }
 
@@ -300,6 +307,8 @@ async function handler(req, res) {
   }
 
   const userQuestion = (body?.text || '').toString().trim();
+  const useNasa = Boolean(body?.nasa);
+
   if (!userQuestion) {
     return res.status(400).json({ error: 'Pergunta vazia' });
   }
@@ -309,42 +318,31 @@ async function handler(req, res) {
   try {
     logs.push('🚀 Iniciando Agente Científico...');
 
-    // Step 1: Generate Action Plan
     const actionPlan = await generateActionPlan(userQuestion);
 
-    // Step 2: Execute Research & Reasoning
-    let response = await executeAgentPlan(userQuestion, actionPlan, logs);
+    const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { useNasa });
 
-    // Step 3: Review with Gemini
     logs.push('👁️ Revisando resposta com Gemini...');
-    response = await reviewResponse(response);
+    let response = await reviewResponse(exec.response);
     logs.push('✅ Resposta revisada e validada');
 
-    // Cleanup common review artifacts (e.g., "Como Revisor..." preambles)
     response = response.replace(/^Como\s+Revisor[\s\S]*?\n/, '').trim();
-
-    // Extract confidence
-    const confidence = extractConfidenceLevel(response);
-    
-    // Clean confidence tag from display
     const displayResponse = response.replace(/\s*\[CONFIANÇA:\s*\w+\]\s*$/i, '').trim();
 
     return res.status(200).json({
-      response: displayResponse,
-      actionPlan,
+      response: displayResponse || 'Desculpe, não consegui gerar uma resposta confiável.',
       logs,
-      confidence,
+      media: exec.media || [],
     });
   } catch (err) {
     console.error('Agent error:', err);
     logs.push(`❌ Erro: ${err.message}`);
-    
+
     return res.status(200).json({
       response: 'Desculpe, não consegui processar sua solicitação agora. Tente novamente em alguns instantes.',
       error: err.message,
       logs,
-      confidence: 'BAIXO',
-      actionPlan: null,
+      media: [],
     });
   }
 }
