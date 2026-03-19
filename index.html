@@ -923,12 +923,12 @@
         body: JSON.stringify(payload),
       });
 
-      const text = await resp.text();
+      const respText = await resp.text();
       let json;
       try {
-        json = JSON.parse(text);
+        json = JSON.parse(respText);
       } catch (parseErr) {
-        throw new Error(`Invalid JSON response from server: ${text}`);
+        throw new Error(`Invalid JSON response from server: ${respText}`);
       }
 
       console.debug('API response', json);
