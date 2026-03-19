@@ -1047,25 +1047,16 @@
       // Main response
       htmlContent += `<div class="ai-response">${content}</div>`;
 
-      // Confidence bar
+      // Confiança (texto apenas)
       if (metadata?.confidence) {
         const conf = metadata.confidence.toUpperCase();
         let confColor = '#f87171'; // BAIXO - red
-        let confWidth = '33%';
-        if (conf === 'MÉDIO') {
-          confColor = '#fbbf24'; // MÉDIO - yellow
-          confWidth = '66%';
-        } else if (conf === 'ALTO') {
-          confColor = '#34d399'; // ALTO - green
-          confWidth = '100%';
-        }
+        if (conf === 'MÉDIO') confColor = '#fbbf24';
+        else if (conf === 'ALTO') confColor = '#34d399';
 
         htmlContent += `
-          <div class="confidence-section">
-            <div class="conf-label">Nível de Confiança: <strong>${conf}</strong></div>
-            <div class="confidence-bar">
-              <div class="confidence-fill" style="width: ${confWidth}; background-color: ${confColor};"></div>
-            </div>
+          <div class="confidence-section" style="border-left-color: ${confColor};">
+            <div class="conf-label">Confiança: <strong style="color: ${confColor};">${conf}</strong></div>
           </div>`;
       }
 
@@ -1209,24 +1200,15 @@
       responseContainer.style.opacity = '1';
       scrollToBottom();
 
-      // Reveal confidence
+      // Reveal confidence (texto apenas)
       const conf = (confidence || 'MÉDIO').toUpperCase();
-      
       let confColor = '#f87171';
-      let confWidth = '33%';
-      if (conf === 'MÉDIO') {
-        confColor = '#fbbf24';
-        confWidth = '66%';
-      } else if (conf === 'ALTO') {
-        confColor = '#34d399';
-        confWidth = '100%';
-      }
+      if (conf === 'MÉDIO') confColor = '#fbbf24';
+      else if (conf === 'ALTO') confColor = '#34d399';
       confidenceContainer.innerHTML = `
-        <div class="conf-label">Nível de Confiança: <strong>${conf}</strong></div>
-        <div class="confidence-bar">
-          <div class="confidence-fill" style="width: ${confWidth}; background-color: ${confColor};"></div>
-        </div>
+        <div class="conf-label">Confiança: <strong style="color: ${confColor};">${conf}</strong></div>
       `;
+      confidenceContainer.style.borderLeftColor = confColor;
       confidenceContainer.style.opacity = '1';
     } else {
       // Instant mode (history) - fill everything instantly
@@ -1234,20 +1216,12 @@
       responseContainer.style.opacity = '1';
       const conf = (confidence || 'MÉDIO').toUpperCase();
       let confColor = '#f87171';
-      let confWidth = '33%';
-      if (conf === 'MÉDIO') {
-        confColor = '#fbbf24';
-        confWidth = '66%';
-      } else if (conf === 'ALTO') {
-        confColor = '#34d399';
-        confWidth = '100%';
-      }
+      if (conf === 'MÉDIO') confColor = '#fbbf24';
+      else if (conf === 'ALTO') confColor = '#34d399';
       confidenceContainer.innerHTML = `
-        <div class="conf-label">Nível de Confiança: <strong>${conf}</strong></div>
-        <div class="confidence-bar">
-          <div class="confidence-fill" style="width: ${confWidth}; background-color: ${confColor};"></div>
-        </div>
+        <div class="conf-label">Confiança: <strong style="color: ${confColor};">${conf}</strong></div>
       `;
+      confidenceContainer.style.borderLeftColor = confColor;
       confidenceContainer.style.opacity = '1';
 
       const logsContent = logContainer.querySelector('.logs-content');
@@ -1260,7 +1234,7 @@
       logContainer.style.opacity = '1';
 
       stepEls.forEach(stepEl => {
-        stepEl.querySelector('.step-check').style.opacity = '1';
+        stepEl.querySelector('.step-check')?.style?.setProperty('opacity', '1');
       });
     }
   }

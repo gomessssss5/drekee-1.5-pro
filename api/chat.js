@@ -208,7 +208,14 @@ async function executeAgentPlan(userQuestion, actionPlan, logs) {
 
   // Execute reasoning with context
   logs.push('🧠 Processando e raciocinando...');
+  const planSummary = actionPlan.passos
+    .map(p => `${p.numero}. ${p.nome}: ${p.descricao}`)
+    .join('\n');
+
   const executionPrompt = `${SCIENCE_SYSTEM_PROMPT}
+
+PLANO DE AÇÃO:
+${planSummary}
 
 CONTEXTO PESQUISADO:
 ${context || 'Nenhum contexto externo necessário'}
@@ -217,11 +224,12 @@ PERGUNTA DO USUÁRIO: "${userQuestion}"
 
 Siga EXATAMENTE este processo:
 1. Entenda profundamente a pergunta
-2. Identifique a área científica principal
-3. Analise o contexto pesquisado se disponível
-4. Raciocine com base em FATOS consolidados
-5. Organize a resposta clara e didaticamente
-6. AO FINAL, indique: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
+2. Use o plano de ação acima para orientar sua resposta
+3. Identifique a área científica principal
+4. Analise o contexto pesquisado se disponível
+5. Raciocine com base em FATOS consolidados
+6. Organize a resposta clara e didaticamente
+7. AO FINAL, indique: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
 
 Seja honesto e preciso. Não especule.`;
 
@@ -237,18 +245,23 @@ Seja honesto e preciso. Não especule.`;
 
 // ============ STEP 3: Review with Gemini ============
 async function reviewResponse(response) {
-  const reviewPrompt = `REVISOR CIENTÍFICO: Analise e melhore a resposta.
+  const reviewPrompt = `Você é um revisor científico experiente. Recebeu a resposta abaixo para revisão.
 
-VERIFICAR:
-- Erros científicos
-- Informações incorretas
-- Clareza e didatismo
-- Manter [CONFIANÇA: ...] no final
+Objetivo:
+- Corrigir erros factuais
+- Melhorar clareza e didatismo
+- Manter o conteúdo o mais direto possível
+
+REGRAS CRUCIAIS (RESPEITE 100%):
+1) Retorne APENAS a resposta final para o usuário. NADA mais.
+2) NÃO inclua nenhum texto como "Como revisor...", "Observação:", ou explicações sobre o processo de revisão.
+3) NÃO inclua títulos, cabeçalhos ou listas de etapas. Apenas texto fluido.
+4) Ao final, inclua SOMENTE a tag de confiança no formato: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
+5) Se não for possível afirmar com certeza, seja honesto e explique por que.
 
 RESPOSTA A REVISAR:
 ${response}
-
-RETORNAR: Resposta revisada e melhorada, mantendo estrutura e tags.`;
+`;
 
   return await callGemini(reviewPrompt);
 }
@@ -306,6 +319,9 @@ async function handler(req, res) {
     logs.push('👁️ Revisando resposta com Gemini...');
     response = await reviewResponse(response);
     logs.push('✅ Resposta revisada e validada');
+
+    // Cleanup common review artifacts (e.g., "Como Revisor..." preambles)
+    response = response.replace(/^Como\s+Revisor[\s\S]*?\n/, '').trim();
 
     // Extract confidence
     const confidence = extractConfidenceLevel(response);
