@@ -80,6 +80,36 @@ function buildPrompt({ userText, nasaData, files }) {
   return prompt;
 }
 
+function extractTextFromAIResponse(value) {
+  if (value == null) return null;
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const extracted = extractTextFromAIResponse(item);
+      if (extracted) return extracted;
+    }
+    return null;
+  }
+  if (typeof value === 'object') {
+    // Prefer common text fields.
+    const priority = ['output_text', 'text', 'content', 'message', 'response', 'output', 'result'];
+    for (const key of priority) {
+      if (key in value) {
+        const extracted = extractTextFromAIResponse(value[key]);
+        if (extracted) return extracted;
+      }
+    }
+
+    // Fallback: search all values.
+    for (const val of Object.values(value)) {
+      const extracted = extractTextFromAIResponse(val);
+      if (extracted) return extracted;
+    }
+  }
+
+  return null;
+}
+
 async function callGroq(prompt) {
   // Note: Groq uses an OpenAI-compatible endpoint. See https://console.groq.com/docs/
   const endpoint = 'https://api.groq.com/openai/v1/responses';
@@ -110,18 +140,11 @@ async function callGroq(prompt) {
       });
 
       const json = await res.json();
-      let candidate =
-        json?.output_text ||
-        json?.text ||
-        json?.choices?.[0]?.text ||
-        json?.choices?.[0]?.message?.content ||
-        json?.output?.[0]?.content ||
-        json?.result?.[0]?.content ||
-        null;
+      let candidate = extractTextFromAIResponse(json);
 
-      // Ensure we return a string (avoids [object Object] in the chat UI).
-      if (candidate && typeof candidate !== 'string') {
-        candidate = JSON.stringify(candidate, null, 2);
+      // If the response is a JSON object but no text was found, fall back to a safe string.
+      if (!candidate && json) {
+        candidate = JSON.stringify(json, null, 2);
       }
 
       if (res.ok && candidate) {
