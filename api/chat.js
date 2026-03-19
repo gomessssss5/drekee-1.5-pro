@@ -105,7 +105,7 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   if (!apiKey) throw new Error(`${apiKeyVar} not configured`);
 
   const model = options.model || 'llama-3.3-70b-versatile';
-  const maxTokens = options.maxTokens || 2000;
+  const maxTokens = options.maxTokens || 4096;
   const temperature = options.temperature !== undefined ? options.temperature : 0.25;
 
   const res = await fetch(endpoint, {
@@ -144,7 +144,7 @@ async function callGemini(prompt) {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 1300,
+        maxOutputTokens: 3500,
       },
     }),
   });
@@ -155,6 +155,79 @@ async function callGemini(prompt) {
   }
 
   return json.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
+// ============ ANALYZE NASA IMAGES (First 4 with GROQ_API_KEY_2) ============
+async function analyzeNasaImagesWithGroq(nasaMedia) {
+  if (!nasaMedia || nasaMedia.length === 0) return null;
+
+  // Selecionar as 4 PRIMEIRAS imagens
+  const firstFourImages = nasaMedia.slice(0, 4);
+  const validImages = firstFourImages.filter(m => m.media_type === 'image' && m.url);
+
+  if (validImages.length === 0) return null;
+
+  const imageList = validImages
+    .map((img, i) => `${i + 1}. ${img.title}\n   Descrição: ${img.description}\n   URL: ${img.url}`)
+    .join('\n\n');
+
+  const prompt = `Você é um especialista em análise de imagens científicas.
+
+IMAGENS FORNECIDAS:
+${imageList}
+
+TASK: Analise APENAS o conteúdo visual dessas imagens. Descreva:
+- O que cada imagem mostra (objetos, fenômenos, estruturas)
+- Contexto científico (se aparente)
+- Detalhes relevantes
+
+Sejam descritivos mas concisos. Retorne apenas as descrições das imagens.`;
+
+  try {
+    const response = await callGroq(
+      [{ role: 'user', content: prompt }],
+      'GROQ_API_KEY_2',
+      { model: 'meta-llama/llama-4-scout-17b-16e-instruct', maxTokens: 1500, temperature: 0.2 }
+    );
+    return response;
+  } catch (err) {
+    console.error('Groq image analysis error:', err);
+    return null;
+  }
+}
+
+// ============ ANALYZE NASA IMAGES (Last 4 with GEMINI) ============
+async function analyzeNasaImagesWithGemini(nasaMedia) {
+  if (!nasaMedia || nasaMedia.length === 0) return null;
+
+  // Selecionar as 4 ÚLTIMAS imagens
+  const lastFourImages = nasaMedia.slice(-4);
+  const validImages = lastFourImages.filter(m => m.media_type === 'image' && m.url);
+
+  if (validImages.length === 0) return null;
+
+  const imageList = validImages
+    .map((img, i) => `${i + 1}. ${img.title}\n   Descrição: ${img.description}\n   URL: ${img.url}`)
+    .join('\n\n');
+
+  const prompt = `Você é um especialista em análise de imagens científicas.
+
+IMAGENS FORNECIDAS:
+${imageList}
+
+TASK: Analise APENAS o conteúdo visual dessas imagens. Descreva:
+- O que cada imagem mostra (objetos, fenômenos, estruturas)
+- Contexto científico (se aparente)
+- Detalhes relevantes
+
+Sejam descritivos mas concisos. Retorne apenas as descrições das imagens.`;
+
+  try {
+    return await callGemini(prompt);
+  } catch (err) {
+    console.error('Gemini image analysis error:', err);
+    return null;
+  }
 }
 
 // ============ STEP 1: Generate Action Plan (internal) ============
@@ -237,6 +310,25 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
         context += `${i + 1}. ${item.title} - ${item.url}\n`;
       });
       logs.push('✅ Dados da NASA coletados');
+
+      // ANALYZE IMAGES: First 4 with GROQ_API_KEY_2
+      const imagesCount = results.filter(m => m.media_type === 'image').length;
+      if (imagesCount >= 4) {
+        logs.push('🔍 Analisando primeiras 4 imagens com GROQ (llama-4-scout)...');
+        const groqImageAnalysis = await analyzeNasaImagesWithGroq(results);
+        if (groqImageAnalysis) {
+          context += `\n\n📸 Análise das primeiras 4 imagens (GROQ):\n${groqImageAnalysis}`;
+          logs.push('✅ Primeiras 4 imagens analisadas');
+        }
+
+        // ANALYZE IMAGES: Last 4 with GEMINI
+        logs.push('🔍 Analisando últimas 4 imagens com GEMINI (2.5 Flash)...');
+        const geminiImageAnalysis = await analyzeNasaImagesWithGemini(results);
+        if (geminiImageAnalysis) {
+          context += `\n\n📸 Análise das últimas 4 imagens (GEMINI):\n${geminiImageAnalysis}`;
+          logs.push('✅ Últimas 4 imagens analisadas');
+        }
+      }
     } else {
       logs.push('⚠️ Nenhum resultado da NASA encontrado');
     }
@@ -264,7 +356,7 @@ Seja honesto e preciso. Não especule.`;
   const response = await callGroq(
     [{ role: 'user', content: executionPrompt }],
     'GROQ_API_KEY_1',
-    { maxTokens: 1200, temperature: 0.2 }
+    { maxTokens: 3000, temperature: 0.2 }
   );
 
   logs.push('✅ Resposta gerada pela IA principal');

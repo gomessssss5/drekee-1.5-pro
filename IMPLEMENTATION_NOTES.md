@@ -3,6 +3,35 @@
 ## Overview
 Drekee AI 1.5 Pro is a scientific reasoning agent with real NASA media integration. The system features a non-generic UI that displays reasoning logs, AI responses, and NASA images/videos when enabled.
 
+## Latest Updates (v1.5.1)
+
+### 🔧 Fixes & Improvements
+
+#### 1. **Fixed Truncated Responses**
+- Increased `maxTokens` from 1200 → 3000 in `executeAgentPlan()`
+- Increased Gemini `maxOutputTokens` from 1300 → 3500 for review step
+- Increased default `maxTokens` in `callGroq()` from 2000 → 4096
+- **Result**: Complete responses are no longer cut off mid-sentence
+
+#### 2. **Multi-Model Image Analysis Pipeline (NASA Integration v2.0)**
+When NASA API returns images, the system now:
+- ✅ Searches NASA media library
+- 🔍 **GROQ Analysis** (GROQ_API_KEY_2): Analyzes first 4 images with `meta-llama/llama-4-scout-17b-16e-instruct`
+- 🔍 **Gemini Analysis** (GEMINI_API_KEY): Analyzes last 4 images with `Gemini 2.5 Flash`
+- 📋 Both models describe ONLY what images show (objects, phenomena, structures)
+- 🔄 Combines image descriptions with web search data (Tavily)
+- 💬 Final GROQ response uses images as context complement, NOT the primary source
+- ⚠️ Images used to avoid errors but response based on factual knowledge
+
+**New Functions:**
+- `analyzeNasaImagesWithGroq()` - First 4 images analysis
+- `analyzeNasaImagesWithGemini()` - Last 4 images analysis
+
+### 3. **Tavily Web Search (Already Integrated)**
+- Runs automatically when action plan requires web research
+- Provides 3 search results with snippets
+- Answer summary included in context
+
 ## Architecture
 
 ### Frontend (`index.html`)
