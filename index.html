@@ -916,25 +916,32 @@
         files: await serializeFiles(filesToSend),
       };
 
-      const resp = await fetch('/api/chat', {
+      const apiUrl = `${window.location.origin}/api/chat`;
+      const resp = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      const json = await resp.json();
+      const text = await resp.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (parseErr) {
+        throw new Error(`Invalid JSON response from server: ${text}`);
+      }
+
       console.debug('API response', json);
 
       const aiText = json?.response || 'Desculpe, não consegui gerar uma resposta no momento.';
       addMessage('ai', aiText);
 
       if (json?.error) {
-        // Mostra erro de backend para facilitar debugging
         addMessage('ai', `<em style="color:#f87171;font-size:0.8rem;">(debug) ${json.error}</em>`);
       }
     } catch (err) {
       console.error(err);
-      addMessage('ai', '<em style="color:#64748b;font-size:0.85rem;">Erro ao gerar resposta. Tente novamente.</em>');
+      addMessage('ai', `<em style="color:#f87171;font-size:0.85rem;">Erro: ${err?.message || err}</em>`);
     } finally {
       document.getElementById('thinkingIndicator').classList.remove('show');
     }
