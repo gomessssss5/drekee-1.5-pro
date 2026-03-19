@@ -263,7 +263,10 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
 // ============ GEMINI Call (Review) ============
 async function callGemini(prompt) {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
+  if (!apiKey) {
+    console.warn('GEMINI_API_KEY not configured; skipping Gemini calls.');
+    return null;
+  }
 
   const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey;
 
@@ -482,13 +485,30 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
         });
         logs.push('✅ Dados da NASA coletados e otimizados');
 
-        // ANALYZE IMAGES
+        // ANALYZE IMAGES (first 4 with GROQ, last 4 with Gemini)
         const imagesCount = nasaMedia.filter(m => m.media_type === 'image').length;
-        if (imagesCount >= 2) {
-          logs.push('🔍 Analisando imagens com IA...');
-          const groqImageAnalysis = await analyzeNasaImagesWithGroq(nasaMedia);
-          if (groqImageAnalysis) {
-            context += `\n\n📸 Análise de imagens:\n${groqImageAnalysis}`;
+        if (imagesCount >= 4) {
+          logs.push('🔍 Analisando imagens com IA (Groq + Gemini)...');
+
+          const [groqAnalysis, geminiAnalysis] = await Promise.all([
+            analyzeNasaImagesWithGroq(nasaMedia).catch(err => {
+              console.error('Groq image analysis failed:', err);
+              return null;
+            }),
+            analyzeNasaImagesWithGemini(nasaMedia).catch(err => {
+              console.error('Gemini image analysis failed:', err);
+              return null;
+            }),
+          ]);
+
+          if (groqAnalysis) {
+            context += `\n\n📸 Análise de imagens (GROQ):\n${groqAnalysis}`;
+          }
+          if (geminiAnalysis) {
+            context += `\n\n📸 Análise de imagens (Gemini):\n${geminiAnalysis}`;
+          }
+
+          if (groqAnalysis || geminiAnalysis) {
             logs.push('✅ Imagens analisadas');
           }
         }

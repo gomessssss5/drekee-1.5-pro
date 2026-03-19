@@ -1133,8 +1133,8 @@
     const shouldSave = options.save !== false;
     const instant = options.instant === true;
 
-    // If we have structured metadata (logs or media), render sequentially
-    if (role === 'ai' && (metadata?.logs?.length || metadata?.media?.length) && !instant) {
+    // If we have structured metadata (thinking + logs/media), render sequentially
+    if (role === 'ai' && metadata?.thinking && !instant) {
       renderAgentSequence({ response: content, ...metadata });
       if (shouldSave) {
         chatHistory.push({ type: 'ai-sequence', payload: { response: content, ...metadata } });
@@ -1332,10 +1332,6 @@
       responseContainer.textContent = response;
       responseContainer.style.opacity = '1';
 
-      const logsContent = logContainer.querySelector('.logs-content');
-      logs.forEach(log => {
-        const logLine = document.createElement('div');
-        logLine.className = 'log-line';
       if (media.length > 0) {
         mediaContainer.style.opacity = '1';
         renderMedia();
