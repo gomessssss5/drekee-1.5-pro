@@ -50,12 +50,96 @@ async function searchTavily(query) {
   }
 }
 
+// ============ OPTIMIZE QUERY WITH AI (for better NASA search) ============
+async function optimizeNasaQuery(userQuestion) {
+  const prompt = `Você é um especialista em otimizar buscas científicas para APIs.\n\nTransforme a pergunta do usuário em palavras-chave específicas para buscar imagens científicas na NASA.\n\nPergunta: "${userQuestion}"\n\nRetorne APENAS palavras-chave separadas por espaço (máximo 5 palavras).\nExemplos:\n- "Quais são as estruturas de Marte?" → "mars surface structures"\n- "Me mostre fotos de buracos negros" → "black hole galaxy"\n- "Imagens de auroras" → "aurora northern lights"\n\nRetorne apenas as palavras-chave, nada mais.`;
+
+  try {
+    const result = await callGroq(
+      [{ role: 'user', content: prompt }],
+      'GROQ_API_KEY_1',
+      { maxTokens: 50, temperature: 0.3 }
+    );
+    return result.trim();
+  } catch (err) {
+    console.error('Query optimization error:', err);
+    return userQuestion;
+  }
+}
+
+// ============ FILTER NASA RESULTS BY RELEVANCE ============
+function filterNasaResultsByRelevance(results, originalQuery) {
+  if (!results || results.length === 0) return [];
+
+  const lowerQuery = originalQuery.toLowerCase();
+  const keywords = lowerQuery.split(/\s+/).filter(w => w.length > 3);
+
+  const scored = results.map(item => {
+    let score = 0;
+    const titleLower = (item.title || '').toLowerCase();
+    const descLower = (item.description || '').toLowerCase();
+
+    if (titleLower.includes(lowerQuery)) score += 10;
+    if (descLower.includes(lowerQuery)) score += 5;
+
+    keywords.forEach(keyword => {
+      if (titleLower.includes(keyword)) score += 3;
+      if (descLower.includes(keyword)) score += 1;
+    });
+
+    if (titleLower.includes('video') || titleLower.includes('b-roll')) score -= 2;
+    if (titleLower.includes('animation') || titleLower.includes('3d')) score -= 1;
+    if (item.description && item.description.length > 50) score += 2;
+
+    return { ...item, relevanceScore: score };
+  });
+
+  return scored
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .filter(item => item.relevanceScore > 0)
+    .map(({ relevanceScore, ...item }) => item)
+    .slice(0, 12);
+}
+
+// ============ SELECT BEST RESULTS WITH AI ============
+async function selectBestNasaResults(results, userQuestion) {
+  if (!results || results.length === 0) return [];
+  if (results.length <= 3) return results;
+
+  const topResults = results.slice(0, 8);
+  const resultsList = topResults
+    .map((r, i) => `${i + 1}. ${r.title}\n   Descrição: ${r.description || 'N/A'}`)
+    .join('\n\n');
+
+  const prompt = `Você é um assistente especializado em seleção de conteúdo científico.\n\nPergunta: "${userQuestion}"\n\nOPÇÕES:\n${resultsList}\n\nSelecione os 3-4 resultados MAIS relevantes.\nRetorne APENAS os números separados por vírgula (ex: 1,3,5).`;
+
+  try {
+    const selection = await callGroq(
+      [{ role: 'user', content: prompt }],
+      'GROQ_API_KEY_1',
+      { maxTokens: 20, temperature: 0.1 }
+    );
+
+    const numbers = selection
+      .split(/[,;]|\s+/)
+      .map(n => parseInt(n.trim()))
+      .filter(n => n > 0 && n <= topResults.length);
+
+    if (numbers.length > 0) {
+      return numbers.map(idx => topResults[idx - 1]);
+    }
+
+    return topResults.slice(0, 3);
+  } catch (err) {
+    console.error('Result selection error:', err);
+    return topResults.slice(0, 3);
+  }
+}
+
 // ============ TRANSLATE PORTUGUESE TO ENGLISH (Science Terms) ============
 function translateNasaQuery(query) {
   const translations = {
-    // English base terms (return as-is)
     'moon': 'moon', 'mars': 'mars', 'sun': 'sun', 'galaxy': 'galaxy',
-    // Portuguese to English
     'lua': 'moon', 'marte': 'mars', 'sol': 'sun', 'galáxia': 'galaxy',
     'imagem': 'image', 'telescópio': 'telescope', 'satélite': 'satellite',
     'planeta': 'planet', 'estrela': 'star', 'buraco negro': 'black hole',
@@ -70,7 +154,6 @@ function translateNasaQuery(query) {
   const lowerQuery = query.toLowerCase();
   let translated = query;
 
-  // Check if query needs translation (has Portuguese words)
   for (const [pt, en] of Object.entries(translations)) {
     if (lowerQuery.includes(pt)) {
       translated = translated.replace(new RegExp(pt, 'gi'), en);
@@ -341,14 +424,17 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   }
 
   if (useNasa) {
+    logs.push('🚀 Otimizando busca NASA com IA...');
+    const optimizedQuery = await optimizeNasaQuery(userQuestion);
+    logs.push(`📝 Query otimizada: "${optimizedQuery}"`);
+
     logs.push('🚀 Buscando mídia da NASA...');
-    let results = await searchNasaMedia(userQuestion);
+    let results = await searchNasaMedia(optimizedQuery);
 
     // If no results, try alternative queries
     if (!results || results.length === 0) {
       logs.push('🔁 Tentando alternativa de busca...');
       
-      // Try extracting main keywords
       const keywords = userQuestion
         .split(/\s+/)
         .filter(w => w.length > 4)
@@ -360,10 +446,9 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
       }
     }
 
-    // Last resort: if still no results, try broad category searches
+    // Last resort
     if (!results || results.length === 0) {
       logs.push('🔁 Buscando por categoria relacionada...');
-      // Try common NASA categories
       const categoryFallbacks = [
         'space exploration',
         'earth observation', 
@@ -381,33 +466,35 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     }
 
     if (results && results.length > 0) {
-      nasaMedia = results;
-      context += `\n\n🔭 Resultados da NASA (imagens/vídeos):\n`;
-      results.slice(0, 5).forEach((item, i) => {
-        context += `${i + 1}. ${item.title} - ${item.url}\n`;
-      });
-      logs.push('✅ Dados da NASA coletados');
+      // Filter by relevance
+      results = filterNasaResultsByRelevance(results, userQuestion);
+      logs.push(`🔍 Filtrando resultados por relevância...`);
 
-      // ANALYZE IMAGES: First 4 with GROQ_API_KEY_2
-      const imagesCount = results.filter(m => m.media_type === 'image').length;
-      if (imagesCount >= 4) {
-        logs.push('🔍 Analisando primeiras 4 imagens com GROQ (llama-4-scout)...');
-        const groqImageAnalysis = await analyzeNasaImagesWithGroq(results);
-        if (groqImageAnalysis) {
-          context += `\n\n📸 Análise das primeiras 4 imagens (GROQ):\n${groqImageAnalysis}`;
-          logs.push('✅ Primeiras 4 imagens analisadas');
-        }
+      if (results && results.length > 0) {
+        // Select best results with AI
+        const bestResults = await selectBestNasaResults(results, userQuestion);
+        nasaMedia = bestResults.length > 0 ? bestResults : results.slice(0, 6);
+        logs.push(`✅ Selecionados ${nasaMedia.length} melhores resultados`);
 
-        // ANALYZE IMAGES: Last 4 with GEMINI
-        logs.push('🔍 Analisando últimas 4 imagens com GEMINI (2.5 Flash)...');
-        const geminiImageAnalysis = await analyzeNasaImagesWithGemini(results);
-        if (geminiImageAnalysis) {
-          context += `\n\n📸 Análise das últimas 4 imagens (GEMINI):\n${geminiImageAnalysis}`;
-          logs.push('✅ Últimas 4 imagens analisadas');
+        context += `\n\n🔭 Resultados da NASA (imagens/vídeos selecionados):\n`;
+        nasaMedia.slice(0, 5).forEach((item, i) => {
+          context += `${i + 1}. ${item.title}\n`;
+        });
+        logs.push('✅ Dados da NASA coletados e otimizados');
+
+        // ANALYZE IMAGES
+        const imagesCount = nasaMedia.filter(m => m.media_type === 'image').length;
+        if (imagesCount >= 2) {
+          logs.push('🔍 Analisando imagens com IA...');
+          const groqImageAnalysis = await analyzeNasaImagesWithGroq(nasaMedia);
+          if (groqImageAnalysis) {
+            context += `\n\n📸 Análise de imagens:\n${groqImageAnalysis}`;
+            logs.push('✅ Imagens analisadas');
+          }
         }
       }
     } else {
-      logs.push('⚠️ Nenhum resultado da NASA encontrado');
+      logs.push('⚠️ Nenhum resultado relevante encontrado da NASA');
     }
   }
 
@@ -461,6 +548,55 @@ ${response}
 `;
 
   return await callGemini(reviewPrompt);
+}
+
+// ============ CONVERT LOGS TO COHERENT THINKING PARAGRAPH ============
+function convertLogsToThinking(logs) {
+  if (!logs || logs.length === 0) {
+    return 'Iniciando análise científica...';
+  }
+
+  // Extract meaningful actions from logs
+  const thinking = [];
+
+  for (const log of logs) {
+    if (log.includes('Iniciando Agente')) {
+      thinking.push('O agente científico foi inicializado');
+    } else if (log.includes('busca web') || log.includes('Tavily')) {
+      thinking.push('consultando fontes web em tempo real');
+    } else if (log.includes('Dados da web')) {
+      thinking.push('dados web foram integrados ao contexto');
+    } else if (log.includes('Otimizando busca NASA')) {
+      thinking.push('otimizando a busca por imagens ciêntíficas');
+    } else if (log.includes('Query otimizada')) {
+      thinking.push(`personalizando a busca de imagens NASA`);
+    } else if (log.includes('Filtrando resultados')) {
+      thinking.push('filtrando resultados por relevância');
+    } else if (log.includes('Selecionados')) {
+      const match = log.match(/(\\d+)/);
+      if (match) thinking.push(`selecionados ${match[1]} resultados mais relevantes`);
+    } else if (log.includes('Analisando imagens')) {
+      thinking.push('analisando imagens científicas com modelos de IA');
+    } else if (log.includes('Imagens analisadas')) {
+      thinking.push('imagens foram contextualizadas');
+    } else if (log.includes('Processando e raciocínio')) {
+      thinking.push('processando informações e gerando resposta');
+    } else if (log.includes('Resposta gerada')) {
+      thinking.push('resposta científica foi gerada');
+    } else if (log.includes('Revisando')) {
+      thinking.push('validando precisão e clareza da resposta');
+    } else if (log.includes('Resposta revisada')) {
+      thinking.push('resposta foi revisada e validada');
+    }
+  }
+
+  if (thinking.length === 0) {
+    return 'Processando sua pergunta científica...';
+  }
+
+  // Create natural paragraph
+  const uniqueThinking = [...new Set(thinking)]; // Remove duplicates
+  return uniqueThinking.join(', ') + '.';
 }
 
 // ============ EXTRACT CONFIDENCE ============
@@ -517,8 +653,12 @@ async function handler(req, res) {
     response = response.replace(/^Como\s+Revisor[\s\S]*?\n/, '').trim();
     const displayResponse = response.replace(/\s*\[CONFIANÇA:\s*\w+\]\s*$/i, '').trim();
 
+    // Convert logs to thinking paragraph
+    const thinking = convertLogsToThinking(logs);
+
     return res.status(200).json({
       response: displayResponse || 'Desculpe, não consegui gerar uma resposta confiável.',
+      thinking,
       logs,
       media: exec.media || [],
     });
@@ -526,8 +666,11 @@ async function handler(req, res) {
     console.error('Agent error:', err);
     logs.push(`❌ Erro: ${err.message}`);
 
+    const thinking = convertLogsToThinking(logs);
+
     return res.status(200).json({
       response: 'Desculpe, não consegui processar sua solicitação agora. Tente novamente em alguns instantes.',
+      thinking,
       error: err.message,
       logs,
       media: [],

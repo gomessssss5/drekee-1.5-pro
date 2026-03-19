@@ -473,6 +473,35 @@
     font-size: 0.85rem;
     border-bottom: 1px solid rgba(99,102,241,0.2);
   }
+
+  /* ── Thinking Section (Reasoning as paragraph) ── */
+  .thinking-section {
+    margin-bottom: 1rem;
+    background: rgba(15, 23, 42, 0.6);
+    border-left: 3px solid rgba(139, 92, 246, 0.5);
+    border-radius: 4px;
+    padding: 0.875rem 1rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: rgba(226, 232, 240, 0.85);
+  }
+  .thinking-header {
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(139, 92, 246, 0.8);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .thinking-text {
+    font-style: italic;
+    color: rgba(226, 232, 240, 0.75);
+    word-spacing: 0.05em;
+  }
+
   .media-results {
     margin-top: 1rem;
     background: rgba(15,23,42,0.8);
@@ -1196,7 +1225,7 @@
 
   async function renderAgentSequence(payload, options = {}) {
     const instant = options.instant === true;
-    const { logs = [], media = [], response } = payload;
+    const { logs = [], media = [], response, thinking = 'Processando sua pergunta...' } = payload;
 
     const wrapper = document.createElement('div');
     wrapper.className = 'msg-ai';
@@ -1205,19 +1234,23 @@
     const inner = document.createElement('div');
     inner.className = 'bubble';
 
+    // THINKING SECTION (ALWAYS VISIBLE, ON TOP)
+    const thinkingContainer = document.createElement('div');
+    thinkingContainer.className = 'thinking-section';
+    thinkingContainer.style.opacity = instant ? '1' : '0';
+    thinkingContainer.style.transition = 'opacity 0.3s ease';
+    thinkingContainer.innerHTML = `
+      <div class="thinking-header">🧠 Raciocínio</div>
+      <div class="thinking-text">${thinking}</div>
+    `;
+
+    // RESPONSE SECTION
     const responseContainer = document.createElement('div');
     responseContainer.className = 'ai-response';
     responseContainer.style.opacity = instant ? '1' : '0';
     responseContainer.style.transition = 'opacity 0.3s ease';
 
-    const logContainer = document.createElement('div');
-    logContainer.className = 'thinking-logs';
-    logContainer.style.opacity = instant ? '1' : '0';
-    logContainer.innerHTML = `
-      <div class="logs-header">🧠 Raciocínio</div>
-      <div class="logs-content"></div>
-    `;
-
+    // MEDIA SECTION
     const mediaContainer = document.createElement('div');
     mediaContainer.className = 'media-results';
     mediaContainer.style.opacity = instant ? '1' : '0';
@@ -1226,11 +1259,11 @@
       <div class="media-grid"></div>
     `;
 
+    // APPEND IN CORRECT ORDER: THINKING -> RESPONSE -> MEDIA
+    inner.appendChild(thinkingContainer);
     inner.appendChild(responseContainer);
-    inner.appendChild(logContainer);
     inner.appendChild(mediaContainer);
 
-    if (!logs.length) logContainer.style.display = 'none';
     if (!media.length) mediaContainer.style.display = 'none';
 
     wrapper.appendChild(inner);
@@ -1278,21 +1311,15 @@
       wrapper.style.transition = 'opacity 0.25s ease';
       wrapper.style.opacity = '1';
 
-      const logsContent = logContainer.querySelector('.logs-content');
-      for (const log of logs) {
-        const logLine = document.createElement('div');
-        logLine.className = 'log-line';
-        logLine.textContent = log;
-        logsContent.appendChild(logLine);
-        logsContent.scrollTop = logsContent.scrollHeight;
-        scrollToBottom();
-        await delay(250);
-      }
+      // Fade in thinking section
+      thinkingContainer.style.opacity = '1';
+      await delay(500);
 
-      await delay(250);
+      // Fade in response section
       responseContainer.textContent = response;
       responseContainer.style.opacity = '1';
       scrollToBottom();
+      await delay(300);
 
       if (media.length > 0) {
         await delay(250);
@@ -1301,6 +1328,7 @@
         scrollToBottom();
       }
     } else {
+      thinkingContainer.style.opacity = '1';
       responseContainer.textContent = response;
       responseContainer.style.opacity = '1';
 
@@ -1308,11 +1336,6 @@
       logs.forEach(log => {
         const logLine = document.createElement('div');
         logLine.className = 'log-line';
-        logLine.textContent = log;
-        logsContent.appendChild(logLine);
-      });
-      logContainer.style.opacity = '1';
-
       if (media.length > 0) {
         mediaContainer.style.opacity = '1';
         renderMedia();
@@ -1419,6 +1442,7 @@
 
       const aiText = json?.response || 'Desculpe, não consegui gerar uma resposta no momento.';
       const metadata = {
+        thinking: json?.thinking || 'Processando sua pergunta...',
         logs: json?.logs || [],
         media: json?.media || [],
       };
