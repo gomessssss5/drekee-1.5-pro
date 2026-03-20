@@ -406,6 +406,16 @@ Retorne APENAS JSON válido (sem markdown):
 async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const useNasa = options.useNasa === true;
 
+  // Track which sources were used for answering (web + NASA)
+  const sources = [];
+  const sourcesById = new Map();
+  const addSource = (id, label, type, detail, url) => {
+    const src = { id, label, type, detail, url };
+    sources.push(src);
+    sourcesById.set(id, src);
+    return src;
+  };
+
   logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   let context = '';
@@ -420,6 +430,13 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
       searchResult.results.forEach((r, i) => {
         context += `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.url}\n`;
       });
+
+      // Register sources for citation
+      addSource('WEB-SUMMARY', 'Resumo da busca web (Tavily)', 'web', searchResult.answer, null);
+      searchResult.results.forEach((r, i) => {
+        addSource(`WEB-${i + 1}`, r.title || `Web resultado ${i + 1}`, 'web', r.snippet, r.url);
+      });
+
       logs.push('✅ Dados da web coletados');
     } else {
       logs.push('⚠️ Tavily API não disponível');
@@ -430,6 +447,9 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     logs.push('🚀 Otimizando busca NASA com IA...');
     const optimizedQuery = await optimizeNasaQuery(userQuestion);
     logs.push(`📝 Query otimizada: "${optimizedQuery}"`);
+
+    // Track NASA query as a source
+    addSource('NASA-QUERY', 'Consulta NASA (busca de mídia)', 'nasa', optimizedQuery, null);
 
     logs.push('🚀 Buscando mídia da NASA...');
     let results = await searchNasaMedia(optimizedQuery);
@@ -479,6 +499,11 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
         nasaMedia = bestResults.length > 0 ? bestResults : results.slice(0, 6);
         logs.push(`✅ Selecionados ${nasaMedia.length} melhores resultados`);
 
+        // Register NASA media sources
+        nasaMedia.forEach((item, i) => {
+          addSource(`NASA-${i + 1}`, item.title || `NASA media ${i + 1}`, 'nasa', item.description, item.url);
+        });
+
         context += `\n\n🔭 Resultados da NASA (imagens/vídeos selecionados):\n`;
         nasaMedia.slice(0, 5).forEach((item, i) => {
           context += `${i + 1}. ${item.title}\n`;
@@ -503,9 +528,11 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
 
           if (groqAnalysis) {
             context += `\n\n📸 Análise de imagens (GROQ):\n${groqAnalysis}`;
+            addSource('NASA-ANALYSIS-GROQ', 'Análise de imagens (GROQ)', 'nasa', groqAnalysis, null);
           }
           if (geminiAnalysis) {
             context += `\n\n📸 Análise de imagens (Gemini):\n${geminiAnalysis}`;
+            addSource('NASA-ANALYSIS-GEMINI', 'Análise de imagens (Gemini)', 'nasa', geminiAnalysis, null);
           }
 
           if (groqAnalysis || geminiAnalysis) {
@@ -525,6 +552,9 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
 CONTEXTO PESQUISADO:
 ${context || 'Nenhum contexto externo necessário'}
 
+FONTES DISPONÍVEIS PARA CITAÇÃO:
+${sources.map(s => `${s.id}: ${s.label} - ${s.detail}`).join('\n')}
+
 PERGUNTA DO USUÁRIO: "${userQuestion}"
 
 Siga EXATAMENTE este processo:
@@ -535,6 +565,8 @@ Siga EXATAMENTE este processo:
 5. Se a resposta for longa, não pare no meio de uma frase; continue até concluir a explicação.
 6. Ao final, inclua apenas a tag: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
 
+IMPORTANTE: Cite fontes inline usando [ID-DA-FONTE] sempre que usar informações de uma fonte específica. Use apenas os IDs disponíveis no contexto. Não invente citações.
+
 Seja honesto e preciso. Não especule.`;
 
   const response = await callGroq(
@@ -544,7 +576,7 @@ Seja honesto e preciso. Não especule.`;
   );
 
   logs.push('✅ Resposta gerada pela IA principal');
-  return { response, media: nasaMedia };
+  return { response, media: nasaMedia, sources };
 }
 
 // ============ STEP 3: Review with Gemini ============
@@ -681,6 +713,7 @@ async function handler(req, res) {
       thinking,
       logs,
       media: exec.media || [],
+      sources: exec.sources || [],
     });
   } catch (err) {
     console.error('Agent error:', err);
@@ -694,6 +727,7 @@ async function handler(req, res) {
       error: err.message,
       logs,
       media: [],
+      sources: [],
     });
   }
 }

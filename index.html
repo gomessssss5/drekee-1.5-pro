@@ -584,6 +584,81 @@
     word-break: break-word;
   }
 
+  /* Citation tags */
+  .citation-tag {
+    display: inline-block;
+    background: rgba(59,130,246,0.2);
+    border: 1px solid rgba(59,130,246,0.4);
+    border-radius: 3px;
+    padding: 0.1rem 0.3rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #3b82f6;
+    margin: 0 0.2rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    vertical-align: baseline;
+  }
+  .citation-tag:hover {
+    background: rgba(59,130,246,0.4);
+  }
+
+  /* Highlighted text on hover */
+  .highlight-yellow {
+    background-color: rgba(255, 193, 7, 0.3);
+    border-radius: 2px;
+    transition: background-color 0.2s ease;
+  }
+
+  /* Sources section */
+  .sources-section {
+    margin-top: 1.5rem;
+    background: rgba(15,23,42,0.8);
+    border-radius: 6px;
+    border: 1px solid rgba(99,102,241,0.2);
+    overflow: hidden;
+  }
+  .sources-header {
+    background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15));
+    padding: 0.75rem 1rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(99,102,241,0.2);
+  }
+  .sources-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  .source-item {
+    background: rgba(30,41,59,0.5);
+    border-radius: 4px;
+    padding: 0.75rem;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .source-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #3b82f6;
+    margin-bottom: 0.25rem;
+  }
+  .source-detail {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    line-height: 1.4;
+  }
+  .source-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-size: 0.7rem;
+    color: #60a5fa;
+    text-decoration: none;
+  }
+  .source-link:hover {
+    text-decoration: underline;
+  }
+
   @keyframes msgRight { from{opacity:0;transform:translateX(16px) scale(0.97)} to{opacity:1;transform:none} }
   @keyframes msgLeft  { from{opacity:0;transform:translateX(-14px) scale(0.97)} to{opacity:1;transform:none} }
 
@@ -1223,9 +1298,58 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  async function renderAgentSequence(payload, options = {}) {
+  function parseResponseWithCitations(response, sources) {
+    const sourcesMap = new Map(sources.map(s => [s.id, s]));
+    const citations = new Map(); // id -> [start, end] positions
+
+    // Replace [SOURCE-ID] with <span class="citation-tag" data-source="ID">Fonte</span>
+    let html = response.replace(/\[([A-Z0-9-]+)\]/g, (match, id) => {
+      const source = sourcesMap.get(id);
+      if (!source) return match; // Keep as is if not found
+
+      // Find the position of the citation in the text
+      const index = response.indexOf(match);
+      citations.set(id, [index, index + match.length]);
+
+      return `<span class="citation-tag" data-source="${id}">${source.label}</span>`;
+    });
+
+    return { html, citations };
+  }
+
+  function renderSources(sources) {
+    return sources.map(source => `
+      <div class="source-item">
+        <div class="source-label">${source.label}</div>
+        <div class="source-detail">${source.detail || 'N/A'}</div>
+        ${source.url ? `<a class="source-link" href="${source.url}" target="_blank">Ver fonte</a>` : ''}
+      </div>
+    `).join('');
+  }
+
+  function addCitationHoverListeners(container, citations) {
+    const tags = container.querySelectorAll('.citation-tag');
+    tags.forEach(tag => {
+      const sourceId = tag.dataset.source;
+      const positions = citations.get(sourceId);
+      if (!positions) return;
+
+      let highlightedElement = null;
+
+      tag.addEventListener('mouseenter', () => {
+        // For simplicity, highlight the tag itself
+        tag.classList.add('highlight-yellow');
+      });
+
+      tag.addEventListener('mouseleave', () => {
+        tag.classList.remove('highlight-yellow');
+      });
+    });
+  }
+
+async function renderAgentSequence(payload, options = {}) {
     const instant = options.instant === true;
-    const { logs = [], media = [], response, thinking = 'Processando sua pergunta...' } = payload;
+    const { logs = [], media = [], response, thinking = 'Processando sua pergunta...', sources = [] } = payload;
 
     const wrapper = document.createElement('div');
     wrapper.className = 'msg-ai';
@@ -1250,6 +1374,10 @@
     responseContainer.style.opacity = instant ? '1' : '0';
     responseContainer.style.transition = 'opacity 0.3s ease';
 
+    // Parse response for citations
+    const parsedResponse = parseResponseWithCitations(response, sources);
+    responseContainer.innerHTML = parsedResponse.html;
+
     // MEDIA SECTION
     const mediaContainer = document.createElement('div');
     mediaContainer.className = 'media-results';
@@ -1259,16 +1387,31 @@
       <div class="media-grid"></div>
     `;
 
-    // APPEND IN CORRECT ORDER: THINKING -> RESPONSE -> MEDIA
+    // SOURCES SECTION
+    const sourcesContainer = document.createElement('div');
+    sourcesContainer.className = 'sources-section';
+    sourcesContainer.style.opacity = instant ? '1' : '0';
+    sourcesContainer.style.transition = 'opacity 0.3s ease';
+    sourcesContainer.innerHTML = `
+      <div class="sources-header">📚 Fontes Utilizadas</div>
+      <div class="sources-grid">${renderSources(sources)}</div>
+    `;
+
+    // APPEND IN CORRECT ORDER: THINKING -> RESPONSE -> MEDIA -> SOURCES
     inner.appendChild(thinkingContainer);
     inner.appendChild(responseContainer);
     inner.appendChild(mediaContainer);
+    inner.appendChild(sourcesContainer);
 
     if (!media.length) mediaContainer.style.display = 'none';
+    if (!sources.length) sourcesContainer.style.display = 'none';
 
     wrapper.appendChild(inner);
     messagesContainer.appendChild(wrapper);
     scrollToBottom();
+
+    // Add hover listeners for citations
+    addCitationHoverListeners(responseContainer, parsedResponse.citations);
 
     const renderMedia = () => {
       const grid = mediaContainer.querySelector('.media-grid');
@@ -1316,7 +1459,6 @@
       await delay(500);
 
       // Fade in response section
-      responseContainer.textContent = response;
       responseContainer.style.opacity = '1';
       scrollToBottom();
       await delay(300);
@@ -1327,14 +1469,23 @@
         renderMedia();
         scrollToBottom();
       }
+
+      if (sources.length > 0) {
+        await delay(200);
+        sourcesContainer.style.opacity = '1';
+        scrollToBottom();
+      }
     } else {
       thinkingContainer.style.opacity = '1';
-      responseContainer.textContent = response;
       responseContainer.style.opacity = '1';
 
       if (media.length > 0) {
         mediaContainer.style.opacity = '1';
         renderMedia();
+      }
+
+      if (sources.length > 0) {
+        sourcesContainer.style.opacity = '1';
       }
     }
   }
@@ -1441,6 +1592,7 @@
         thinking: json?.thinking || 'Processando sua pergunta...',
         logs: json?.logs || [],
         media: json?.media || [],
+        sources: json?.sources || [],
       };
       
       addMessage('ai', aiText, metadata);
