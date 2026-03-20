@@ -228,6 +228,108 @@ async function searchNasaMedia(query) {
   }
 }
 
+
+// ============ arXiv Integration ============
+async function buscarArxiv(query) {
+  if (!query) return [];
+
+  const apiUrl = `http://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=3`;
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return [];
+    const xml = await res.text();
+
+    const entries = [];
+    const entryMatches = Array.from(xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g));
+    for (const m of entryMatches.slice(0, 3)) {
+      const entryText = m[1];
+      const titleMatch = entryText.match(/<title>([\s\S]*?)<\/title>/i);
+      const summaryMatch = entryText.match(/<summary>([\s\S]*?)<\/summary>/i);
+      const idMatch = entryText.match(/<id>([\s\S]*?)<\/id>/i);
+
+      const title = titleMatch ? titleMatch[1].trim().replace(/\s+/g, ' ') : null;
+      const summary = summaryMatch ? summaryMatch[1].trim().replace(/\s+/g, ' ') : null;
+      const link = idMatch ? idMatch[1].trim() : null;
+
+      if (title || summary || link) {
+        entries.push({ title, summary, link });
+      }
+    }
+
+    return entries.slice(0, 3);
+  } catch (err) {
+    console.error('arXiv fetch error:', err);
+    return [];
+  }
+}
+
+// ============ Wikipedia Integration ============
+async function buscarWikipedia(termo) {
+  if (!termo) return null;
+  const apiUrl = `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(termo)}`;
+
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      title: data.title || null,
+      extract: data.extract || null,
+      url: data.content_urls?.desktop?.page || data.content_urls?.mobile?.page || null,
+    };
+  } catch (err) {
+    console.error('Wikipedia fetch error:', err);
+    return null;
+  }
+}
+
+// ============ Newton/MathJS API Integration ============
+async function calcular(expressao) {
+  if (!expressao) return null;
+  const apiUrl = `https://api.mathjs.org/v4/?expr=${encodeURIComponent(expressao)}`;
+
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return null;
+    const text = await res.text();
+    return { input: expressao, result: text };
+  } catch (err) {
+    console.error('MathJS calc error:', err);
+    return null;
+  }
+}
+
+// ============ SpaceX API Integration ============
+async function buscarSpaceX() {
+  try {
+    const res = await fetch('https://api.spacexdata.com/v4/launches/latest');
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      name: data.name || null,
+      date_utc: data.date_utc || null,
+      details: data.details || null,
+      link: data.links?.webcast || data.links?.wikipedia || null,
+    };
+  } catch (err) {
+    console.error('SpaceX fetch error:', err);
+    return null;
+  }
+}
+
+// ============ Open-Meteo API Integration ============
+async function buscarOpenMeteo(lat = -23.55, lon = -46.63) {
+  try {
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&hourly=temperature_2m,relativehumidity_2m`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { location: { lat, lon }, weather: data };
+  } catch (err) {
+    console.error('Open-Meteo fetch error:', err);
+    return null;
+  }
+}
+
 // ============ GROQ Call (flexible) ============
 async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
@@ -404,19 +506,29 @@ Retorne APENAS JSON válido (sem markdown):
 
 // ============ STEP 2: Execute Research & Reasoning ============
 async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
-  const useNasa = options.useNasa === true;
+  const connectorAuto = options.connectorAuto !== false;
+  const userConnectors = Array.isArray(options.connectors) ? options.connectors : [];
+
+  const autoDetectedConnectors = [];
+  const normalizedText = (userQuestion || '').toLowerCase();
+  if (/\b(arxiv|paper|artigo|pesquisa|estudo)\b/.test(normalizedText)) autoDetectedConnectors.push('arxiv');
+  if (/\b(conceito|definição|o que é|explica|explicar|definir)\b/.test(normalizedText)) autoDetectedConnectors.push('wikipedia');
+  if (/\b(matemática|equação|integral|derivada|cálculo|somar|subtrair|multiplicar|dividir)\b/.test(normalizedText)) autoDetectedConnectors.push('newton');
+  if (/\b(espaço|nasa|planeta|satélite|foguete|astronomia|marte|lua|asteroide|asteróide)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('nasa');
+    autoDetectedConnectors.push('spacex');
+  }
+  autoDetectedConnectors.push('open-meteo');
+
+  const selectedConnectors = connectorAuto
+    ? [...new Set(autoDetectedConnectors)]
+    : [...new Set(userConnectors.map(c => c.toLowerCase()))];
+
+  const useNasa = options.useNasa === true || selectedConnectors.includes('nasa');
 
   // Track which sources were used for answering (web + NASA)
   const sources = [];
-  const sourcesById = new Map();
-  const addSource = (id, label, type, detail, url) => {
-    const src = { id, label, type, detail, url };
-    sources.push(src);
-    sourcesById.set(id, src);
-    return src;
-  };
-
-  logs.push('🧠 Iniciando raciocínio (processo interno)');
+logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   let context = '';
   let nasaMedia = [];
@@ -440,6 +552,65 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
       logs.push('✅ Dados da web coletados');
     } else {
       logs.push('⚠️ Tavily API não disponível');
+    }
+  }
+
+  logs.push(`🔌 Conectores selecionados: ${selectedConnectors.join(', ') || 'nenhum'}`);
+
+  // Data de cada conector
+  if (selectedConnectors.includes('wikipedia')) {
+    logs.push('🌐 Buscando na Wikipedia...');
+    const wiki = await buscarWikipedia(userQuestion);
+    if (wiki) {
+      context += `\n\n📘 Wikipedia: ${wiki.title}\n${wiki.extract}\n`;  
+      addSource('WIKIPEDIA', 'Wikipedia', 'wikipedia', wiki.extract || wiki.title, wiki.url);
+      logs.push('✅ Dados do Wikipedia coletados');
+    } else {
+      logs.push('⚠️ Wikipedia não retornou dados');
+    }
+  }
+
+  if (selectedConnectors.includes('arxiv')) {
+    logs.push('📚 Buscando no arXiv...');
+    const arxiv = await buscarArxiv(userQuestion);
+    if (arxiv.length > 0) {
+      arxiv.slice(0, 3).forEach((item, i) => {
+        context += `\n\n🧾 arXiv ${i + 1}: ${item.title}\n${item.summary}\nLink: ${item.link}\n`;
+        addSource(`ARXIV-${i + 1}`, item.title || `arXiv ${i + 1}`, 'arxiv', item.summary || '', item.link);
+      });
+      logs.push('✅ Dados do arXiv coletados');
+    } else {
+      logs.push('⚠️ arXiv não retornou dados');
+    }
+  }
+
+  if (selectedConnectors.includes('newton')) {
+    logs.push('🧮 Calculando com Newton/MathJS...');
+    const math = await calcular(userQuestion);
+    if (math) {
+      context += `\n\n➗ Resultado MathJS para '${math.input}': ${math.result}\n`;
+      addSource('NEWTON', 'MathJS (Newton)', 'newton', `${math.input} => ${math.result}`, 'https://api.mathjs.org');
+      logs.push('✅ Dados de cálculo coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('spacex')) {
+    logs.push('🚀 Buscando SpaceX...');
+    const spacex = await buscarSpaceX();
+    if (spacex) {
+      context += `\n\n🚀 SpaceX - ${spacex.name} (${spacex.date_utc})\n${spacex.details || 'Sem detalhes'}\nLink: ${spacex.link || 'N/A'}\n`;
+      addSource('SPACEX', 'SpaceX', 'spacex', spacex.details || spacex.name, spacex.link);
+      logs.push('✅ Dados SpaceX coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('open-meteo')) {
+    logs.push('☁️ Buscando meteorologia (Open-Meteo)...');
+    const weather = await buscarOpenMeteo();
+    if (weather) {
+      context += `\n\n☁️ Open-Meteo para (${weather.location.lat},${weather.location.lon})\n`; 
+      addSource('OPEN-METEO', 'Open-Meteo', 'open-meteo', 'Previsão climática inicial', 'https://open-meteo.com');
+      logs.push('✅ Dados Open-Meteo coletados');
     }
   }
 
@@ -683,7 +854,8 @@ async function handler(req, res) {
   }
 
   const userQuestion = (body?.text || '').toString().trim();
-  const useNasa = Boolean(body?.nasa);
+  const connectorAuto = body?.connectorAuto !== false;
+  const connectors = Array.isArray(body?.connectors) ? body.connectors : [];
 
   if (!userQuestion) {
     return res.status(400).json({ error: 'Pergunta vazia' });
@@ -696,7 +868,7 @@ async function handler(req, res) {
 
     const actionPlan = await generateActionPlan(userQuestion);
 
-    const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { useNasa });
+    const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa });
 
     logs.push('👁️ Revisando resposta com Gemini...');
     let response = await reviewResponse(exec.response);

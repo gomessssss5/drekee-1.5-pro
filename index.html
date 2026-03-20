@@ -764,7 +764,7 @@
   .back-btn:hover { background: rgba(255,255,255,0.04); color: #94a3b8; border-color: rgba(255,255,255,0.12); }
   .back-btn .material-icons-outlined { font-size: 0.95rem; }
 
-  .nasa-btn {
+  .connector-btn {
     display: flex; align-items: center; gap: 0.4rem;
     padding: 0.35rem 0.75rem;
     border-radius: 0.6rem;
@@ -776,9 +776,97 @@
     transition: all 0.15s ease;
     white-space: nowrap;
   }
-  .nasa-btn:hover { background: rgba(255,255,255,0.06); color: #fff; border-color: rgba(255,255,255,0.16); }
-  .nasa-btn.active { background: rgba(59,130,246,0.25); color: #e0f2fe; border-color: rgba(59,130,246,0.4); }
-  .nasa-icon { width: 18px; height: 18px; object-fit: contain; }
+  .connector-btn:hover { background: rgba(255,255,255,0.06); color: #fff; border-color: rgba(255,255,255,0.16); }
+  .connector-btn.active { background: rgba(59,130,246,0.25); color: #e0f2fe; border-color: rgba(59,130,246,0.4); }
+  .connector-icon { width: 18px; height: 18px; object-fit: contain; }
+
+  .connectors-card {
+    position: absolute;
+    top: 3rem;
+    left: 1rem;
+    width: min(370px, calc(100vw - 3rem));
+    max-height: 360px;
+    border: 1px solid rgba(148,163,184,0.25);
+    background: rgba(8,18,34,0.92);
+    border-radius: 10px;
+    box-shadow: 0 18px 45px rgba(0,0,0,0.45);
+    z-index: 1000;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+  }
+  .connectors-card.show {
+    display: flex;
+  }
+  .connectors-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
+    background: rgba(15,23,42,0.95);
+    border-bottom: 1px solid rgba(148,163,184,0.2);
+  }
+  .connectors-card-title {
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .connectors-card-close {
+    color: #94a3b8;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .connector-auto-toggle {
+    border: 1px solid rgba(148,163,184,0.3);
+    border-radius: 999px;
+    background: rgba(48,57,87,0.8);
+    color: #e2e8f0;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.72rem;
+    cursor: pointer;
+  }
+  .connectors-card-search {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid rgba(148,163,184,0.15);
+  }
+  .connectors-card-search input {
+    width: 100%;
+    background: rgba(15,23,42,0.8);
+    border: 1px solid rgba(148,163,184,0.22);
+    color: #e2e8f0;
+    border-radius: 0.45rem;
+    padding: 0.45rem 0.55rem;
+    font-size: 0.8rem;
+  }
+  .connectors-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 0.6rem 0.8rem;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .connector-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(15,23,42,0.85);
+    border: 1px solid rgba(148,163,184,0.2);
+    border-radius: 0.55rem;
+    padding: 0.45rem;
+  }
+  .connector-item img {
+    width: 24px; height: 24px; border-radius: 4px;
+  }
+  .connector-item span {
+    flex: 1;
+    font-size: 0.78rem;
+    color: #e2e8f0;
+  }
+  .connector-item input[type='checkbox'] {
+    accent-color: #60a5fa;
+  }
 
   /* Pro model badge */
   .model-badge {
@@ -1056,11 +1144,26 @@
                 <span>Drekee AI</span>
               </a>
 
-              <!-- NASA toggle button -->
-              <button class="nasa-btn" id="nasaBtn" title="Ativar NASA">
-                <img src="NASA.png" alt="NASA" class="nasa-icon" />
-                <span>NASA</span>
+              <!-- Connectors toggle button -->
+              <button class="connector-btn" id="connectorsBtn" title="Conectores">
+                <img src="https://cdn-icons-png.flaticon.com/512/3039/3039478.png" alt="Conectores" class="connector-icon" />
+                <span>Conectores</span>
               </button>
+
+              <div id="connectorsCard" class="connectors-card" role="dialog" aria-label="Conectores de APIs">
+                <div class="connectors-card-header">
+                  <div class="connectors-card-title">Conectores API</div>
+                  <button class="connectors-card-close" id="connectorsCloseBtn">✕</button>
+                </div>
+                <div class="connectors-card-search">
+                  <input type="text" id="connectorsSearch" placeholder="Buscar conectores..." />
+                </div>
+                <div class="connectors-card-header" style="justify-content: space-between; gap: 0.4rem;">
+                  <span style="color:#cbd5e1;font-size:0.75rem;">Auto</span>
+                  <button id="connectorAutoBtn" class="connector-auto-toggle">ON</button>
+                </div>
+                <div class="connectors-list" id="connectorsList"></div>
+              </div>
             </div>
 
             <!-- Right side -->
@@ -1132,7 +1235,9 @@
   // ── File handling ───────────────────────────────────────────
   const attachedFilesContainer = document.getElementById('attachedFilesContainer');
   let attachedFiles = [];
-  let nasaEnabled = false;
+  let connectorAuto = true;
+  let selectedConnectors = [];
+  let currentSources = [];
 
   fileInput.addEventListener('change', () => handleFiles(fileInput.files));
 
@@ -1302,16 +1407,15 @@
     const sourcesMap = new Map(sources.map(s => [s.id, s]));
     const citations = new Map(); // id -> [start, end] positions
 
-    // Replace [SOURCE-ID] with <span class="citation-tag" data-source="ID">Fonte</span>
-    let html = response.replace(/\[([A-Z0-9-]+)\]/g, (match, id) => {
+    // Replace [SOURCE-ID] with <span class="citation-tag" data-source="ID">Fontes</span>
+    let html = response.replace(/\[([A-Za-z0-9-]+)\]/g, (match, id) => {
       const source = sourcesMap.get(id);
       if (!source) return match; // Keep as is if not found
 
-      // Find the position of the citation in the text
       const index = response.indexOf(match);
       citations.set(id, [index, index + match.length]);
 
-      return `<span class="citation-tag" data-source="${id}">${source.label}</span>`;
+      return `<span class="citation-tag" data-source="${id}">Fontes</span>`;
     });
 
     return { html, citations };
@@ -1331,25 +1435,82 @@
     const tags = container.querySelectorAll('.citation-tag');
     tags.forEach(tag => {
       const sourceId = tag.dataset.source;
-      const positions = citations.get(sourceId);
-      if (!positions) return;
-
-      let highlightedElement = null;
+      const source = citations.get(sourceId);
 
       tag.addEventListener('mouseenter', () => {
-        // For simplicity, highlight the tag itself
         tag.classList.add('highlight-yellow');
       });
 
       tag.addEventListener('mouseleave', () => {
         tag.classList.remove('highlight-yellow');
       });
+
+      tag.addEventListener('click', (event) => {
+        showCitationCard(event.currentTarget, sourceId);
+      });
     });
+  }
+
+  function showCitationCard(target, sourceId) {
+    const root = document.body;
+    let card = document.getElementById('citationCard');
+    if (!card) {
+      card = document.createElement('div');
+      card.id = 'citationCard';
+      card.style.position = 'absolute';
+      card.style.zIndex = 1100;
+      card.style.background = 'rgba(8, 16, 34, 0.95)';
+      card.style.border = '1px solid rgba(148,163,184,0.25)';
+      card.style.borderRadius = '8px';
+      card.style.padding = '0.5rem';
+      card.style.minWidth = '220px';
+      card.style.maxWidth = '320px';
+      card.style.maxHeight = '240px';
+      card.style.overflow = 'auto';
+      card.style.color = '#e2e8f0';
+      card.style.boxShadow = '0 14px 30px rgba(0,0,0,0.35)';
+      root.appendChild(card);
+    }
+
+    const source = currentSources.find(s => s.id === sourceId);
+    if (!source) return;
+
+    let content;
+    if (source.type === 'nasa' && source.url && source.url.match(/\.(jpe?g|png|gif|webp|svg)$/i)) {
+      content = `<div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <img src="${source.url}" style="max-width:300px;max-height:200px;border-radius:6px;object-fit:cover;" />
+        <a href="${source.url}" target="_blank" style="color:#60a5fa;font-size:0.78rem;">Abrir imagem</a>
+      </div>`;
+    } else {
+      content = `<div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <div style="font-weight:700;font-size:0.78rem;">${source.label}</div>
+        <div style="font-size:0.72rem;color:#94a3b8;line-height:1.3;">${escapeHtml(source.detail || 'Sem detalhes')}</div>
+        ${source.url ? `<a href="${source.url}" target="_blank" style="color:#60a5fa;font-size:0.78rem;word-break:break-all;">${source.url}</a>` : ''}
+      </div>`;
+    }
+
+    card.innerHTML = content;
+
+    const rect = target.getBoundingClientRect();
+    card.style.top = `${window.scrollY + rect.bottom + 8}px`;
+    card.style.left = `${window.scrollX + rect.left}px`;
+
+    const handleClickOutside = (evt) => {
+      if (!card.contains(evt.target) && evt.target !== target) {
+        card.remove();
+        window.removeEventListener('click', handleClickOutside);
+      }
+    };
+
+    setTimeout(() => {
+      window.addEventListener('click', handleClickOutside);
+    }, 0);
   }
 
 async function renderAgentSequence(payload, options = {}) {
     const instant = options.instant === true;
     const { logs = [], media = [], response, thinking = 'Processando sua pergunta...', sources = [] } = payload;
+    currentSources = sources;
 
     const wrapper = document.createElement('div');
     wrapper.className = 'msg-ai';
@@ -1498,13 +1659,92 @@ async function renderAgentSequence(payload, options = {}) {
   }
   window.fillSuggestion = fillSuggestion;
 
-  // ── Send / NASA toggle ───────────────────────────────────────
+  // ── Send / Conectores toggle ───────────────────────────────────────
   const sendButton = document.getElementById('sendButton');
-  const nasaBtn = document.getElementById('nasaBtn');
+  const connectorsBtn = document.getElementById('connectorsBtn');
+  const connectorsCard = document.getElementById('connectorsCard');
+  const connectorsCloseBtn = document.getElementById('connectorsCloseBtn');
+  const connectorsSearch = document.getElementById('connectorsSearch');
+  const connectorsList = document.getElementById('connectorsList');
+  const connectorAutoBtn = document.getElementById('connectorAutoBtn');
 
-  nasaBtn.addEventListener('click', () => {
-    nasaEnabled = !nasaEnabled;
-    nasaBtn.classList.toggle('active', nasaEnabled);
+  const connectorOptions = [
+    { key: 'tavily', label: 'Busca Geral (Tavily)', img: 'https://cdn-icons-png.flaticon.com/512/22/22394.png' },
+    { key: 'wikipedia', label: 'Wikipedia', img: 'wikipedia.png' },
+    { key: 'arxiv', label: 'arXiv', img: 'arxiv.png' },
+    { key: 'newton', label: 'Newton (MathJS)', img: 'newton.png' },
+    { key: 'spacex', label: 'SpaceX', img: 'spacex.png' },
+    { key: 'open-meteo', label: 'Open-Meteo', img: 'onep-meteo.png' },
+    { key: 'nasa', label: 'NASA', img: 'NASA.png' },
+  ];
+
+  function renderConnectorsList(filter = '') {
+    const query = filter.trim().toLowerCase();
+    connectorsList.innerHTML = ''; 
+
+    connectorOptions
+      .filter(opt => !query || opt.label.toLowerCase().includes(query))
+      .forEach(opt => {
+        const item = document.createElement('div');
+        item.className = 'connector-item';
+
+        const icon = document.createElement('img');
+        icon.src = opt.img;
+        icon.alt = opt.label;
+
+        const name = document.createElement('span');
+        name.textContent = opt.label;
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = !connectorAuto && selectedConnectors.includes(opt.key);
+        checkbox.disabled = connectorAuto;
+
+        checkbox.addEventListener('change', () => {
+          connectorAuto = false;
+          connectorAutoBtn.textContent = 'OFF';
+          if (checkbox.checked) {
+            selectedConnectors = [...new Set([...selectedConnectors, opt.key])];
+          } else {
+            selectedConnectors = selectedConnectors.filter(k => k !== opt.key);
+          }
+          renderConnectorsList(connectorsSearch.value);
+        });
+
+        item.appendChild(icon);
+        item.appendChild(name);
+        item.appendChild(checkbox);
+
+        connectorsList.appendChild(item);
+      });
+  }
+
+  connectorsBtn.addEventListener('click', () => {
+    connectorsCard.classList.toggle('show');
+    renderConnectorsList(connectorsSearch.value);
+  });
+
+  connectorsCloseBtn.addEventListener('click', () => {
+    connectorsCard.classList.remove('show');
+  });
+
+  connectorAutoBtn.addEventListener('click', () => {
+    connectorAuto = !connectorAuto;
+    connectorAutoBtn.textContent = connectorAuto ? 'ON' : 'OFF';
+    if (connectorAuto) {
+      selectedConnectors = [];
+    }
+    renderConnectorsList(connectorsSearch.value);
+  });
+
+  connectorsSearch.addEventListener('input', () => {
+    renderConnectorsList(connectorsSearch.value);
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!connectorsCard.contains(event.target) && event.target !== connectorsBtn) {
+      connectorsCard.classList.remove('show');
+    }
   });
 
   function fileToBase64(file) {
@@ -1551,7 +1791,9 @@ async function renderAgentSequence(payload, options = {}) {
       const payload = {
         text,
         files: await serializeFiles(filesToSend),
-        nasa: nasaEnabled,
+        connectors: selectedConnectors,
+        connectorAuto,
+        nasa: selectedConnectors.includes('nasa') || !connectorAuto && selectedConnectors.includes('nasa'),
       };
 
       // Se você abrir o HTML direto (file://), não existe server.
@@ -1604,8 +1846,6 @@ async function renderAgentSequence(payload, options = {}) {
       console.error(err);
       addMessage('ai', `<em style="color:#f87171;font-size:0.85rem;">Erro: ${err?.message || err}</em>`);
     } finally {
-      nasaEnabled = false;
-      nasaBtn.classList.remove('active');
       document.getElementById('thinkingIndicator').classList.remove('show');
     }
   }
