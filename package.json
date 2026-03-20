@@ -1,0 +1,19 @@
+{
+  "name": "drekee-1.5-pro",
+  "version": "1.5.3",
+  "description": "Drekee AI 1.5 Pro - Scientific Agent with NASA Integration",
+  "main": "api/chat.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node test.js",
+    "validate": "node -c api/chat.js && echo '✅ Syntax OK'"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

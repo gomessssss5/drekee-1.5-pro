@@ -38,11 +38,9 @@
     max-width: 100vw;
   }
 
-  /* ── Scrollbars ocultas ── */
   *::-webkit-scrollbar { width: 0; height: 0; display: none; }
   * { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* ── Background atmospheric ── */
   .app-bg {
     position: fixed; inset: 0; z-index: 0;
     background: radial-gradient(ellipse 90% 60% at 50% -10%, rgba(59,130,246,0.13) 0%, transparent 65%),
@@ -50,7 +48,6 @@
                 var(--bg);
   }
 
-  /* ── Layout ── */
   .layout {
     position: relative; z-index: 1;
     display: flex;
@@ -84,7 +81,6 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 1rem; font-weight: 700; color: #fff;
     flex-shrink: 0;
-    box-shadow: none;
     overflow: hidden;
   }
   .brand-logo video,
@@ -203,7 +199,7 @@
   .chat-area {
     flex: 1;
     overflow-y: auto;
-    padding: 2rem 2.5rem 12rem;
+    padding: 2rem 2.5rem 14rem;
     display: flex; flex-direction: column;
     align-items: center;
     position: relative;
@@ -236,7 +232,6 @@
     border: none;
     display: flex; align-items: center; justify-content: center;
     margin-bottom: 1.5rem;
-    box-shadow: none;
     animation: float 4s ease-in-out infinite;
   }
   @keyframes float {
@@ -345,10 +340,10 @@
     border-radius: 4px 20px 20px 20px;
     max-width: 80%;
     font-size: 0.92rem; line-height: 1.7;
-    backdrop-filter: blur(8px);
+    /* NOTE: no backdrop-filter here to avoid stacking context issues */
   }
 
-  /* ── Action Plan (Plano de Ação) ── */
+  /* ── Action Plan ── */
   .action-plan {
     background: rgba(15,23,42,0.8);
     border: 1px solid rgba(59,130,246,0.3);
@@ -363,301 +358,57 @@
     font-size: 0.85rem;
     border-bottom: 1px solid rgba(59,130,246,0.2);
   }
-  .plan-content {
-    padding: 1rem;
-    font-size: 0.85rem;
-  }
-  .plan-content p {
-    margin: 0.5rem 0;
-    color: #cbd5e1;
-  }
-  .plan-content strong {
-    color: #60a5fa;
-  }
-  .plan-steps {
-    margin-top: 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .plan-step-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.5rem;
-    background: rgba(59,130,246,0.05);
-    border-radius: 4px;
-  }
-  .step-num {
-    background: linear-gradient(135deg, #3b82f6, #6366f1);
-    color: #fff;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-  .step-info {
-    flex: 1;
-  }
-  .step-name {
-    font-weight: 600;
-    color: #93c5fd;
-    font-size: 0.82rem;
-  }
-  .step-desc {
-    color: #94a3b8;
-    font-size: 0.78rem;
-    margin-top: 0.2rem;
-  }
-  .step-check {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: rgba(52,211,153,0.18);
-    color: #10b981;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    font-weight: 700;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-  }
+  .plan-content { padding: 1rem; font-size: 0.85rem; }
+  .plan-content p { margin: 0.5rem 0; color: #cbd5e1; }
+  .plan-content strong { color: #60a5fa; }
+  .plan-steps { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .plan-step-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: rgba(59,130,246,0.05); border-radius: 4px; }
+  .step-num { background: linear-gradient(135deg, #3b82f6, #6366f1); color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+  .step-info { flex: 1; }
+  .step-name { font-weight: 600; color: #93c5fd; font-size: 0.82rem; }
+  .step-desc { color: #94a3b8; font-size: 0.78rem; margin-top: 0.2rem; }
+  .step-check { width: 22px; height: 22px; border-radius: 50%; background: rgba(52,211,153,0.18); color: #10b981; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 700; opacity: 0; transition: opacity 0.2s ease; }
 
-  /* ── Confidence Section ── */
-  .confidence-section {
-    margin: 1rem 0;
-    padding: 0.75rem;
-    background: rgba(15,23,42,0.7);
-    border-radius: 6px;
-    border-left: 3px solid rgba(59,130,246,0.4);
-  }
-  .conf-label {
-    font-size: 0.82rem;
-    color: #cbd5e1;
-    margin-bottom: 0.5rem;
-  }
-  .conf-label strong {
-    font-weight: 700;
-  }
-  .confidence-bar {
-    width: 100%;
-    height: 8px;
-    background: rgba(59,130,246,0.1);
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  .confidence-fill {
-    height: 100%;
-    border-radius: 4px;
-    transition: width 0.4s ease;
-  }
+  /* ── Confidence ── */
+  .confidence-section { margin: 1rem 0; padding: 0.75rem; background: rgba(15,23,42,0.7); border-radius: 6px; border-left: 3px solid rgba(59,130,246,0.4); }
+  .conf-label { font-size: 0.82rem; color: #cbd5e1; margin-bottom: 0.5rem; }
+  .conf-label strong { font-weight: 700; }
+  .confidence-bar { width: 100%; height: 8px; background: rgba(59,130,246,0.1); border-radius: 4px; overflow: hidden; }
+  .confidence-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
 
   /* ── Thinking Logs ── */
-  .thinking-logs {
-    margin-top: 1rem;
-    background: rgba(15,23,42,0.8);
-    border-radius: 6px;
-    overflow: hidden;
-    border: 1px solid rgba(99,102,241,0.2);
-  }
-  .logs-header {
-    background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15));
-    padding: 0.75rem 1rem;
-    font-weight: 700;
-    font-size: 0.85rem;
-    border-bottom: 1px solid rgba(99,102,241,0.2);
-  }
+  .thinking-logs { margin-top: 1rem; background: rgba(15,23,42,0.8); border-radius: 6px; overflow: hidden; border: 1px solid rgba(99,102,241,0.2); }
+  .logs-header { background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15)); padding: 0.75rem 1rem; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid rgba(99,102,241,0.2); }
 
-  /* ── Thinking Section (Reasoning as paragraph) ── */
-  .thinking-section {
-    margin-bottom: 1rem;
-    background: rgba(15, 23, 42, 0.6);
-    border-left: 3px solid rgba(139, 92, 246, 0.5);
-    border-radius: 4px;
-    padding: 0.875rem 1rem;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    color: rgba(226, 232, 240, 0.85);
-  }
-  .thinking-header {
-    font-weight: 600;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: rgba(139, 92, 246, 0.8);
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .thinking-text {
-    font-style: italic;
-    color: rgba(226, 232, 240, 0.75);
-    word-spacing: 0.05em;
-  }
+  .thinking-section { margin-bottom: 1rem; background: rgba(15, 23, 42, 0.6); border-left: 3px solid rgba(139, 92, 246, 0.5); border-radius: 4px; padding: 0.875rem 1rem; font-size: 0.9rem; line-height: 1.5; color: rgba(226, 232, 240, 0.85); }
+  .thinking-header { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(139, 92, 246, 0.8); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+  .thinking-text { font-style: italic; color: rgba(226, 232, 240, 0.75); word-spacing: 0.05em; }
 
-  .media-results {
-    margin-top: 1rem;
-    background: rgba(15,23,42,0.8);
-    border-radius: 6px;
-    border: 1px solid rgba(99,102,241,0.2);
-    overflow: hidden;
-  }
-  .media-header {
-    background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15));
-    padding: 0.75rem 1rem;
-    font-weight: 700;
-    font-size: 0.85rem;
-    border-bottom: 1px solid rgba(99,102,241,0.2);
-  }
-  .media-grid {
-    padding: 0.75rem 1rem;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 0.75rem;
-  }
-  .media-item {
-    background: rgba(31,41,55,0.8);
-    border: 1px solid rgba(99,102,241,0.15);
-    border-radius: 0.65rem;
-    padding: 0.7rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .media-title {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #cbd5e1;
-  }
-  .media-img,
-  .media-video {
-    width: 100%;
-    border-radius: 0.5rem;
-  }
-  .media-desc {
-    font-size: 0.72rem;
-    color: #94a3b8;
-    line-height: 1.3;
-    max-height: 4.6rem;
-    overflow: hidden;
-  }
-  .logs-content {
-    padding: 0.75rem 1rem;
-    max-height: 180px;
-    overflow-y: auto;
-    font-family: 'Space Mono', monospace;
-    font-size: 0.75rem;
-  }
-  .log-line {
-    color: #cbd5e1;
-    margin: 0.3rem 0;
-    line-height: 1.4;
-  }
-  .log-line:first-child {
-    margin-top: 0;
-  }
-  .logs-content::-webkit-scrollbar {
-    width: 4px;
-  }
-  .logs-content::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .logs-content::-webkit-scrollbar-thumb {
-    background: rgba(59,130,246,0.3);
-    border-radius: 2px;
-  }
-  .logs-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(59,130,246,0.5);
-  }
+  .media-results { margin-top: 1rem; background: rgba(15,23,42,0.8); border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); overflow: hidden; }
+  .media-header { background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15)); padding: 0.75rem 1rem; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid rgba(99,102,241,0.2); }
+  .media-grid { padding: 0.75rem 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; }
+  .media-item { background: rgba(31,41,55,0.8); border: 1px solid rgba(99,102,241,0.15); border-radius: 0.65rem; padding: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .media-title { font-size: 0.78rem; font-weight: 700; color: #cbd5e1; }
+  .media-img, .media-video { width: 100%; border-radius: 0.5rem; }
+  .media-desc { font-size: 0.72rem; color: #94a3b8; line-height: 1.3; max-height: 4.6rem; overflow: hidden; }
 
-  /* AI Response content */
-  .ai-response {
-    margin-bottom: 1rem;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
+  .logs-content { padding: 0.75rem 1rem; max-height: 180px; overflow-y: auto; font-family: 'Space Mono', monospace; font-size: 0.75rem; }
+  .log-line { color: #cbd5e1; margin: 0.3rem 0; line-height: 1.4; }
 
-  /* Citation tags */
-  .citation-tag {
-    display: inline-block;
-    background: rgba(59,130,246,0.2);
-    border: 1px solid rgba(59,130,246,0.4);
-    border-radius: 3px;
-    padding: 0.1rem 0.3rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: #3b82f6;
-    margin: 0 0.2rem;
-    cursor: pointer;
-    transition: background 0.2s ease;
-    vertical-align: baseline;
-  }
-  .citation-tag:hover {
-    background: rgba(59,130,246,0.4);
-  }
+  .ai-response { margin-bottom: 1rem; white-space: pre-wrap; word-break: break-word; }
 
-  /* Highlighted text on hover */
-  .highlight-yellow {
-    background-color: rgba(255, 193, 7, 0.3);
-    border-radius: 2px;
-    transition: background-color 0.2s ease;
-  }
+  .citation-tag { display: inline-block; background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.4); border-radius: 3px; padding: 0.1rem 0.3rem; font-size: 0.7rem; font-weight: 600; color: #3b82f6; margin: 0 0.2rem; cursor: pointer; transition: background 0.2s ease; vertical-align: baseline; }
+  .citation-tag:hover { background: rgba(59,130,246,0.4); }
+  .highlight-yellow { background-color: rgba(255, 193, 7, 0.3); border-radius: 2px; transition: background-color 0.2s ease; }
 
-  /* Sources section */
-  .sources-section {
-    margin-top: 1.5rem;
-    background: rgba(15,23,42,0.8);
-    border-radius: 6px;
-    border: 1px solid rgba(99,102,241,0.2);
-    overflow: hidden;
-  }
-  .sources-header {
-    background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15));
-    padding: 0.75rem 1rem;
-    font-weight: 700;
-    font-size: 0.85rem;
-    border-bottom: 1px solid rgba(99,102,241,0.2);
-  }
-  .sources-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    padding: 1rem;
-  }
-  .source-item {
-    background: rgba(30,41,59,0.5);
-    border-radius: 4px;
-    padding: 0.75rem;
-    border: 1px solid rgba(255,255,255,0.05);
-  }
-  .source-label {
-    font-weight: 600;
-    font-size: 0.8rem;
-    color: #3b82f6;
-    margin-bottom: 0.25rem;
-  }
-  .source-detail {
-    font-size: 0.75rem;
-    color: #94a3b8;
-    line-height: 1.4;
-  }
-  .source-link {
-    display: inline-block;
-    margin-top: 0.5rem;
-    font-size: 0.7rem;
-    color: #60a5fa;
-    text-decoration: none;
-  }
-  .source-link:hover {
-    text-decoration: underline;
-  }
+  .sources-section { margin-top: 1.5rem; background: rgba(15,23,42,0.8); border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); overflow: hidden; }
+  .sources-header { background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15)); padding: 0.75rem 1rem; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid rgba(99,102,241,0.2); }
+  .sources-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; }
+  .source-item { background: rgba(30,41,59,0.5); border-radius: 4px; padding: 0.75rem; border: 1px solid rgba(255,255,255,0.05); }
+  .source-label { font-weight: 600; font-size: 0.8rem; color: #3b82f6; margin-bottom: 0.25rem; }
+  .source-detail { font-size: 0.75rem; color: #94a3b8; line-height: 1.4; }
+  .source-link { display: inline-block; margin-top: 0.5rem; font-size: 0.7rem; color: #60a5fa; text-decoration: none; }
+  .source-link:hover { text-decoration: underline; }
 
   @keyframes msgRight { from{opacity:0;transform:translateX(16px) scale(0.97)} to{opacity:1;transform:none} }
   @keyframes msgLeft  { from{opacity:0;transform:translateX(-14px) scale(0.97)} to{opacity:1;transform:none} }
@@ -690,19 +441,57 @@
     40%          { transform: scale(1.1); opacity: 1; }
   }
 
-  /* Input card */
+  /* ─── SELECTED CONNECTORS BAR (acima do input card) ─── */
+  .selected-connectors-bar {
+    display: none;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    margin-bottom: 0.4rem;
+    border-radius: 0.65rem;
+    border: 1px solid rgba(59,130,246,0.2);
+    background: rgba(11,20,40,0.85);
+    width: fit-content;
+    max-width: 100%;
+    animation: fadeUp 0.2s ease both;
+  }
+  .selected-connectors-bar.visible { display: flex; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .sel-bar-label {
+    font-size: 0.68rem; font-weight: 600;
+    color: #64748b; text-transform: uppercase; letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .sel-bar-icons {
+    display: flex; align-items: center; gap: 0.25rem;
+    flex-wrap: wrap;
+  }
+  .sel-bar-chip {
+    display: flex; align-items: center; gap: 0.28rem;
+    padding: 0.18rem 0.45rem;
+    border-radius: 99px;
+    background: rgba(59,130,246,0.12);
+    border: 1px solid rgba(59,130,246,0.22);
+  }
+  .sel-bar-chip img {
+    width: 13px; height: 13px;
+    border-radius: 2px; object-fit: cover;
+  }
+  .sel-bar-chip span {
+    font-size: 0.68rem; font-weight: 600; color: #93c5fd;
+    white-space: nowrap;
+  }
+
+  /* Input card — SEM backdrop-filter para não criar stacking context */
   .input-card {
-    background: rgba(15,24,44,0.82);
+    background: rgba(15,24,44,0.92);
     border: 1px solid var(--border2);
     border-radius: 1.25rem;
     padding: 0.85rem 1rem 0.7rem;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    transition: border-color 0.2s ease, transform 0.25s cubic-bezier(0.22,1,0.36,1);
-  }
-  .input-card:focus-within {
-    border-color: var(--border2);
-    transform: none;
+    transition: border-color 0.2s ease;
   }
 
   textarea#userInput {
@@ -716,10 +505,7 @@
     padding: 2px 4px;
   }
   textarea#userInput:focus,
-  textarea#userInput:focus-visible {
-    outline: none;
-    box-shadow: none;
-  }
+  textarea#userInput:focus-visible { outline: none; box-shadow: none; }
   textarea#userInput::placeholder { color: #334155; }
 
   /* Toolbar */
@@ -747,7 +533,6 @@
   .icon-btn:hover { background: rgba(255,255,255,0.05); color: #94a3b8; border-color: rgba(255,255,255,0.12); }
   .icon-btn .material-icons-outlined { font-size: 1.05rem; }
 
-  /* Back button */
   .back-btn {
     display: flex; align-items: center; gap: 0.4rem;
     padding: 0.35rem 0.75rem;
@@ -764,108 +549,272 @@
   .back-btn:hover { background: rgba(255,255,255,0.04); color: #94a3b8; border-color: rgba(255,255,255,0.12); }
   .back-btn .material-icons-outlined { font-size: 0.95rem; }
 
+  /* ─── CONNECTOR BUTTON — image na esquerda, texto na direita, thin ─── */
   .connector-btn {
-    display: flex; align-items: center; gap: 0.4rem;
-    padding: 0.35rem 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.32rem 0.65rem 0.32rem 0.45rem;
     border-radius: 0.6rem;
-    background: rgba(15,24,44,0.85);
+    background: rgba(15,24,44,0.95);
     border: 1px solid var(--border);
     color: #94a3b8;
-    font-size: 0.75rem; font-weight: 500;
+    font-size: 0.75rem;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.15s ease;
     white-space: nowrap;
+    height: 2.1rem;
   }
-  .connector-btn:hover { background: rgba(255,255,255,0.06); color: #fff; border-color: rgba(255,255,255,0.16); }
-  .connector-btn.active { background: rgba(59,130,246,0.25); color: #e0f2fe; border-color: rgba(59,130,246,0.4); }
-  .connector-icon { width: 18px; height: 18px; object-fit: contain; }
+  .connector-btn:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; border-color: rgba(255,255,255,0.14); }
+  .connector-btn.active { background: rgba(59,130,246,0.18); color: #bfdbfe; border-color: rgba(59,130,246,0.38); }
 
-  .connectors-card {
+  /* Stacked icons no botão — horizontal, maior */
+  .connector-icons {
+    position: relative;
+    width: 42px;
+    height: 22px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .connector-icon {
     position: absolute;
-    top: 3rem;
-    left: 1rem;
-    width: min(370px, calc(100vw - 3rem));
-    max-height: 360px;
-    border: 1px solid rgba(148,163,184,0.25);
-    background: rgba(8,18,34,0.92);
-    border-radius: 10px;
-    box-shadow: 0 18px 45px rgba(0,0,0,0.45);
-    z-index: 1000;
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    object-fit: cover;
+    border: 1.5px solid rgba(0,0,0,0.35);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  .connector-icon:nth-child(1) { left: 0px;  z-index: 3; transform: rotateZ(-10deg); }
+  .connector-icon:nth-child(2) { left: 9px;  z-index: 2; transform: rotateZ(0deg); }
+  .connector-icon:nth-child(3) { left: 18px; z-index: 1; transform: rotateZ(10deg); }
+
+  .connector-label {
+    font-size: 0.77rem;
+    font-weight: 700;
+    color: inherit;
+    line-height: 1;
+  }
+
+  /* ─── CONNECTORS CARD — centralizado 100% viewport ─── */
+  /*  IMPORTANTE: este elemento fica em body, fora de qualquer
+      ancestor com backdrop-filter/transform que quebraria fixed  */
+  .connectors-card {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(520px, 92vw);
+    max-height: min(560px, 84vh);
+    border: 1px solid rgba(148,163,184,0.28);
+    background: rgba(7, 15, 28, 0.97);
+    border-radius: 14px;
+    box-shadow: 0 28px 70px rgba(0,0,0,0.6), 0 0 0 1px rgba(59,130,246,0.06);
+    z-index: 9999;
     overflow: hidden;
     display: none;
     flex-direction: column;
   }
   .connectors-card.show {
     display: flex;
+    animation: cardIn 0.25s cubic-bezier(0.22,1,0.36,1) both;
   }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translate(-50%, -47%) scale(0.96); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+
+  /* Overlay escuro atrás do card */
+  .connectors-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 9998;
+    display: none;
+  }
+  .connectors-overlay.show { display: block; }
+
   .connectors-card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.6rem 0.8rem;
-    background: rgba(15,23,42,0.95);
-    border-bottom: 1px solid rgba(148,163,184,0.2);
+    padding: 0.75rem 1rem;
+    background: rgba(15,23,42,0.98);
+    border-bottom: 1px solid rgba(148,163,184,0.15);
+    flex-shrink: 0;
   }
   .connectors-card-title {
-    color: #fff;
-    font-size: 0.8rem;
-    font-weight: 600;
+    color: #e2e8f0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
   .connectors-card-close {
-    color: #94a3b8;
+    color: #64748b;
     border: none;
     background: transparent;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 1rem;
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    transition: all 0.15s ease;
   }
-  .connector-auto-toggle {
-    border: 1px solid rgba(148,163,184,0.3);
-    border-radius: 999px;
-    background: rgba(48,57,87,0.8);
-    color: #e2e8f0;
-    padding: 0.25rem 0.55rem;
-    font-size: 0.72rem;
-    cursor: pointer;
+  .connectors-card-close:hover { background: rgba(255,255,255,0.07); color: #e2e8f0; }
+
+  .connector-auto-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid rgba(148,163,184,0.1);
+    flex-shrink: 0;
   }
+  .connector-auto-label {
+    font-size: 0.76rem;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+  .connector-auto-label span {
+    color: #60a5fa;
+    font-weight: 700;
+  }
+
   .connectors-card-search {
-    padding: 0.5rem 0.8rem;
-    border-bottom: 1px solid rgba(148,163,184,0.15);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(148,163,184,0.1);
+    flex-shrink: 0;
   }
   .connectors-card-search input {
     width: 100%;
-    background: rgba(15,23,42,0.8);
-    border: 1px solid rgba(148,163,184,0.22);
+    background: rgba(15,23,42,0.9);
+    border: 1px solid rgba(148,163,184,0.18);
     color: #e2e8f0;
-    border-radius: 0.45rem;
-    padding: 0.45rem 0.55rem;
+    border-radius: 0.5rem;
+    padding: 0.42rem 0.65rem;
     font-size: 0.8rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.15s;
   }
+  .connectors-card-search input:focus { border-color: rgba(59,130,246,0.4); }
+
+  /* ─── CONNECTORS LIST ─── */
   .connectors-list {
     overflow-y: auto;
     flex: 1;
-    padding: 0.6rem 0.8rem;
-    display: grid;
-    gap: 0.5rem;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
   }
+
+  /* ─── CONNECTOR ITEM — horizontal: icon | info | toggle ─── */
   .connector-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    background: rgba(15,23,42,0.85);
-    border: 1px solid rgba(148,163,184,0.2);
-    border-radius: 0.55rem;
-    padding: 0.45rem;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.65rem;
+    border: 1px solid rgba(148,163,184,0.12);
+    background: rgba(14,23,40,0.7);
+    cursor: pointer;
+    transition: all 0.18s ease;
+    user-select: none;
   }
-  .connector-item img {
-    width: 24px; height: 24px; border-radius: 4px;
+  .connector-item:hover {
+    border-color: rgba(59,130,246,0.3);
+    background: rgba(20,32,58,0.85);
   }
-  .connector-item span {
+  .connector-item.checked {
+    border-color: rgba(59,130,246,0.4);
+    background: rgba(22,38,74,0.8);
+  }
+  .connector-item-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    object-fit: contain;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    padding: 3px;
+  }
+  .connector-item-content {
     flex: 1;
-    font-size: 0.78rem;
-    color: #e2e8f0;
+    min-width: 0;
   }
-  .connector-item input[type='checkbox'] {
-    accent-color: #60a5fa;
+  .connector-item-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    line-height: 1.2;
+  }
+  .connector-item-desc {
+    font-size: 0.70rem;
+    margin-top: 0.15rem;
+    color: #64748b;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ─── TOGGLE SWITCH (iOS-style) ─── */
+  .toggle-wrap {
+    flex-shrink: 0;
+  }
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 22px;
+  }
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: rgba(51,65,85,0.9);
+    border-radius: 22px;
+    transition: background 0.25s ease;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #94a3b8;
+    border-radius: 50%;
+    transition: transform 0.25s cubic-bezier(0.22,1,0.36,1), background 0.25s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  input:checked + .toggle-slider {
+    background: #3b82f6;
+    border-color: rgba(59,130,246,0.4);
+  }
+  input:checked + .toggle-slider::before {
+    transform: translateX(16px) translateY(-50%);
+    background: #fff;
+  }
+
+  /* Auto toggle in header */
+  .auto-toggle-wrap {
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .auto-toggle-label {
+    font-size: 0.73rem; color: #94a3b8; font-weight: 600;
   }
 
   /* Pro model badge */
@@ -929,7 +878,6 @@
     overflow: hidden;
     z-index: 200;
     min-width: 220px;
-    backdrop-filter: blur(20px);
     display: none;
     animation: slideUp 0.18s ease-out;
   }
@@ -947,7 +895,6 @@
   .attach-option-title { font-size: 0.82rem; font-weight: 600; color: #e2e8f0; }
   .attach-option-desc  { font-size: 0.7rem; color: #475569; margin-top: 2px; }
 
-  /* Hidden file inputs */
   input[type="file"] { display: none; }
 
   /* Attached files */
@@ -962,13 +909,10 @@
     max-width: 160px;
   }
   .file-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .file-chip-remove {
-    cursor: pointer; color: #475569; font-size: 0.85rem;
-    flex-shrink: 0; transition: color 0.1s;
-  }
+  .file-chip-remove { cursor: pointer; color: #475569; font-size: 0.85rem; flex-shrink: 0; transition: color 0.1s; }
   .file-chip-remove:hover { color: #ef4444; }
 
-  /* ── Scroll to bottom ── */
+  /* Scroll to bottom */
   .scroll-bottom-btn {
     position: absolute; right: 1.5rem; bottom: 5.5rem;
     width: 2.25rem; height: 2.25rem;
@@ -984,7 +928,6 @@
   .scroll-bottom-btn.show { opacity: 1; pointer-events: auto; }
   .scroll-bottom-btn .material-icons-outlined { font-size: 1rem; }
 
-  /* ── Responsive ── */
   @media (max-width: 768px) {
     .sidebar { display: none; }
     .input-wrapper { left: 0; }
@@ -995,6 +938,30 @@
 <body>
 
 <div class="app-bg"></div>
+
+<!-- ─── CONNECTORS OVERLAY (fora de qualquer ancestor com filter/transform) ─── -->
+<div class="connectors-overlay" id="connectorsOverlay"></div>
+
+<!-- ─── CONNECTORS CARD (direto no body, position:fixed funciona 100%) ─── -->
+<div id="connectorsCard" class="connectors-card" role="dialog" aria-label="Conectores de APIs">
+  <div class="connectors-card-header">
+    <div class="connectors-card-title">Conectores</div>
+    <div style="display:flex;align-items:center;gap:0.75rem;">
+      <div class="auto-toggle-wrap">
+        <span class="auto-toggle-label">Auto</span>
+        <label class="toggle-switch" title="Seleção automática de conectores">
+          <input type="checkbox" id="connectorAutoCheckbox" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <button class="connectors-card-close" id="connectorsCloseBtn" aria-label="Fechar">✕</button>
+    </div>
+  </div>
+  <div class="connectors-card-search">
+    <input type="text" id="connectorsSearch" placeholder="Buscar conectores…" autocomplete="off" />
+  </div>
+  <div class="connectors-list" id="connectorsList"></div>
+</div>
 
 <div class="layout">
   <!-- ──────── SIDEBAR ──────── -->
@@ -1030,14 +997,11 @@
 
   <!-- ──────── MAIN ──────── -->
   <main class="main" id="mainContainer">
-    <!-- Header -->
     <header class="header">
       <h1 class="header-title" id="conversationTitle"></h1>
     </header>
 
-    <!-- Chat area -->
     <div class="chat-area" id="chatArea">
-      <!-- Welcome screen -->
       <div class="welcome" id="welcomeScreen">
         <div class="welcome-icon">
           <div class="welcome-icon-inner">
@@ -1081,11 +1045,9 @@
         </div>
       </div>
 
-      <!-- Messages -->
       <div class="messages-inner" id="messagesContainer"></div>
     </div>
 
-    <!-- Scroll to bottom -->
     <button class="scroll-bottom-btn" id="scrollToBottomBtn">
       <span class="material-icons-outlined">arrow_downward</span>
     </button>
@@ -1093,6 +1055,7 @@
     <!-- ──────── INPUT WRAPPER ──────── -->
     <div class="input-wrapper" id="inputWrapper">
       <div class="input-inner">
+
         <!-- Thinking indicator -->
         <div class="thinking-indicator" id="thinkingIndicator">
           <div class="model-badge" style="font-size:0.7rem;padding:0.22rem 0.55rem;">
@@ -1104,21 +1067,24 @@
           </div>
         </div>
 
+        <!-- ─── SELECTED CONNECTORS BAR — aparece ACIMA do input card ─── -->
+        <div id="selectedConnectorsBar" class="selected-connectors-bar">
+          <span class="sel-bar-label">Fontes:</span>
+          <div class="sel-bar-icons" id="selBarIcons"></div>
+        </div>
+
         <div class="input-card" id="inputCard">
-          <!-- Attached files -->
           <div id="attachedFilesContainer" class="attached-files" style="display:none;"></div>
 
           <textarea id="userInput" rows="1" placeholder="Pergunte qualquer coisa…"></textarea>
 
           <div class="toolbar">
-            <!-- Left side -->
             <div class="toolbar-left">
               <!-- Attach button -->
               <div style="position:relative;">
                 <button class="icon-btn" id="attachBtn" title="Anexar arquivo">
                   <span class="material-icons-outlined">attach_file</span>
                 </button>
-                <!-- Attach dropdown -->
                 <div class="attach-dropdown" id="attachDropdown">
                   <div class="attach-option" id="attachFileOption">
                     <span class="material-icons-outlined attach-option-icon" style="color:#60a5fa">upload_file</span>
@@ -1146,35 +1112,20 @@
 
               <!-- Connectors toggle button -->
               <button class="connector-btn" id="connectorsBtn" title="Conectores">
-                <img src="https://cdn-icons-png.flaticon.com/512/3039/3039478.png" alt="Conectores" class="connector-icon" />
-                <span>Conectores</span>
+                <div class="connector-icons" aria-hidden="true">
+                  <img src="NASA.png" alt="NASA" class="connector-icon" />
+                  <img src="wikipedia.png" alt="Wikipedia" class="connector-icon" />
+                  <img src="spacex.png" alt="SpaceX" class="connector-icon" />
+                </div>
+                <span class="connector-label">Conectores</span>
               </button>
-
-              <div id="connectorsCard" class="connectors-card" role="dialog" aria-label="Conectores de APIs">
-                <div class="connectors-card-header">
-                  <div class="connectors-card-title">Conectores API</div>
-                  <button class="connectors-card-close" id="connectorsCloseBtn">✕</button>
-                </div>
-                <div class="connectors-card-search">
-                  <input type="text" id="connectorsSearch" placeholder="Buscar conectores..." />
-                </div>
-                <div class="connectors-card-header" style="justify-content: space-between; gap: 0.4rem;">
-                  <span style="color:#cbd5e1;font-size:0.75rem;">Auto</span>
-                  <button id="connectorAutoBtn" class="connector-auto-toggle">ON</button>
-                </div>
-                <div class="connectors-list" id="connectorsList"></div>
-              </div>
             </div>
 
-            <!-- Right side -->
             <div class="toolbar-right">
-              <!-- Model badge -->
               <div class="model-badge">
                 <div class="model-badge-dot"></div>
                 <span class="model-badge-text">Drekee AI 1.5 Pro</span>
               </div>
-
-              <!-- Send button -->
               <button class="send-btn" id="sendButton" title="Enviar">
                 <span class="material-icons-outlined">arrow_upward</span>
               </button>
@@ -1187,7 +1138,7 @@
 </div>
 
 <script>
-  // ── Welcome title rotation ──────────────────────────────────
+  // ── Welcome title rotation ────────────────────────────────
   const titles = [
     'Por onde começamos?',
     'O que vamos criar hoje?',
@@ -1198,14 +1149,14 @@
   document.getElementById('welcomeTitle').innerHTML =
     `<strong>${titles[Math.floor(Math.random() * titles.length)]}</strong>`;
 
-  // ── Textarea auto-resize ────────────────────────────────────
+  // ── Textarea auto-resize ──────────────────────────────────
   const textarea = document.getElementById('userInput');
   textarea.addEventListener('input', () => {
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
   });
 
-  // ── Attach dropdown ─────────────────────────────────────────
+  // ── Attach dropdown ───────────────────────────────────────
   const attachBtn      = document.getElementById('attachBtn');
   const attachDropdown = document.getElementById('attachDropdown');
   const fileInput      = document.getElementById('fileInput');
@@ -1224,7 +1175,6 @@
     attachDropdown.classList.remove('show');
   });
   document.getElementById('takePhotoOption').addEventListener('click', () => {
-    // Trigger camera via file input on mobile
     const cam = document.createElement('input');
     cam.type = 'file'; cam.accept = 'image/*'; cam.capture = 'environment';
     cam.onchange = () => handleFiles(cam.files);
@@ -1232,7 +1182,7 @@
     attachDropdown.classList.remove('show');
   });
 
-  // ── File handling ───────────────────────────────────────────
+  // ── File handling ─────────────────────────────────────────
   const attachedFilesContainer = document.getElementById('attachedFilesContainer');
   let attachedFiles = [];
   let connectorAuto = true;
@@ -1260,15 +1210,14 @@
     attachedFilesContainer.appendChild(chip);
   }
 
-  // ── Welcome / messages ──────────────────────────────────────
-  const welcomeScreen   = document.getElementById('welcomeScreen');
+  // ── Welcome / messages ────────────────────────────────────
+  const welcomeScreen     = document.getElementById('welcomeScreen');
   const messagesContainer = document.getElementById('messagesContainer');
-  const convTitle       = document.getElementById('conversationTitle');
-  let conversationActive = false;
+  const convTitle         = document.getElementById('conversationTitle');
+  let conversationActive  = false;
   const STORAGE_KEY = 'drekee_chat_history_v1';
   let chatHistory = [];
 
-  // Load stored conversation memory on page load
   loadHistory();
 
   function loadHistory() {
@@ -1276,28 +1225,20 @@
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         chatHistory = JSON.parse(saved);
-        // Restore messages to UI
         chatHistory.forEach(item => {
           if (item.type === 'ai-sequence') {
-            // Handle sequential AI messages
             addMessage('ai', item.payload.response, item.payload, { save: false, instant: true });
           } else {
-            // Handle regular messages
             addMessage(item.role, item.content, item.metadata, { save: false, instant: true });
           }
         });
       }
-    } catch (err) {
-      console.warn('Failed to load chat history', err);
-    }
+    } catch (err) { console.warn('Failed to load chat history', err); }
   }
 
   function saveHistory() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
-    } catch (err) {
-      console.warn('Failed to save chat history', err);
-    }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory)); }
+    catch (err) { console.warn('Failed to save chat history', err); }
   }
 
   function showMessages() {
@@ -1309,11 +1250,9 @@
 
   function addMessage(role, content, metadata = null, options = {}) {
     showMessages();
-
     const shouldSave = options.save !== false;
-    const instant = options.instant === true;
+    const instant    = options.instant === true;
 
-    // If we have structured metadata (thinking + logs/media), render sequentially
     if (role === 'ai' && metadata?.thinking && !instant) {
       renderAgentSequence({ response: content, ...metadata });
       if (shouldSave) {
@@ -1331,50 +1270,23 @@
     } else {
       let htmlContent = `<div class="avatar">D</div><div class="bubble">`;
       htmlContent += `<div class="ai-response">${escapeHtml(content)}</div>`;
-
-      // Raciocínio (logs)
-      if (metadata?.logs && metadata.logs.length > 0) {
-        htmlContent += `
-          <div class="thinking-logs">
-            <div class="logs-header">🧠 Raciocínio</div>
-            <div class="logs-content">${metadata.logs.map(log => escapeHtml(log)).join('<br/>')}</div>
-          </div>`;
+      if (metadata?.logs?.length > 0) {
+        htmlContent += `<div class="thinking-logs"><div class="logs-header">🧠 Raciocínio</div><div class="logs-content">${metadata.logs.map(log => escapeHtml(log)).join('<br/>')}</div></div>`;
       }
-
-      // Media (NASA imagens/vídeos)
-      if (metadata?.media && metadata.media.length > 0) {
-        htmlContent += `
-          <div class="media-results">
-            <div class="media-header">📷 NASA Media</div>
-            <div class="media-grid">`;
-
+      if (metadata?.media?.length > 0) {
+        htmlContent += `<div class="media-results"><div class="media-header">📷 NASA Media</div><div class="media-grid">`;
         for (const item of metadata.media) {
           const title = escapeHtml(item.title || 'NASA media');
-          const desc = escapeHtml(item.description || '');
-          const url = item.url || '';
-
+          const desc  = escapeHtml(item.description || '');
+          const url   = item.url || '';
           if (item.media_type === 'video' || url.endsWith('.mp4')) {
-            htmlContent += `
-              <div class="media-item">
-                <div class="media-title">${title}</div>
-                <video class="media-video" controls src="${escapeHtml(url)}"></video>
-                ${desc ? `<div class="media-desc">${desc}</div>` : ''}
-              </div>`;
+            htmlContent += `<div class="media-item"><div class="media-title">${title}</div><video class="media-video" controls src="${escapeHtml(url)}"></video>${desc ? `<div class="media-desc">${desc}</div>` : ''}</div>`;
           } else {
-            htmlContent += `
-              <div class="media-item">
-                <div class="media-title">${title}</div>
-                <img class="media-img" src="${escapeHtml(url)}" alt="${title}" />
-                ${desc ? `<div class="media-desc">${desc}</div>` : ''}
-              </div>`;
+            htmlContent += `<div class="media-item"><div class="media-title">${title}</div><img class="media-img" src="${escapeHtml(url)}" alt="${title}" />${desc ? `<div class="media-desc">${desc}</div>` : ''}</div>`;
           }
         }
-
-        htmlContent += `
-            </div>
-          </div>`;
+        htmlContent += `</div></div>`;
       }
-
       htmlContent += `</div>`;
       wrapper.innerHTML = htmlContent;
     }
@@ -1386,8 +1298,6 @@
       chatHistory.push({ role, content, metadata });
       saveHistory();
     }
-
-    // Update header title with first user message
     if (role === 'user' && !convTitle.textContent) {
       const short = content.length > 50 ? content.slice(0, 50) + '…' : content;
       convTitle.textContent = short;
@@ -1398,26 +1308,18 @@
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ── Utils ───────────────────────────────────────────────────
-  function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+  function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
   function parseResponseWithCitations(response, sources) {
     const sourcesMap = new Map(sources.map(s => [s.id, s]));
-    const citations = new Map(); // id -> [start, end] positions
-
-    // Replace [SOURCE-ID] with <span class="citation-tag" data-source="ID">Fontes</span>
+    const citations  = new Map();
     let html = response.replace(/\[([A-Za-z0-9-]+)\]/g, (match, id) => {
       const source = sourcesMap.get(id);
-      if (!source) return match; // Keep as is if not found
-
+      if (!source) return match;
       const index = response.indexOf(match);
       citations.set(id, [index, index + match.length]);
-
       return `<span class="citation-tag" data-source="${id}">Fontes</span>`;
     });
-
     return { html, citations };
   }
 
@@ -1432,84 +1334,54 @@
   }
 
   function addCitationHoverListeners(container, citations) {
-    const tags = container.querySelectorAll('.citation-tag');
-    tags.forEach(tag => {
+    container.querySelectorAll('.citation-tag').forEach(tag => {
       const sourceId = tag.dataset.source;
-      const source = citations.get(sourceId);
-
-      tag.addEventListener('mouseenter', () => {
-        tag.classList.add('highlight-yellow');
-      });
-
-      tag.addEventListener('mouseleave', () => {
-        tag.classList.remove('highlight-yellow');
-      });
-
-      tag.addEventListener('click', (event) => {
-        showCitationCard(event.currentTarget, sourceId);
-      });
+      tag.addEventListener('mouseenter', () => tag.classList.add('highlight-yellow'));
+      tag.addEventListener('mouseleave', () => tag.classList.remove('highlight-yellow'));
+      tag.addEventListener('click', (event) => showCitationCard(event.currentTarget, sourceId));
     });
   }
 
   function showCitationCard(target, sourceId) {
-    const root = document.body;
     let card = document.getElementById('citationCard');
     if (!card) {
       card = document.createElement('div');
       card.id = 'citationCard';
-      card.style.position = 'absolute';
-      card.style.zIndex = 1100;
-      card.style.background = 'rgba(8, 16, 34, 0.95)';
-      card.style.border = '1px solid rgba(148,163,184,0.25)';
-      card.style.borderRadius = '8px';
-      card.style.padding = '0.5rem';
-      card.style.minWidth = '220px';
-      card.style.maxWidth = '320px';
-      card.style.maxHeight = '240px';
-      card.style.overflow = 'auto';
-      card.style.color = '#e2e8f0';
-      card.style.boxShadow = '0 14px 30px rgba(0,0,0,0.35)';
-      root.appendChild(card);
+      Object.assign(card.style, {
+        position:'fixed', zIndex:'10000',
+        background:'rgba(8,16,34,0.96)',
+        border:'1px solid rgba(148,163,184,0.25)',
+        borderRadius:'8px', padding:'0.5rem',
+        minWidth:'220px', maxWidth:'320px', maxHeight:'240px',
+        overflow:'auto', color:'#e2e8f0',
+        boxShadow:'0 14px 30px rgba(0,0,0,0.35)',
+      });
+      document.body.appendChild(card);
     }
-
     const source = currentSources.find(s => s.id === sourceId);
     if (!source) return;
-
     let content;
-    if (source.type === 'nasa' && source.url && source.url.match(/\.(jpe?g|png|gif|webp|svg)$/i)) {
-      content = `<div style="display:flex;flex-direction:column;gap:0.4rem;">
-        <img src="${source.url}" style="max-width:300px;max-height:200px;border-radius:6px;object-fit:cover;" />
-        <a href="${source.url}" target="_blank" style="color:#60a5fa;font-size:0.78rem;">Abrir imagem</a>
-      </div>`;
+    if (source.type === 'nasa' && source.url?.match(/\.(jpe?g|png|gif|webp|svg)$/i)) {
+      content = `<div style="display:flex;flex-direction:column;gap:0.4rem;"><img src="${source.url}" style="max-width:300px;max-height:200px;border-radius:6px;object-fit:cover;"/><a href="${source.url}" target="_blank" style="color:#60a5fa;font-size:0.78rem;">Abrir imagem</a></div>`;
     } else {
-      content = `<div style="display:flex;flex-direction:column;gap:0.4rem;">
-        <div style="font-weight:700;font-size:0.78rem;">${source.label}</div>
-        <div style="font-size:0.72rem;color:#94a3b8;line-height:1.3;">${escapeHtml(source.detail || 'Sem detalhes')}</div>
-        ${source.url ? `<a href="${source.url}" target="_blank" style="color:#60a5fa;font-size:0.78rem;word-break:break-all;">${source.url}</a>` : ''}
-      </div>`;
+      content = `<div style="display:flex;flex-direction:column;gap:0.4rem;"><div style="font-weight:700;font-size:0.78rem;">${source.label}</div><div style="font-size:0.72rem;color:#94a3b8;line-height:1.3;">${escapeHtml(source.detail||'Sem detalhes')}</div>${source.url?`<a href="${source.url}" target="_blank" style="color:#60a5fa;font-size:0.78rem;word-break:break-all;">${source.url}</a>`:''}</div>`;
     }
-
     card.innerHTML = content;
-
     const rect = target.getBoundingClientRect();
-    card.style.top = `${window.scrollY + rect.bottom + 8}px`;
-    card.style.left = `${window.scrollX + rect.left}px`;
-
+    card.style.top  = `${rect.bottom + 8}px`;
+    card.style.left = `${rect.left}px`;
     const handleClickOutside = (evt) => {
       if (!card.contains(evt.target) && evt.target !== target) {
         card.remove();
         window.removeEventListener('click', handleClickOutside);
       }
     };
-
-    setTimeout(() => {
-      window.addEventListener('click', handleClickOutside);
-    }, 0);
+    setTimeout(() => window.addEventListener('click', handleClickOutside), 0);
   }
 
-async function renderAgentSequence(payload, options = {}) {
+  async function renderAgentSequence(payload, options = {}) {
     const instant = options.instant === true;
-    const { logs = [], media = [], response, thinking = 'Processando sua pergunta...', sources = [] } = payload;
+    const { logs=[], media=[], response, thinking='Processando sua pergunta...', sources=[] } = payload;
     currentSources = sources;
 
     const wrapper = document.createElement('div');
@@ -1519,59 +1391,42 @@ async function renderAgentSequence(payload, options = {}) {
     const inner = document.createElement('div');
     inner.className = 'bubble';
 
-    // THINKING SECTION (ALWAYS VISIBLE, ON TOP)
     const thinkingContainer = document.createElement('div');
     thinkingContainer.className = 'thinking-section';
     thinkingContainer.style.opacity = instant ? '1' : '0';
     thinkingContainer.style.transition = 'opacity 0.3s ease';
-    thinkingContainer.innerHTML = `
-      <div class="thinking-header">🧠 Raciocínio</div>
-      <div class="thinking-text">${thinking}</div>
-    `;
+    thinkingContainer.innerHTML = `<div class="thinking-header">🧠 Raciocínio</div><div class="thinking-text">${thinking}</div>`;
 
-    // RESPONSE SECTION
     const responseContainer = document.createElement('div');
     responseContainer.className = 'ai-response';
     responseContainer.style.opacity = instant ? '1' : '0';
     responseContainer.style.transition = 'opacity 0.3s ease';
-
-    // Parse response for citations
     const parsedResponse = parseResponseWithCitations(response, sources);
     responseContainer.innerHTML = parsedResponse.html;
 
-    // MEDIA SECTION
     const mediaContainer = document.createElement('div');
     mediaContainer.className = 'media-results';
     mediaContainer.style.opacity = instant ? '1' : '0';
-    mediaContainer.innerHTML = `
-      <div class="media-header">📷 NASA Media</div>
-      <div class="media-grid"></div>
-    `;
+    mediaContainer.innerHTML = `<div class="media-header">📷 NASA Media</div><div class="media-grid"></div>`;
 
-    // SOURCES SECTION
     const sourcesContainer = document.createElement('div');
     sourcesContainer.className = 'sources-section';
     sourcesContainer.style.opacity = instant ? '1' : '0';
     sourcesContainer.style.transition = 'opacity 0.3s ease';
-    sourcesContainer.innerHTML = `
-      <div class="sources-header">📚 Fontes Utilizadas</div>
-      <div class="sources-grid">${renderSources(sources)}</div>
-    `;
+    sourcesContainer.innerHTML = `<div class="sources-header">📚 Fontes Utilizadas</div><div class="sources-grid">${renderSources(sources)}</div>`;
 
-    // APPEND IN CORRECT ORDER: THINKING -> RESPONSE -> MEDIA -> SOURCES
     inner.appendChild(thinkingContainer);
     inner.appendChild(responseContainer);
     inner.appendChild(mediaContainer);
     inner.appendChild(sourcesContainer);
 
-    if (!media.length) mediaContainer.style.display = 'none';
+    if (!media.length)   mediaContainer.style.display = 'none';
     if (!sources.length) sourcesContainer.style.display = 'none';
 
     wrapper.appendChild(inner);
     messagesContainer.appendChild(wrapper);
     scrollToBottom();
 
-    // Add hover listeners for citations
     addCitationHoverListeners(responseContainer, parsedResponse.citations);
 
     const renderMedia = () => {
@@ -1579,33 +1434,24 @@ async function renderAgentSequence(payload, options = {}) {
       media.forEach(item => {
         const card = document.createElement('div');
         card.className = 'media-item';
-
         const title = document.createElement('div');
         title.className = 'media-title';
         title.textContent = item.title || 'NASA media';
         card.appendChild(title);
-
         if (item.media_type === 'video' || item.url?.endsWith('.mp4')) {
           const video = document.createElement('video');
-          video.src = item.url;
-          video.controls = true;
-          video.className = 'media-video';
+          video.src = item.url; video.controls = true; video.className = 'media-video';
           card.appendChild(video);
         } else {
           const img = document.createElement('img');
-          img.src = item.url;
-          img.alt = item.title || 'NASA image';
-          img.className = 'media-img';
+          img.src = item.url; img.alt = item.title||''; img.className = 'media-img';
           card.appendChild(img);
         }
-
         if (item.description) {
           const desc = document.createElement('div');
-          desc.className = 'media-desc';
-          desc.textContent = item.description;
+          desc.className = 'media-desc'; desc.textContent = item.description;
           card.appendChild(desc);
         }
-
         grid.appendChild(card);
       });
     };
@@ -1614,23 +1460,17 @@ async function renderAgentSequence(payload, options = {}) {
       await delay(50);
       wrapper.style.transition = 'opacity 0.25s ease';
       wrapper.style.opacity = '1';
-
-      // Fade in thinking section
       thinkingContainer.style.opacity = '1';
       await delay(500);
-
-      // Fade in response section
       responseContainer.style.opacity = '1';
       scrollToBottom();
       await delay(300);
-
       if (media.length > 0) {
         await delay(250);
         mediaContainer.style.opacity = '1';
         renderMedia();
         scrollToBottom();
       }
-
       if (sources.length > 0) {
         await delay(200);
         sourcesContainer.style.opacity = '1';
@@ -1639,19 +1479,12 @@ async function renderAgentSequence(payload, options = {}) {
     } else {
       thinkingContainer.style.opacity = '1';
       responseContainer.style.opacity = '1';
-
-      if (media.length > 0) {
-        mediaContainer.style.opacity = '1';
-        renderMedia();
-      }
-
-      if (sources.length > 0) {
-        sourcesContainer.style.opacity = '1';
-      }
+      if (media.length > 0)   { mediaContainer.style.opacity = '1'; renderMedia(); }
+      if (sources.length > 0) sourcesContainer.style.opacity = '1';
     }
   }
 
-  // ── Suggestions ─────────────────────────────────────────────
+  // ── Suggestions ───────────────────────────────────────────
   function fillSuggestion(text) {
     textarea.value = text;
     textarea.dispatchEvent(new Event('input'));
@@ -1659,102 +1492,198 @@ async function renderAgentSequence(payload, options = {}) {
   }
   window.fillSuggestion = fillSuggestion;
 
-  // ── Send / Conectores toggle ───────────────────────────────────────
-  const sendButton = document.getElementById('sendButton');
-  const connectorsBtn = document.getElementById('connectorsBtn');
-  const connectorsCard = document.getElementById('connectorsCard');
+  // ── Connectors ────────────────────────────────────────────
+  const connectorsBtn      = document.getElementById('connectorsBtn');
+  const connectorsCard     = document.getElementById('connectorsCard');
+  const connectorsOverlay  = document.getElementById('connectorsOverlay');
   const connectorsCloseBtn = document.getElementById('connectorsCloseBtn');
-  const connectorsSearch = document.getElementById('connectorsSearch');
-  const connectorsList = document.getElementById('connectorsList');
-  const connectorAutoBtn = document.getElementById('connectorAutoBtn');
+  const connectorsSearch   = document.getElementById('connectorsSearch');
+  const connectorsList     = document.getElementById('connectorsList');
+  const connectorAutoChk   = document.getElementById('connectorAutoCheckbox');
 
   const connectorOptions = [
-    { key: 'tavily', label: 'Busca Geral (Tavily)', img: 'https://cdn-icons-png.flaticon.com/512/22/22394.png' },
-    { key: 'wikipedia', label: 'Wikipedia', img: 'wikipedia.png' },
-    { key: 'arxiv', label: 'arXiv', img: 'arxiv.png' },
-    { key: 'newton', label: 'Newton (MathJS)', img: 'newton.png' },
-    { key: 'spacex', label: 'SpaceX', img: 'spacex.png' },
-    { key: 'open-meteo', label: 'Open-Meteo', img: 'onep-meteo.png' },
-    { key: 'nasa', label: 'NASA', img: 'NASA.png' },
+    { key: 'tavily',     label: 'Busca Geral (Tavily)', img: 'https://cdn-icons-png.flaticon.com/512/11/11066.png', description: 'Pesquisa na web e agrega resultados recentes.' },
+    { key: 'wikipedia',  label: 'Wikipedia',   img: 'wikipedia.png',   description: 'Resumos e conteúdos enciclopédicos estruturados.' },
+    { key: 'arxiv',      label: 'arXiv',       img: 'arxiv.png',       description: 'Artigos científicos de física, matemática e computação.' },
+    { key: 'newton',     label: 'Newton (MathJS)', img: 'newton.png',  description: 'Resolve expressões e cálculos matemáticos.' },
+    { key: 'spacex',     label: 'SpaceX',      img: 'spacex.png',      description: 'Dados de lançamentos e missões espaciais atualizados.' },
+    { key: 'open-meteo', label: 'Open-Meteo',  img: 'open-meteo.png',  description: 'Dados meteorológicos globais por coordenadas.' },
+    { key: 'nasa',       label: 'NASA',        img: 'NASA.png',        description: 'Imagens e dados de observações da NASA.' },
   ];
 
-  function renderConnectorsList(filter = '') {
-    const query = filter.trim().toLowerCase();
-    connectorsList.innerHTML = ''; 
-
-    connectorOptions
-      .filter(opt => !query || opt.label.toLowerCase().includes(query))
-      .forEach(opt => {
-        const item = document.createElement('div');
-        item.className = 'connector-item';
-
-        const icon = document.createElement('img');
-        icon.src = opt.img;
-        icon.alt = opt.label;
-
-        const name = document.createElement('span');
-        name.textContent = opt.label;
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = !connectorAuto && selectedConnectors.includes(opt.key);
-        checkbox.disabled = connectorAuto;
-
-        checkbox.addEventListener('change', () => {
-          connectorAuto = false;
-          connectorAutoBtn.textContent = 'OFF';
-          if (checkbox.checked) {
-            selectedConnectors = [...new Set([...selectedConnectors, opt.key])];
-          } else {
-            selectedConnectors = selectedConnectors.filter(k => k !== opt.key);
-          }
-          renderConnectorsList(connectorsSearch.value);
-        });
-
-        item.appendChild(icon);
-        item.appendChild(name);
-        item.appendChild(checkbox);
-
-        connectorsList.appendChild(item);
-      });
+  function openConnectorsCard() {
+    connectorsCard.classList.add('show');
+    connectorsOverlay.classList.add('show');
+    connectorsBtn.classList.add('active');
+    renderConnectorsList(connectorsSearch.value);
   }
 
-  connectorsBtn.addEventListener('click', () => {
-    connectorsCard.classList.toggle('show');
-    renderConnectorsList(connectorsSearch.value);
-  });
-
-  connectorsCloseBtn.addEventListener('click', () => {
+  function closeConnectorsCard() {
     connectorsCard.classList.remove('show');
+    connectorsOverlay.classList.remove('show');
+    connectorsBtn.classList.remove('active');
+  }
+
+  connectorsBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (connectorsCard.classList.contains('show')) {
+      closeConnectorsCard();
+    } else {
+      openConnectorsCard();
+    }
   });
 
-  connectorAutoBtn.addEventListener('click', () => {
-    connectorAuto = !connectorAuto;
-    connectorAutoBtn.textContent = connectorAuto ? 'ON' : 'OFF';
-    if (connectorAuto) {
-      selectedConnectors = [];
-    }
+  connectorsCloseBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    closeConnectorsCard();
+  });
+
+  // Fechar ao clicar no overlay
+  connectorsOverlay.addEventListener('click', () => closeConnectorsCard());
+
+  // Auto toggle (checkbox no header)
+  connectorAutoChk.addEventListener('change', e => {
+    e.stopPropagation();
+    connectorAuto = connectorAutoChk.checked;
+    if (connectorAuto) selectedConnectors = [];
     renderConnectorsList(connectorsSearch.value);
+    renderSelectedBar();
   });
 
   connectorsSearch.addEventListener('input', () => {
     renderConnectorsList(connectorsSearch.value);
   });
 
-  document.addEventListener('click', (event) => {
-    if (!connectorsCard.contains(event.target) && event.target !== connectorsBtn) {
-      connectorsCard.classList.remove('show');
+  function renderConnectorsList(filter = '') {
+    const query = filter.trim().toLowerCase();
+    connectorsList.innerHTML = '';
+
+    connectorOptions
+      .filter(opt => !query || opt.label.toLowerCase().includes(query))
+      .forEach(opt => {
+        const isChecked = !connectorAuto && selectedConnectors.includes(opt.key);
+
+        const item = document.createElement('div');
+        item.className = 'connector-item' + (isChecked ? ' checked' : '');
+
+        const icon = document.createElement('img');
+        icon.src = opt.img; icon.alt = opt.label; icon.className = 'connector-item-icon';
+
+        const content = document.createElement('div');
+        content.className = 'connector-item-content';
+
+        const title = document.createElement('div');
+        title.className = 'connector-item-title';
+        title.textContent = opt.label;
+
+        const desc = document.createElement('div');
+        desc.className = 'connector-item-desc';
+        desc.textContent = opt.description;
+
+        content.appendChild(title);
+        content.appendChild(desc);
+
+        // Toggle switch
+        const toggleWrap = document.createElement('label');
+        toggleWrap.className = 'toggle-switch toggle-wrap';
+        toggleWrap.title = opt.label;
+
+        const toggleInput = document.createElement('input');
+        toggleInput.type = 'checkbox';
+        toggleInput.checked = isChecked;
+        toggleInput.disabled = connectorAuto; // se auto, não permite toggle manual
+
+        const toggleSlider = document.createElement('span');
+        toggleSlider.className = 'toggle-slider';
+
+        toggleWrap.appendChild(toggleInput);
+        toggleWrap.appendChild(toggleSlider);
+
+        // Handler — stopPropagation em todos os eventos para nunca fechar o card
+        const handleToggle = (e) => {
+          e.stopPropagation();
+          if (connectorAuto) {
+            // Desativa auto e permite seleção manual
+            connectorAuto = false;
+            connectorAutoChk.checked = false;
+          }
+          const nowChecked = toggleInput.checked;
+          if (nowChecked) {
+            selectedConnectors = [...new Set([...selectedConnectors, opt.key])];
+          } else {
+            selectedConnectors = selectedConnectors.filter(k => k !== opt.key);
+          }
+          item.classList.toggle('checked', nowChecked);
+          renderSelectedBar();
+          // NÃO chama renderConnectorsList aqui para não destruir o DOM e fechar o card
+        };
+
+        toggleInput.addEventListener('change', handleToggle);
+        toggleWrap.addEventListener('click', e => e.stopPropagation());
+
+        item.addEventListener('click', e => {
+          e.stopPropagation(); // ← crítico: impede o document click de fechar o card
+          if (connectorAuto) {
+            connectorAuto = false;
+            connectorAutoChk.checked = false;
+          }
+          toggleInput.checked = !toggleInput.checked;
+          const nowChecked = toggleInput.checked;
+          if (nowChecked) {
+            selectedConnectors = [...new Set([...selectedConnectors, opt.key])];
+          } else {
+            selectedConnectors = selectedConnectors.filter(k => k !== opt.key);
+          }
+          item.classList.toggle('checked', nowChecked);
+          renderSelectedBar();
+        });
+
+        item.appendChild(icon);
+        item.appendChild(content);
+        item.appendChild(toggleWrap);
+
+        connectorsList.appendChild(item);
+      });
+  }
+
+  /* Impede que cliques dentro do card se propaguem para o document */
+  connectorsCard.addEventListener('click', e => e.stopPropagation());
+
+  /* Fechar com ESC */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && connectorsCard.classList.contains('show')) {
+      closeConnectorsCard();
     }
   });
 
+  // ─── SELECTED CONNECTORS BAR (acima do input) ────────────
+  function renderSelectedBar() {
+    const bar      = document.getElementById('selectedConnectorsBar');
+    const iconsDiv = document.getElementById('selBarIcons');
+    iconsDiv.innerHTML = '';
+
+    if (connectorAuto || selectedConnectors.length === 0) {
+      bar.classList.remove('visible');
+      return;
+    }
+
+    bar.classList.add('visible');
+    selectedConnectors.forEach(key => {
+      const opt = connectorOptions.find(o => o.key === key);
+      if (!opt) return;
+      const chip = document.createElement('div');
+      chip.className = 'sel-bar-chip';
+      chip.title = opt.label;
+      chip.innerHTML = `<img src="${opt.img}" alt="${opt.label}"/><span>${opt.label}</span>`;
+      iconsDiv.appendChild(chip);
+    });
+  }
+
+  // ── File serializer ───────────────────────────────────────
   function fileToBase64(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result;
-        const base64 = dataUrl.split(',')[1] ?? '';
-        resolve(base64);
-      };
+      reader.onload  = () => resolve((reader.result.split(',')[1]) ?? '');
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
@@ -1762,13 +1691,12 @@ async function renderAgentSequence(payload, options = {}) {
 
   async function serializeFiles(files) {
     return Promise.all(Array.from(files).map(async file => ({
-      name: file.name,
-      type: file.type,
-      size: file.size,
+      name: file.name, type: file.type, size: file.size,
       data: await fileToBase64(file),
     })));
   }
 
+  // ── Send ──────────────────────────────────────────────────
   async function sendMessage() {
     const text = textarea.value.trim();
     if (!text && attachedFiles.length === 0) return;
@@ -1777,14 +1705,12 @@ async function renderAgentSequence(payload, options = {}) {
     textarea.value = '';
     textarea.style.height = 'auto';
 
-    // Attach files reset
     const filesToSend = attachedFiles;
     attachedFiles = [];
     attachedFilesContainer.innerHTML = '';
     attachedFilesContainer.style.display = 'none';
     fileInput.value = '';
 
-    // Show thinking
     document.getElementById('thinkingIndicator').classList.add('show');
 
     try {
@@ -1793,41 +1719,25 @@ async function renderAgentSequence(payload, options = {}) {
         files: await serializeFiles(filesToSend),
         connectors: selectedConnectors,
         connectorAuto,
-        nasa: selectedConnectors.includes('nasa') || !connectorAuto && selectedConnectors.includes('nasa'),
+        nasa: selectedConnectors.includes('nasa') || (!connectorAuto && selectedConnectors.includes('nasa')),
       };
 
-      // Se você abrir o HTML direto (file://), não existe server.
       if (window.location.protocol === 'file:' || window.location.origin === 'null') {
         throw new Error('O chat precisa rodar em um servidor HTTP (ex: Vercel / localhost) para funcionar.');
       }
 
-      const apiUrl = './api/chat';
-
-      // `fetch` falha com network error quando:
-      // - o servidor não existe (404/500 não falham)
-      // - a rota não está acessível
-      // - não há conexão
-      // Por isso mostramos o URL e, em caso de status != ok, o body.
-      const resp = await fetch(apiUrl, {
+      const resp = await fetch('./api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       const respText = await resp.text();
-
       let json;
-      try {
-        json = JSON.parse(respText);
-      } catch (parseErr) {
-        throw new Error(`Invalid JSON response from server (status ${resp.status}): ${respText}`);
-      }
+      try { json = JSON.parse(respText); }
+      catch { throw new Error(`Invalid JSON (status ${resp.status}): ${respText}`); }
 
-      if (!resp.ok) {
-        throw new Error(`Server returned ${resp.status}: ${JSON.stringify(json)}`);
-      }
-
-      console.debug('API response', json);
+      if (!resp.ok) throw new Error(`Server returned ${resp.status}: ${JSON.stringify(json)}`);
 
       const aiText = json?.response || 'Desculpe, não consegui gerar uma resposta no momento.';
       const metadata = {
@@ -1836,12 +1746,10 @@ async function renderAgentSequence(payload, options = {}) {
         media: json?.media || [],
         sources: json?.sources || [],
       };
-      
-      addMessage('ai', aiText, metadata);
 
-      if (json?.error) {
-        addMessage('ai', `<em style="color:#f87171;font-size:0.8rem;">(debug) ${json.error}</em>`);
-      }
+      addMessage('ai', aiText, metadata);
+      if (json?.error) addMessage('ai', `<em style="color:#f87171;font-size:0.8rem;">(debug) ${json.error}</em>`);
+
     } catch (err) {
       console.error(err);
       addMessage('ai', `<em style="color:#f87171;font-size:0.85rem;">Erro: ${err?.message || err}</em>`);
@@ -1850,12 +1758,12 @@ async function renderAgentSequence(payload, options = {}) {
     }
   }
 
-  sendButton.addEventListener('click', sendMessage);
+  document.getElementById('sendButton').addEventListener('click', sendMessage);
   textarea.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
 
-  // ── New chat ─────────────────────────────────────────────────
+  // ── New chat ──────────────────────────────────────────────
   document.getElementById('newChatBtn').addEventListener('click', () => {
     messagesContainer.innerHTML = '';
     welcomeScreen.classList.remove('hidden');
@@ -1864,15 +1772,13 @@ async function renderAgentSequence(payload, options = {}) {
     attachedFiles = [];
     attachedFilesContainer.innerHTML = '';
     attachedFilesContainer.style.display = 'none';
-
-    // Clear saved history so new chat starts fresh
     chatHistory = [];
     localStorage.removeItem(STORAGE_KEY);
   });
 
-  // ── Scroll ───────────────────────────────────────────────────
-  const chatArea       = document.getElementById('chatArea');
-  const scrollBtn      = document.getElementById('scrollToBottomBtn');
+  // ── Scroll ────────────────────────────────────────────────
+  const chatArea  = document.getElementById('chatArea');
+  const scrollBtn = document.getElementById('scrollToBottomBtn');
 
   function scrollToBottom() {
     setTimeout(() => chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' }), 80);
