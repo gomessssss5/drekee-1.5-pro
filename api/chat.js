@@ -528,6 +528,11 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
 
   // Track which sources were used for answering (web + NASA)
   const sources = [];
+
+  // Function to add sources for citation
+  function addSource(id, label, type, detail, url) {
+    sources.push({ id, label, type, detail, url });
+  }
 logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   let context = '';
