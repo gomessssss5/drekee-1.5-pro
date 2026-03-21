@@ -575,7 +575,7 @@
   .connector-btn:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; border-color: rgba(255,255,255,0.14); }
   .connector-btn.active { background: rgba(59,130,246,0.18); color: #bfdbfe; border-color: rgba(59,130,246,0.38); }
 
-  /* Stacked icons no botão — horizontal, maior */
+  /* Stacked icons no botão — horizontal, retas */
   .connector-icons {
     position: relative;
     width: 42px;
@@ -593,9 +593,9 @@
     border: 1.5px solid rgba(0,0,0,0.35);
     box-shadow: 0 1px 4px rgba(0,0,0,0.4);
   }
-  .connector-icon:nth-child(1) { left: 0px;  z-index: 3; transform: rotateZ(-10deg); }
-  .connector-icon:nth-child(2) { left: 9px;  z-index: 2; transform: rotateZ(0deg); }
-  .connector-icon:nth-child(3) { left: 18px; z-index: 1; transform: rotateZ(10deg); }
+  .connector-icon:nth-child(1) { left: 0px;  z-index: 3; transform: none; }
+  .connector-icon:nth-child(2) { left: 9px;  z-index: 2; transform: none; }
+  .connector-icon:nth-child(3) { left: 18px; z-index: 1; transform: none; }
 
   .connector-label {
     font-size: 0.77rem;
@@ -737,6 +737,11 @@
   .connector-item.checked {
     border-color: rgba(59,130,246,0.4);
     background: rgba(22,38,74,0.8);
+  }
+  .connector-item.disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    pointer-events: none;
   }
   .connector-item-icon {
     width: 34px;
@@ -1580,7 +1585,7 @@
   const connectorAutoChk   = document.getElementById('connectorAutoCheckbox');
 
   const connectorOptions = [
-    { key: 'tavily',     label: 'Busca Geral (Tavily)', img: 'https://cdn-icons-png.flaticon.com/512/11/11066.png', description: 'Pesquisa na web e agrega resultados recentes.' },
+    { key: 'tavily',     label: 'Busca Geral (Tavily)', img: 'tavily.png', description: 'Pesquisa na web e agrega resultados recentes.' },
     { key: 'wikipedia',  label: 'Wikipedia',   img: 'wikipedia.png',   description: 'Resumos e conteúdos enciclopédicos estruturados.' },
     { key: 'arxiv',      label: 'arXiv',       img: 'arxiv.png',       description: 'Artigos científicos de física, matemática e computação.' },
     { key: 'newton',     label: 'Newton (MathJS)', img: 'newton.png',  description: 'Resolve expressões e cálculos matemáticos.' },
@@ -1642,7 +1647,7 @@
         const isChecked = !connectorAuto && selectedConnectors.includes(opt.key);
 
         const item = document.createElement('div');
-        item.className = 'connector-item' + (isChecked ? ' checked' : '');
+        item.className = 'connector-item' + (isChecked ? ' checked' : '') + (connectorAuto ? ' disabled' : '');
 
         const icon = document.createElement('img');
         icon.src = opt.img; icon.alt = opt.label; icon.className = 'connector-item-icon';
@@ -1680,11 +1685,7 @@
         // Handler — stopPropagation em todos os eventos para nunca fechar o card
         const handleToggle = (e) => {
           e.stopPropagation();
-          if (connectorAuto) {
-            // Desativa auto e permite seleção manual
-            connectorAuto = false;
-            connectorAutoChk.checked = false;
-          }
+          if (connectorAuto) return; // bloqueado enquanto Auto estiver ativo
           const nowChecked = toggleInput.checked;
           if (nowChecked) {
             selectedConnectors = [...new Set([...selectedConnectors, opt.key])];
@@ -1701,10 +1702,7 @@
 
         item.addEventListener('click', e => {
           e.stopPropagation(); // ← crítico: impede o document click de fechar o card
-          if (connectorAuto) {
-            connectorAuto = false;
-            connectorAutoChk.checked = false;
-          }
+          if (connectorAuto) return; // bloqueado enquanto Auto estiver ativo
           toggleInput.checked = !toggleInput.checked;
           const nowChecked = toggleInput.checked;
           if (nowChecked) {
