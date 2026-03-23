@@ -1350,6 +1350,33 @@
     return text.slice(0, length).trim() + '...';
   }
 
+  function isImageUrl(url) {
+    if (!url) return false;
+    return Boolean(url.match(/\.(jpe?g|png|gif|webp|svg)$/i));
+  }
+
+  function isVideoUrl(url) {
+    if (!url) return false;
+    return Boolean(url.match(/\.(mp4|webm|ogg)$/i) || url.includes('youtube.com/watch') || url.includes('youtu.be/'));
+  }
+
+  function getEmbedVideoHtml(source) {
+    const url = source.url;
+    let title = source.label || source.id || 'Video';
+    let detail = source.detail || '';
+    if (url.includes('youtube.com/watch') || url.includes('youtu.be/')) {
+        let videoId = '';
+        if (url.includes('youtube.com/watch')) {
+            try { videoId = new URL(url).searchParams.get('v'); } catch(e){}
+        } else if (url.includes('youtu.be/')) {
+            videoId = url.split('youtu.be/')[1].split('?')[0];
+        }
+        return `<div class="embedded-media-card" data-source-id="${source.id}"><div class="embedded-media-card-title">${escapeHtml(title)}</div><iframe width="100%" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen style="border-radius:6px; margin-top:0.4rem;"></iframe><div class="embedded-media-card-caption">${escapeHtml(detail)}</div></div>`;
+    } else {
+        return `<div class="embedded-media-card" data-source-id="${source.id}"><div class="embedded-media-card-title">${escapeHtml(title)}</div><video controls src="${escapeHtml(url)}" style="width:100%; max-height:315px; border-radius:6px; background:#000; margin-top:0.4rem;"></video><div class="embedded-media-card-caption">${escapeHtml(detail)}</div></div>`;
+    }
+  }
+
   function renderSources(sources) {
     return sources.map(source => `
       <div class="source-item" data-source-id="${source.id}">
@@ -1369,8 +1396,8 @@
       tag.addEventListener('click', async (event) => {
         showCitationCard(event.currentTarget, sourceId);
         const source = sourceMap.get(sourceId);
-        if (source && source.type === 'nasa' && source.url && source.url.match(/\.(jpe?g|png|gif|webp|svg)$/i)) {
-          embedNasaImageAfterTag(tag, source);
+        if (source && isImageUrl(source.url)) {
+          embedImageAfterTag(tag, source);
         }
       });
     });
@@ -1395,7 +1422,7 @@
     const source = currentSources.find(s => s.id === sourceId);
     if (!source) return;
     let content;
-    if (source.type === 'nasa' && source.url?.match(/\.(jpe?g|png|gif|webp|svg)$/i)) {
+    if (isImageUrl(source.url)) {
       content = `<div style="display:flex;flex-direction:column;gap:0.4rem;"><img src="${source.url}" style="max-width:100%;max-height:220px;border-radius:6px;object-fit:cover;"/><a href="${source.url}" target="_blank" style="color:#60a5fa;font-size:0.78rem;">Abrir imagem</a></div>`;
     } else {
       content = `<div style="display:flex;flex-direction:column;gap:0.4rem;"><div style="font-weight:700;font-size:0.78rem;">${escapeHtml(source.label || source.id)}</div><div style="font-size:0.72rem;color:#94a3b8;line-height:1.3;">${escapeHtml(source.detail || 'Sem detalhes')}</div>${source.url ? `<a href="${source.url}" target="_blank" style="color:#60a5fa;font-size:0.78rem;word-break:break-all;">${source.url}</a>` : ''}</div>`;
@@ -1413,8 +1440,8 @@
     setTimeout(() => window.addEventListener('click', handleClickOutside), 0);
   }
 
-  function embedNasaImageAfterTag(tag, source) {
-    if (!source || !source.url || !source.url.match(/\.(jpe?g|png|gif|webp|svg)$/i)) return;
+  function embedImageAfterTag(tag, source) {
+    if (!source || !isImageUrl(source.url)) return;
     const paragraph = tag.closest('p') || tag.parentNode;
     if (!paragraph) return;
 
@@ -1429,7 +1456,7 @@
     title.textContent = source.label || source.id;
     const image = document.createElement('img');
     image.src = source.url;
-    image.alt = source.label || 'NASA image';
+    image.alt = source.label || 'Image';
     const caption = document.createElement('div');
     caption.className = 'embedded-media-card-caption';
     caption.textContent = source.detail || 'Imagem relacionada mencionada na resposta.';
@@ -1440,14 +1467,13 @@
     paragraph.insertAdjacentElement('afterend', block);
   }
 
-  function embedNasaImagesInResponse(responseContainer, sources) {
+  function embedImagesInResponse(responseContainer, sources) {
     const sourceMap = new Map(sources.map(s => [s.id, s]));
     responseContainer.querySelectorAll('.citation-tag').forEach(tag => {
       const sourceId = tag.dataset.source;
       const source = sourceMap.get(sourceId);
-      if (!source || source.type !== 'nasa' || !source.url) return;
-      if (!source.url.match(/\.(jpe?g|png|gif|webp|svg)$/i)) return;
-      embedNasaImageAfterTag(tag, source);
+      if (!source || !isImageUrl(source.url)) return;
+      embedImageAfterTag(tag, source);
     });
   }
 
@@ -1455,6 +1481,9 @@
     const instant = options.instant === true;
     const { logs=[], media=[], response, thinking='Processando sua pergunta...', sources=[] } = payload;
     currentSources = sources;
+
+    const textSources = sources.filter(s => !isImageUrl(s.url) && !isVideoUrl(s.url));
+    const videoSources = sources.filter(s => isVideoUrl(s.url));
 
     const wrapper = document.createElement('div');
     wrapper.className = 'msg-ai';
@@ -1485,24 +1514,34 @@
     sourcesContainer.className = 'sources-section';
     sourcesContainer.style.opacity = instant ? '1' : '0';
     sourcesContainer.style.transition = 'opacity 0.3s ease';
-    sourcesContainer.innerHTML = `<div class="sources-header">📚 Fontes Utilizadas</div><div class="sources-grid">${renderSources(sources)}</div>`;
+    sourcesContainer.innerHTML = `<div class="sources-header">📚 Fontes Utilizadas</div><div class="sources-grid">${renderSources(textSources)}</div>`;
+
+    const embeddedVideosContainer = document.createElement('div');
+    embeddedVideosContainer.className = 'embedded-videos-section';
+    embeddedVideosContainer.style.opacity = instant ? '1' : '0';
+    embeddedVideosContainer.style.transition = 'opacity 0.3s ease';
+    embeddedVideosContainer.style.marginTop = '1rem';
+    videoSources.forEach(vs => {
+       embeddedVideosContainer.innerHTML += getEmbedVideoHtml(vs);
+    });
 
     inner.appendChild(thinkingContainer);
     inner.appendChild(responseContainer);
+    if (videoSources.length > 0) inner.appendChild(embeddedVideosContainer);
     inner.appendChild(mediaContainer);
     inner.appendChild(sourcesContainer);
 
     // O conteúdo de NASA será exibido inline nos parágrafos referenciados,
     // não em um bloco separado de mídia.
     mediaContainer.style.display = 'none';
-    if (!sources.length) sourcesContainer.style.display = 'none';
+    if (!textSources.length) sourcesContainer.style.display = 'none';
 
     wrapper.appendChild(inner);
     messagesContainer.appendChild(wrapper);
     scrollToBottom();
 
     addCitationHoverListeners(responseContainer, parsedResponse.citations);
-    embedNasaImagesInResponse(responseContainer, sources);
+    embedImagesInResponse(responseContainer, sources);
 
     // Sources click open detail box
     sourcesContainer.querySelectorAll('.source-item').forEach(item => {
@@ -1548,13 +1587,18 @@
       responseContainer.style.opacity = '1';
       scrollToBottom();
       await delay(300);
+      if (videoSources.length > 0) {
+        await delay(200);
+        embeddedVideosContainer.style.opacity = '1';
+        scrollToBottom();
+      }
       if (media.length > 0) {
         await delay(250);
         mediaContainer.style.opacity = '1';
         renderMedia();
         scrollToBottom();
       }
-      if (sources.length > 0) {
+      if (textSources.length > 0) {
         await delay(200);
         sourcesContainer.style.opacity = '1';
         scrollToBottom();
@@ -1562,8 +1606,9 @@
     } else {
       thinkingContainer.style.opacity = '1';
       responseContainer.style.opacity = '1';
+      if (videoSources.length > 0) embeddedVideosContainer.style.opacity = '1';
       if (media.length > 0)   { mediaContainer.style.opacity = '1'; renderMedia(); }
-      if (sources.length > 0) sourcesContainer.style.opacity = '1';
+      if (textSources.length > 0) sourcesContainer.style.opacity = '1';
     }
   }
 
