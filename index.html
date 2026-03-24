@@ -451,6 +451,39 @@
   .source-link { display: inline-block; margin-top: 0.4rem; font-size: 0.7rem; color: #60a5fa; text-decoration: none; }
   .source-link:hover { text-decoration: underline; }
 
+  /* ── PhET Simulations ── */
+  .phet-container {
+    margin: 1rem 0;
+    background: #0f172a;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 10px-25px rgba(0,0,0,0.4);
+    position: relative;
+    width: 100%;
+    padding-top: 62.5%; /* 16:10 Aspect Ratio */
+  }
+  .phet-iframe {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border: none;
+  }
+
+  /* ── Premium Links in AI Answers ── */
+  .ai-response a {
+    color: #60a5fa;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(96, 165, 250, 0.3);
+    transition: all 0.2s ease;
+  }
+  .ai-response a:hover {
+    color: #93c5fd;
+    border-bottom-color: #93c5fd;
+    background: rgba(96, 165, 250, 0.1);
+    border-radius: 2px;
+  }
+
   /* ── Msg Actions (TTS/Copy) ── */
   .msg-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed rgba(255,255,255,0.08); }
   .msg-action-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #cbd5e1; font-size: 0.75rem; padding: 0.3rem 0.6rem; display: flex; align-items: center; justify-content: center; gap: 0.3rem; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; outline: none; }
@@ -1374,19 +1407,32 @@
   function parseResponseWithCitations(response, sources) {
     const sourcesMap = new Map(sources.map(s => [s.id, s]));
     const citations  = new Map();
+    let phetSlug = null;
+
+    // 1. Extrair PHET tag (ex: [PHET:ohms-law])
+    const phetMatch = response.match(/\[PHET:([a-z0-9-]+)\]/i);
+    if (phetMatch) {
+      phetSlug = phetMatch[1];
+      response = response.replace(phetMatch[0], '').trim();
+    }
 
     let html = escapeHtml(response);
     
-    // Parse Bold
+    // 2. Linkify URLs
+    const urlRegex = /(https?:\/\/[^\s<]+[^.,\s<])/g;
+    html = html.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
+
+    // 3. Parse Bold
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
-    // Converter parágrafos e quebras de linha para HTML
+    // 4. Parágrafos e quebras
     html = html
       .replace(/\r\n/g, '\n')
       .split('\n\n')
       .map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
       .join('');
 
+    // 5. Citações
     html = html.replace(/\[([A-Za-z0-9-]+)\]/g, (match, id) => {
       const source = sourcesMap.get(id);
       if (!source) return match;
@@ -1396,7 +1442,7 @@
       return `<span class="citation-tag" data-source="${id}">${label}</span>`;
     });
 
-    return { html, citations };
+    return { html, citations, phetSlug };
   }
 
   function truncateText(text, length = 120) {
@@ -1582,6 +1628,18 @@
 
     inner.appendChild(thinkingContainer);
     inner.appendChild(responseContainer);
+
+    if (parsedResponse.phetSlug) {
+      const phetCont = document.createElement('div');
+      phetCont.className = 'phet-container';
+      const iframe = document.createElement('iframe');
+      iframe.className = 'phet-iframe';
+      iframe.src = `https://phet.colorado.edu/sims/html/${parsedResponse.phetSlug}/latest/${parsedResponse.phetSlug}_all.html`;
+      iframe.setAttribute('scrolling', 'no');
+      iframe.setAttribute('allowfullscreen', '');
+      phetCont.appendChild(iframe);
+      inner.appendChild(phetCont);
+    }
     if (videoSources.length > 0) inner.appendChild(embeddedVideosContainer);
     inner.appendChild(mediaContainer);
     inner.appendChild(sourcesContainer);
@@ -1734,6 +1792,7 @@
     { key: 'dictionary-en', label: 'Free Dictionary (EN)', img: 'dicio-ingles.png', description: 'Definições em inglês com fonética e exemplos.' },
     { key: 'universities', label: 'Universities List', img: 'list.png', description: 'Busca de universidades no mundo inteiro.' },
     { key: 'poetry',     label: 'PoetryDB',     img: 'poetry.png',     description: 'Poemas, poetas e obras da literatura universal.' },
+    { key: 'phet',       label: 'PhET Simulations', img: 'phet.png',  description: 'Simuladores interativos de Física, Química e Biologia.' },
   ];
 
 
