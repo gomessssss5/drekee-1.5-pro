@@ -847,7 +847,10 @@ Dica de Autodetecção:
 - "gbif": busca seres vivos e biodiversidade (termos: espécie, animal, planta, biologia, taxonomia, nome científico).
 - "usgs": busca terremotos e sismicidade (termos: terremoto, sismo, tremor, abalo, vulcão).
 
+REGRA IMPORTANTE: Se a pergunta for sobre terremotos, sismos, sol (nascer/pôr), localização em tempo real, posição da ISS, ou qualquer dado ao vivo já coletado pelos conectores ativos, defina "precisa_busca_web" como false. Esses dados já estão disponíveis e são mais precisos do que a web.
+
 Retorne APENAS JSON válido (sem markdown):
+
 {
   "objetivo": "Descrição clara do que responder",
   "area_cientifica": "Área(s) científica(s)",
@@ -920,27 +923,45 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   
   const queryParaBuscar = actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion;
 
-  if (actionPlan?.precisa_busca_web) {
+  const isEarthquakeQuery = selectedConnectors.includes('usgs') && 
+    /terremoto|sismo|tremor|abalo|sism|quake/i.test(userQuestion);
+  const isSunQuery = selectedConnectors.includes('sunrise') &&
+    /sol|sunrise|sunset|nascer|pôr|por do sol/i.test(userQuestion);
+
+  // Tavily só roda se:
+  // 1. Modo Auto E o plano pede busca E não é query de dado em tempo real
+  // 2. OU modo manual E o usuário EXPLICITAMENTE selecionou 'tavily'
+  const podeBuscarWeb = connectorAuto
+    ? (actionPlan?.precisa_busca_web && !isEarthquakeQuery && !isSunQuery)
+    : selectedConnectors.includes('tavily');
+
+  if (podeBuscarWeb) {
     logs.push(`🌐 Buscando na web: "${queryParaBuscar}"`);
     const searchResult = await searchTavily(queryParaBuscar);
     if (searchResult) {
-      context += `\n\n📰 Resultados de busca web:\n`;
+      context += `\n\n📰 Resultados de busca web (use apenas como complemento, NUNCA para dados em tempo real como terremotos ou clima):\n`;
       context += `Resposta resumida: ${searchResult.answer}\n\n`;
       searchResult.results.forEach((r, i) => {
         context += `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.url}\n`;
       });
-
-      // Register sources for citation
       addSource('WEB-SUMMARY', 'Resumo da busca web (Tavily)', 'web', searchResult.answer, null);
       searchResult.results.forEach((r, i) => {
         addSource(`WEB-${i + 1}`, r.title || `Web resultado ${i + 1}`, 'web', r.snippet, r.url);
       });
-
       logs.push('✅ Dados da web coletados');
     } else {
       logs.push('⚠️ Tavily API não disponível');
     }
+  } else if (!connectorAuto && !selectedConnectors.includes('tavily')) {
+    logs.push('🔒 Modo manual: busca web desativada (Tavily não selecionado)');
+  } else if (isEarthquakeQuery) {
+    logs.push('🚫 Tavily suprimido: dados sísmicos via USGS são a fonte primária autorizada');
+  } else if (isSunQuery) {
+    logs.push('🚫 Tavily suprimido: dados solares via Sunrise-Sunset API são a fonte primária');
+  } else {
+    logs.push('🔹 Busca web não necessária (dados já coletados pelos conectores)');
   }
+
 
   logs.push(`🔌 Conectores selecionados: ${selectedConnectors.join(', ') || 'nenhum'}`);
 
@@ -1410,6 +1431,33 @@ async function handler(req, res) {
   const connectors = Array.isArray(body?.connectors) ? body.connectors : [];
   const history = Array.isArray(body?.history) ? body.history : [];
 
+  // Resolve user context: prefer browser-sent coords, fall back to IP geolocation
+  let userContext = body?.userContext || {};
+  if (!userContext.lat) {
+    try {
+      const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '';
+      const ipGeo = await fetch(`https://ipapi.co/${clientIP ? clientIP + '/' : ''}json/`);
+      if (ipGeo.ok) {
+        const geo = await ipGeo.json();
+        if (!geo.error && geo.latitude) {
+          userContext.lat = geo.latitude;
+          userContext.lon = geo.longitude;
+          userContext.city = geo.city;
+          userContext.region = geo.region;
+          userContext.country_name = geo.country_name;
+          userContext.timezone = geo.timezone;
+          userContext._source = 'ip';
+        }
+      }
+    } catch { /* IP geolocation optional */ }
+  }
+  // Always inject current date/time in São Paulo timezone if not sent by client
+  if (!userContext.localDate) {
+    const now = new Date();
+    userContext.localDate = now.toLocaleDateString('pt-BR', { timeZone: userContext.timezone || 'America/Sao_Paulo' });
+    userContext.localTime = now.toLocaleTimeString('pt-BR', { timeZone: userContext.timezone || 'America/Sao_Paulo' });
+  }
+
   if (!userQuestion) {
     return res.status(400).json({ error: 'Pergunta vazia' });
   }
@@ -1431,9 +1479,14 @@ async function handler(req, res) {
     }
 
     const actionPlan = await generateActionPlan(userQuestion, history, visionContext);
-    const userContext = body?.userContext || {};
-    const contextHeader = userContext.localTime ? `\n[CONTEXTO DO USUÁRIO]\nData e Hora Local: ${userContext.localDate} ${userContext.localTime}\nLocalização Aproximada: ${userContext.lat ? `Lat ${userContext.lat.toFixed(2)}, Lon ${userContext.lon.toFixed(2)}` : 'Não informada'}\n` : '';
-    if (contextHeader) visionContext = contextHeader + visionContext;
+    const locationStr = userContext.city 
+      ? `${userContext.city}, ${userContext.region || ''}, ${userContext.country_name || ''} (${userContext._source === 'ip' ? 'via IP, aproximado' : 'GPS'})`
+      : userContext.lat 
+        ? `Lat ${userContext.lat.toFixed(3)}, Lon ${userContext.lon.toFixed(3)}`
+        : 'Desconhecida';
+
+    const contextHeader = `\n⚡ CONTEXTO DO USUÁRIO (USE ESTES DADOS COMO VERDADE ABSOLUTA — não especule):\n- Data e Hora local: ${userContext.localDate || 'hoje'} às ${userContext.localTime || 'agora'}\n- Localização: ${locationStr}\n- Fuso horário: ${userContext.timezone || 'America/Sao_Paulo'}\n\nINSTRUÇÃO: Quando o contexto contiver dados de APIs em tempo real (USGS, Sunrise-Sunset, ISS etc.), cite-os com precisão numérica. NUNCA invente, estime ou use dados de outras fontes para substituí-los. Se o usuário perguntar "hoje" ou "agora", use os dados desta requisição.\n\n`;
+    visionContext = contextHeader + visionContext;
 
     const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext, userContext });
 
