@@ -464,10 +464,14 @@ Sejam descritivos mas concisos. Retorne apenas as descrições das imagens.`;
 }
 
 // ============ STEP 1: Generate Action Plan (internal) ============
-async function generateActionPlan(userQuestion) {
-  const prompt = `Você é um planejador científico. Para a pergunta, crie um plano de ação:
+async function generateActionPlan(userQuestion, history = []) {
+  const historyText = history.length > 0 
+    ? `\nHISTÓRICO (Contexto prévio):\n${history.map(m => `${m.role === 'user' ? 'Usuário' : 'IA'}: ${m.content}`).join('\n')}\n`
+    : '';
 
-Pergunta: "${userQuestion}"
+  const prompt = `Você é um planejador científico. Para a pergunta, crie um plano de ação:
+${historyText}
+Pergunta atual: "${userQuestion}"
 
 Retorne APENAS JSON válido (sem markdown):
 {
@@ -724,17 +728,22 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     }
   }
 
+  const historyArray = options.history || [];
+  const historyText = historyArray.length > 0
+    ? `\nHISTÓRICO DA CONVERSA (Contexto mantido em memória para continuidade):\n${historyArray.map(m => `${m.role === 'user' ? 'Usuário' : 'IA'}: ${m.content}`).join('\n')}\n`
+    : '';
+
   logs.push('🧠 Processando e raciocinando...');
 
   const executionPrompt = `${SCIENCE_SYSTEM_PROMPT}
 
 CONTEXTO PESQUISADO:
 ${context || 'Nenhum contexto externo necessário'}
-
+${historyText}
 FONTES DISPONÍVEIS PARA CITAÇÃO:
 ${sources.map(s => `${s.id}: ${s.label} - ${s.detail}`).join('\n')}
 
-PERGUNTA DO USUÁRIO: "${userQuestion}"
+PERGUNTA ATUAL DO USUÁRIO: "${userQuestion}"
 
 Siga EXATAMENTE este processo:
 1. Entenda profundamente a pergunta e o público (estudantes jovens).
@@ -866,6 +875,7 @@ async function handler(req, res) {
   const userQuestion = (body?.text || '').toString().trim();
   const connectorAuto = body?.connectorAuto !== false;
   const connectors = Array.isArray(body?.connectors) ? body.connectors : [];
+  const history = Array.isArray(body?.history) ? body.history : [];
 
   if (!userQuestion) {
     return res.status(400).json({ error: 'Pergunta vazia' });
@@ -876,9 +886,9 @@ async function handler(req, res) {
   try {
     logs.push('🚀 Iniciando Agente Científico...');
 
-    const actionPlan = await generateActionPlan(userQuestion);
+    const actionPlan = await generateActionPlan(userQuestion, history);
 
-    const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa });
+    const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history });
 
     logs.push('👁️ Revisando resposta com Gemini...');
     let response = await reviewResponse(exec.response);

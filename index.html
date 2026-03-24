@@ -1833,12 +1833,18 @@
     document.getElementById('thinkingIndicator').classList.add('show');
 
     try {
+      const prevHistory = chatHistory.slice(0, -1).slice(-10).map(msg => ({
+        role: msg.role === 'ai' ? 'assistant' : 'user',
+        content: msg.content
+      }));
+
       const payload = {
         text,
         files: await serializeFiles(filesToSend),
         connectors: selectedConnectors,
         connectorAuto,
         nasa: selectedConnectors.includes('nasa') || (!connectorAuto && selectedConnectors.includes('nasa')),
+        history: prevHistory
       };
 
       if (window.location.protocol === 'file:' || window.location.origin === 'null') {
