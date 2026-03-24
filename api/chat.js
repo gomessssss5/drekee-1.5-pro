@@ -21,7 +21,9 @@ DIRETRIZES DE RESPOSTA:
       - **Química:** build-an-atom, isotopes-and-atomic-mass, build-a-molecule, molecule-shapes, ph-scale, molarity, concentration, beers-law-lab, acid-base-solutions, solubility-02
       - **Matemática:** fractions-intro, area-model-multiplication, graphing-quadratics, function-builder, unit-rates
       - **Biologia:** natural-selection, gene-expression-essentials, neuron, beer-game
-    - Exemplo: "...e é assim que a resistência funciona. [PHET:ohms-law]" (A tag deve vir no final da resposta).
+    - Exemplo: "...e é assim que a resistência funciona. [PHET:ohms-law]"
+6.  **MOLÉCULAS 3D (RCSB PDB):** Se o assunto envolver proteínas ou estruturas moleculares de alta complexidade e houver um ID no PDB (ex: 1u19, 4hhb), termine com a tag [PDB:id].
+    - Exemplo: "...esta é a estrutura da Hemoglobina. [PDB:4hhb]"
 `;
 
 // ============ TAVILY API (Web Search) ============
@@ -585,6 +587,92 @@ async function buscarSunriseSunset(lat = -23.55, lon = -46.63) {
   }
 }
 
+// ============ Wikidata SPARQL Integration ============
+async function buscarWikidata(query) {
+  if (!query) return null;
+  const sparql = `
+    SELECT ?itemLabel ?itemDescription WHERE {
+      SERVICE wikibase:mwapi {
+        bd:serviceParam wikibase:api "EntitySearch" .
+        bd:serviceParam wikibase:endpoint "www.wikidata.org" .
+        bd:serviceParam mwapi:search "${query}" .
+        bd:serviceParam mwapi:language "pt" .
+        ?item wikibase:apiOutputItem mwapi:item .
+      }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "pt,en". }
+    } LIMIT 3
+  `;
+  const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'DrekeeAI/1.5 (contact: drekee.ai)' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.results?.bindings.map(b => ({
+      label: b.itemLabel?.value,
+      description: b.itemDescription?.value,
+    }));
+  } catch (err) {
+    console.error('Wikidata SPARQL error:', err);
+    return null;
+  }
+}
+
+// ============ PubMed Central Integration ============
+async function buscarPubMed(query) {
+  if (!query) return [];
+  try {
+    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmode=json&retmax=3`;
+    const searchRes = await fetch(searchUrl);
+    const searchData = await searchRes.json();
+    const ids = searchData.esearchresult?.idlist || [];
+    if (ids.length === 0) return [];
+
+    const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`;
+    const summaryRes = await fetch(summaryUrl);
+    const summaryData = await summaryRes.json();
+    
+    return ids.map(id => {
+      const doc = summaryData.result?.[id];
+      return {
+        title: doc?.title || 'Artigo sem título',
+        authors: doc?.authors?.map(a => (typeof a === 'object' ? a.name : a)).join(', ') || 'Vários autores',
+        source: doc?.source || 'PubMed',
+        pubdate: doc?.pubdate || 'N/A',
+        link: `https://pubmed.ncbi.nlm.nih.gov/${id}/`
+      };
+    });
+  } catch (err) {
+    console.error('PubMed error:', err);
+    return [];
+  }
+}
+
+// ============ RCSB Protein Data Bank Integration ============
+async function buscarRCSB(query) {
+  if (!query) return [];
+  const searchBody = {
+    query: {
+      type: "terminal",
+      service: "text",
+      parameters: { value: query }
+    },
+    return_type: "entry"
+  };
+  try {
+    const res = await fetch('https://search.rcsb.org/rcsbsearch/v2/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(searchBody)
+    });
+    const data = await res.json();
+    const ids = (data.result_set || []).slice(0, 3).map(r => r.identifier);
+    return ids; // Retorna lista de PDB IDs (ex: 1U19)
+  } catch (err) {
+    console.error('RCSB PDB error:', err);
+    return [];
+  }
+}
+
 // ============ Free Dictionary (Inglês) ============
 async function buscarDicionarioIngles(word) {
   if (!word) return null;
@@ -877,7 +965,7 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const connectorAuto = options.connectorAuto !== false;
   const userConnectors = Array.isArray(options.connectors) ? options.connectors : [];
 
-  const autoDetectedConnectors = ['phet'];
+  const autoDetectedConnectors = ['phet', 'wikidata', 'pubmed', 'rcsb'];
   const normalizedText = (userQuestion || '').toLowerCase();
   
   if (/\b(arxiv|paper|artigo|pesquisa|estudo|tese|scielo)\b/.test(normalizedText)) {
@@ -888,8 +976,20 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(brasil|ibge|demografia|população|estado|cidade|saneamento|município)\b/.test(normalizedText)) {
     autoDetectedConnectors.push('ibge');
   }
+
+  if (/\b(médico|saúde|doença|vírus|pubmed|tratamento|vacina|biomed)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('pubmed');
+  }
   
-  if (/\b(conceito|definição|o que é|explica|explicar|definir)\b/.test(normalizedText)) autoDetectedConnectors.push('wikipedia');
+  if (/\b(conceito|definição|o que é|explica|explicar|definir|wikidata|quem foi|onde fica)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('wikipedia');
+    autoDetectedConnectors.push('wikidata');
+  }
+
+  if (/\b(proteína|molécula|pdb|rcsb|estrutura 3d|hemoglobina|insulina|enzima)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('rcsb');
+  }
+  
   if (/\b(matemática|equação|integral|derivada|cálculo|somar|subtrair|multiplicar|dividir)\b/.test(normalizedText)) autoDetectedConnectors.push('newton');
   if (/\b(espaço|nasa|planeta|satélite|foguete|astronomia|marte|lua|asteroide|asteróide)\b/.test(normalizedText)) {
     autoDetectedConnectors.push('nasa');
@@ -1095,6 +1195,42 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
         addSource(`UNI-${i + 1}`, u.name, 'universities', `País: ${u.country}`, u.web);
       });
       logs.push('✅ Dados de universidades coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('wikidata')) {
+    logs.push(`🔍 Buscando no Wikidata: "${queryParaBuscar}"`);
+    const wikiData = await buscarWikidata(queryParaBuscar);
+    if (wikiData && wikiData.length > 0) {
+      context += `\n\n🆔 Wikidata Knowledge:\n`;
+      wikiData.forEach((w, i) => {
+        context += `${i + 1}. ${w.label}: ${w.description}\n`;
+        addSource(`WIKIDATA-${i + 1}`, w.label, 'wikidata', w.description, `https://www.wikidata.org/wiki/Special:Search?search=${encodeURIComponent(w.label)}`);
+      });
+      logs.push('✅ Dados do Wikidata coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('pubmed')) {
+    logs.push(`🏥 Buscando no PubMed Central: "${queryParaBuscar}"`);
+    const articles = await buscarPubMed(queryParaBuscar);
+    if (articles && articles.length > 0) {
+      context += `\n\n🏥 Artigos Médicos (PubMed):\n`;
+      articles.forEach((a, i) => {
+        context += `${i + 1}. ${a.title} | Autores: ${a.authors} | Fonte: ${a.source} (${a.pubdate})\n`;
+        addSource(`PUBMED-${i + 1}`, a.title, 'pubmed', `${a.authors} - ${a.source}`, a.link);
+      });
+      logs.push('✅ Literatura médica coletada (PubMed)');
+    }
+  }
+
+  if (selectedConnectors.includes('rcsb')) {
+    logs.push(`🧬 Buscando estruturas 3D na RCSB PDB: "${queryParaBuscar}"`);
+    const pdbIds = await buscarRCSB(queryParaBuscar);
+    if (pdbIds && pdbIds.length > 0) {
+      context += `\n\n🧬 Estruturas PDB encontradas: ${pdbIds.join(', ')}\n(Se for relevante, cite o ID e use a tag [PDB:id] para o visualizador 3D).\n`;
+      addSource('PDB-1', `PDB ID: ${pdbIds[0]}`, 'rcsb', `Estrutura de proteína via Protein Data Bank`, `https://www.rcsb.org/structure/${pdbIds[0]}`);
+      logs.push(`✅ ${pdbIds.length} estruturas de proteínas encontradas`);
     }
   }
 

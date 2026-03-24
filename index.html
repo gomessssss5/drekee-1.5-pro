@@ -451,6 +451,70 @@
   .source-link { display: inline-block; margin-top: 0.4rem; font-size: 0.7rem; color: #60a5fa; text-decoration: none; }
   .source-link:hover { text-decoration: underline; }
 
+  /* ── Split Layout ── */
+  .ai-split-container {
+    display: flex;
+    gap: 1.5rem;
+    width: 100%;
+    margin-bottom: 1rem;
+    align-items: flex-start;
+  }
+  .ai-left-column {
+    flex: 1.5;
+    min-width: 0;
+  }
+  .ai-right-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 260px;
+  }
+  
+  /* Seção de Mídia na Sidebar */
+  .ai-right-column .media-results,
+  .ai-right-column .sources-section,
+  .ai-right-column .embedded-videos-section {
+    margin-top: 0 !important;
+    background: rgba(15,23,42,0.4);
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  /* Full Width (abaixo do split) */
+  .ai-full-width-section {
+    width: 100%;
+    margin-top: 0.5rem;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  /* ── PDB 3D Viewer ── */
+  .pdb-container {
+    margin: 1rem 0;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%; /* 16:9 Aspect Ratio */
+  }
+  .pdb-iframe {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border: none;
+  }
+
+  @media (max-width: 1200px) {
+    .ai-split-container { gap: 1rem; }
+  }
+
+  @media (max-width: 768px) {
+    .ai-split-container { flex-direction: column; }
+    .ai-right-column { min-width: 100%; }
+  }
+
   /* ── PhET Simulations ── */
   .phet-container {
     margin: 1rem 0;
@@ -1431,12 +1495,20 @@
     const sourcesMap = new Map(sources.map(s => [s.id, s]));
     const citations  = new Map();
     let phetSlug = null;
+    let pdbId = null;
 
     // 1. Extrair PHET tag (ex: [PHET:ohms-law])
     const phetMatch = response.match(/\[PHET:([a-z0-9-]+)\]/i);
     if (phetMatch) {
       phetSlug = phetMatch[1];
       response = response.replace(phetMatch[0], '').trim();
+    }
+
+    // 2. Extrair PDB tag (ex: [PDB:1u19])
+    const pdbMatch = response.match(/\[PDB:([a-z0-9]+)\]/i);
+    if (pdbMatch) {
+      pdbId = pdbMatch[1];
+      response = response.replace(pdbMatch[0], '').trim();
     }
 
     let html = escapeHtml(response);
@@ -1465,7 +1537,7 @@
       return `<span class="citation-tag" data-source="${id}">${label}</span>`;
     });
 
-    return { html, citations, phetSlug };
+    return { html, citations, phetSlug, pdbId };
   }
 
   function truncateText(text, length = 120) {
@@ -1616,76 +1688,95 @@
     const inner = document.createElement('div');
     inner.className = 'bubble';
 
+    // Parse da resposta
+    const parsedResponse = parseResponseWithCitations(response, sources);
+
+    // split layout container
+    const splitContainer = document.createElement('div');
+    splitContainer.className = 'ai-split-container';
+
+    const leftCol = document.createElement('div');
+    leftCol.className = 'ai-left-column';
+
+    const rightCol = document.createElement('div');
+    rightCol.className = 'ai-right-column';
+
+    // -- COLUNA ESQUERDA: Texto e Raciocínio --
     const thinkingContainer = document.createElement('div');
     thinkingContainer.className = 'thinking-section';
-    thinkingContainer.style.opacity = instant ? '1' : '0';
-    thinkingContainer.style.transition = 'opacity 0.3s ease';
     thinkingContainer.innerHTML = `<div class="thinking-header">🧠 Raciocínio</div><div class="thinking-text">${thinking}</div>`;
-
+    
     const responseContainer = document.createElement('div');
     responseContainer.className = 'ai-response';
-    responseContainer.style.opacity = instant ? '1' : '0';
-    responseContainer.style.transition = 'opacity 0.3s ease';
-    const parsedResponse = parseResponseWithCitations(response, sources);
     responseContainer.innerHTML = parsedResponse.html;
 
-    const mediaContainer = document.createElement('div');
-    mediaContainer.className = 'media-results';
-    mediaContainer.style.opacity = instant ? '1' : '0';
-    mediaContainer.innerHTML = `<div class="media-header">📷 NASA Media</div><div class="media-grid"></div>`;
+    leftCol.appendChild(thinkingContainer);
+    leftCol.appendChild(responseContainer);
 
-    const sourcesContainer = document.createElement('div');
-    sourcesContainer.className = 'sources-section';
-    sourcesContainer.style.opacity = instant ? '1' : '0';
-    sourcesContainer.style.transition = 'opacity 0.3s ease';
-    sourcesContainer.innerHTML = `<div class="sources-header">📚 Fontes Utilizadas</div><div class="sources-grid">${renderSources(textSources)}</div>`;
-
+    // -- COLUNA DIREITA: Vídeos, NASA Media e Fontes --
     const embeddedVideosContainer = document.createElement('div');
     embeddedVideosContainer.className = 'embedded-videos-section';
-    embeddedVideosContainer.style.opacity = instant ? '1' : '0';
-    embeddedVideosContainer.style.transition = 'opacity 0.3s ease';
-    embeddedVideosContainer.style.marginTop = '1rem';
     videoSources.forEach(vs => {
        embeddedVideosContainer.innerHTML += getEmbedVideoHtml(vs);
     });
 
-    inner.appendChild(thinkingContainer);
-    inner.appendChild(responseContainer);
+    const mediaContainer = document.createElement('div');
+    mediaContainer.className = 'media-results';
+    mediaContainer.innerHTML = `<div class="media-header">📷 NASA Media</div><div class="media-grid"></div>`;
 
+    const sourcesContainer = document.createElement('div');
+    sourcesContainer.className = 'sources-section';
+    sourcesContainer.innerHTML = `<div class="sources-header">📚 Fontes Utilizadas</div><div class="sources-grid">${renderSources(textSources)}</div>`;
+
+    if (videoSources.length > 0) rightCol.appendChild(embeddedVideosContainer);
+    if (media.length > 0) rightCol.appendChild(mediaContainer);
+    if (textSources.length > 0) rightCol.appendChild(sourcesContainer);
+
+    splitContainer.appendChild(leftCol);
+    if (rightCol.children.length > 0) {
+      splitContainer.appendChild(rightCol);
+    } else {
+      leftCol.style.flex = "1"; // Ocupa tudo se não houver mídia na direita
+    }
+
+    inner.appendChild(splitContainer);
+
+    // -- SEÇÕES DE LARGURA TOTAL (Abaixo do Split) --
     if (parsedResponse.phetSlug) {
+      const fullSection = document.createElement('div');
+      fullSection.className = 'ai-full-width-section';
       const phetCont = document.createElement('div');
       phetCont.className = 'phet-container';
-
-      // Loading Overlay
       const loader = document.createElement('div');
       loader.className = 'phet-loading-overlay';
       loader.innerHTML = `<div class="phet-spinner"></div><div class="phet-loading-text">Carregando visualização do experimento...</div>`;
       phetCont.appendChild(loader);
-
       const iframe = document.createElement('iframe');
       iframe.className = 'phet-iframe';
       iframe.src = `https://phet.colorado.edu/sims/html/${parsedResponse.phetSlug}/latest/${parsedResponse.phetSlug}_all.html`;
-      iframe.setAttribute('scrolling', 'no');
-      iframe.setAttribute('allowfullscreen', '');
-      
-      iframe.onload = () => {
-        loader.style.opacity = '0';
-        setTimeout(() => loader.remove(), 400);
-      };
-
+      iframe.onload = () => { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 400); };
       phetCont.appendChild(iframe);
-      inner.appendChild(phetCont);
+      fullSection.appendChild(phetCont);
+      inner.appendChild(fullSection);
     }
 
-    if (videoSources.length > 0) inner.appendChild(embeddedVideosContainer);
-    inner.appendChild(mediaContainer);
-    inner.appendChild(sourcesContainer);
+    if (parsedResponse.pdbId) {
+      const fullSection = document.createElement('div');
+      fullSection.className = 'ai-full-width-section';
+      const pdbCont = document.createElement('div');
+      pdbCont.className = 'pdb-container';
+      const iframe = document.createElement('iframe');
+      iframe.className = 'pdb-iframe';
+      iframe.src = `https://www.rcsb.org/3d-view/${parsedResponse.pdbId}?isPanel=true`;
+      pdbCont.appendChild(iframe);
+      fullSection.appendChild(pdbCont);
+      inner.appendChild(fullSection);
+    }
 
+    // Botões de Ação (TTS / Copiar)
     const cleanResponseText = response.replace(/\[[^\]]+\]/g, '').replace(/\*/g, '').trim();
     const actionsContainer = document.createElement('div');
     actionsContainer.className = 'msg-actions';
-    actionsContainer.style.opacity = instant ? '1' : '0';
-    actionsContainer.style.transition = 'opacity 0.3s ease';
     actionsContainer.innerHTML = `
       <button class="msg-action-btn btn-tts"><span class="material-icons-outlined">volume_up</span> Ouvir</button>
       <button class="msg-action-btn btn-copy"><span class="material-icons-outlined">content_copy</span> Copiar Limpo</button>
@@ -1709,10 +1800,7 @@
       }
     });
 
-    inner.appendChild(actionsContainer);
-
-    // O conteúdo de NASA será exibido na grid abaixo, e também inline se citado.
-    if (!textSources.length) sourcesContainer.style.display = 'none';
+    leftCol.appendChild(actionsContainer);
 
     wrapper.appendChild(inner);
     messagesContainer.appendChild(wrapper);
@@ -1721,7 +1809,7 @@
     addCitationHoverListeners(responseContainer, parsedResponse.citations);
     embedImagesInResponse(responseContainer, sources);
 
-    // Sources click open detail box
+    // Botões fontes scroll
     sourcesContainer.querySelectorAll('.source-item').forEach(item => {
       item.addEventListener('click', () => {
         const sourceId = item.dataset.sourceId;
@@ -1729,15 +1817,12 @@
       });
     });
 
+    // Render Media NASA
     const renderMedia = () => {
       const grid = mediaContainer.querySelector('.media-grid');
       media.forEach(item => {
         const card = document.createElement('div');
         card.className = 'media-item';
-        const title = document.createElement('div');
-        title.className = 'media-title';
-        title.textContent = item.title || 'NASA media';
-        card.appendChild(title);
         if (item.media_type === 'video' || item.url?.endsWith('.mp4')) {
           const video = document.createElement('video');
           video.src = item.url; video.controls = true; video.className = 'media-video';
@@ -1747,49 +1832,17 @@
           img.src = item.url; img.alt = item.title||''; img.className = 'media-img';
           card.appendChild(img);
         }
-        if (item.description) {
-          const desc = document.createElement('div');
-          desc.className = 'media-desc'; desc.textContent = item.description;
-          card.appendChild(desc);
-        }
         grid.appendChild(card);
       });
     };
+    if (media.length > 0) renderMedia();
 
     if (!instant) {
       await delay(50);
       wrapper.style.transition = 'opacity 0.25s ease';
       wrapper.style.opacity = '1';
-      thinkingContainer.style.opacity = '1';
-      await delay(500);
-      responseContainer.style.opacity = '1';
-      scrollToBottom();
-      await delay(300);
-      if (videoSources.length > 0) {
-        await delay(200);
-        embeddedVideosContainer.style.opacity = '1';
-        scrollToBottom();
-      }
-      if (media.length > 0) {
-        await delay(250);
-        mediaContainer.style.opacity = '1';
-        renderMedia();
-        scrollToBottom();
-      }
-      if (textSources.length > 0) {
-        await delay(200);
-        sourcesContainer.style.opacity = '1';
-        scrollToBottom();
-      }
-      await delay(150);
-      actionsContainer.style.opacity = '1';
-    } else {
-      thinkingContainer.style.opacity = '1';
-      responseContainer.style.opacity = '1';
-      if (videoSources.length > 0) embeddedVideosContainer.style.opacity = '1';
-      if (media.length > 0)   { mediaContainer.style.opacity = '1'; renderMedia(); }
-      if (textSources.length > 0) sourcesContainer.style.opacity = '1';
     }
+    scrollToBottom();
   }
 
   // ── Suggestions ───────────────────────────────────────────
@@ -1828,8 +1881,11 @@
     { key: 'sunrise',    label: 'Sunrise Sunset', img: 'sunrise.png', description: 'Horários de nascer e pôr do sol na sua localização.' },
     { key: 'dictionary-en', label: 'Free Dictionary (EN)', img: 'dicio-ingles.png', description: 'Definições em inglês com fonética e exemplos.' },
     { key: 'universities', label: 'Universities List', img: 'list.png', description: 'Busca de universidades no mundo inteiro.' },
-    { key: 'poetry',     label: 'PoetryDB',     img: 'poetry.png',     description: 'Poemas, poetas e obras da literatura universal.' },
-    { key: 'phet',       label: 'PhET Simulations', img: 'phet.png',  description: 'Simuladores interativos de Física, Química e Biologia.' },
+    { key: 'poetry',      label: 'PoetryDB',         img: 'poetry.png',     description: 'Poemas, poetas e obras da literatura universal.' },
+    { key: 'phet',        label: 'PhET Simulations', img: 'phet.png',       description: 'Simuladores interativos de Física, Química e Biologia.' },
+    { key: 'pubmed',      label: 'PubMed Central',   img: 'pub-med.png',    description: 'Acesso à literatura biomédica e de saúde.' },
+    { key: 'wikidata',    label: 'Wikidata SPARQL',  img: 'wikidata.png',   description: 'Base de dados estruturados e conhecimento geral.' },
+    { key: 'rcsb',        label: 'RCSB PDB',         img: 'rcsb.png',       description: 'Banco de dados de estruturas de proteínas (3D).' },
   ];
 
 
