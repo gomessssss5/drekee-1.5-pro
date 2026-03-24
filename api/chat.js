@@ -613,8 +613,13 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     logs.push('☁️ Buscando meteorologia (Open-Meteo)...');
     const weather = await buscarOpenMeteo();
     if (weather) {
-      context += `\n\n☁️ Open-Meteo para (${weather.location.lat},${weather.location.lon})\n`; 
-      addSource('OPEN-METEO', 'Open-Meteo', 'open-meteo', 'Previsão climática inicial', 'https://open-meteo.com');
+      let temp = "N/A", humi = "N/A";
+      try {
+        temp = weather.weather.hourly.temperature_2m[0];
+        humi = weather.weather.hourly.relativehumidity_2m[0];
+      } catch(e) {}
+      context += `\n\n☁️ Open-Meteo para lat/lon (${weather.location.lat},${weather.location.lon}):\nTemperatura atual: ${temp}°C\nUmidade Relativa: ${humi}%\n`; 
+      addSource('OPEN-METEO', 'Open-Meteo API', 'open-meteo', `Temperatura atual: ${temp}°C, Umidade: ${humi}%`, 'https://open-meteo.com');
       logs.push('✅ Dados Open-Meteo coletados');
     }
   }
@@ -770,6 +775,7 @@ REGRAS CRUCIAIS (RESPEITE 100%):
 3) NÃO inclua títulos, cabeçalhos ou listas de etapas. Apenas texto fluido.
 4) Ao final, inclua SOMENTE a tag de confiança no formato: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
 5) Se não for possível afirmar com certeza, seja honesto e explique por que.
+6) IMPORTANTE: NÃO REMOVA as tags [ID-DA-FONTE] presentes no texto original. Se o texto estiver afirmando informações sem as tags apropriadas originais, ADICIONE as tags [ID-DA-FONTE] ao longo do texto. É vital manter o rastreio das fontes.
 
 RESPOSTA A REVISAR:
 ${response}
