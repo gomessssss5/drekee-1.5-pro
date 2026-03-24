@@ -416,6 +416,12 @@
   .source-link { display: inline-block; margin-top: 0.4rem; font-size: 0.7rem; color: #60a5fa; text-decoration: none; }
   .source-link:hover { text-decoration: underline; }
 
+  /* ── Msg Actions (TTS/Copy) ── */
+  .msg-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed rgba(255,255,255,0.08); }
+  .msg-action-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #cbd5e1; font-size: 0.75rem; padding: 0.3rem 0.6rem; display: flex; align-items: center; justify-content: center; gap: 0.3rem; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; outline: none; }
+  .msg-action-btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
+  .msg-action-btn .material-icons-outlined { font-size: 0.95rem; }
+
   @keyframes msgRight { from{opacity:0;transform:translateX(16px) scale(0.97)} to{opacity:1;transform:none} }
   @keyframes msgLeft  { from{opacity:0;transform:translateX(-14px) scale(0.97)} to{opacity:1;transform:none} }
 
@@ -1531,6 +1537,36 @@
     inner.appendChild(mediaContainer);
     inner.appendChild(sourcesContainer);
 
+    const cleanResponseText = response.replace(/\[[^\]]+\]/g, '').replace(/\*/g, '').trim();
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'msg-actions';
+    actionsContainer.style.opacity = instant ? '1' : '0';
+    actionsContainer.style.transition = 'opacity 0.3s ease';
+    actionsContainer.innerHTML = `
+      <button class="msg-action-btn btn-tts"><span class="material-icons-outlined">volume_up</span> Ouvir</button>
+      <button class="msg-action-btn btn-copy"><span class="material-icons-outlined">content_copy</span> Copiar Limpo</button>
+    `;
+    
+    actionsContainer.querySelector('.btn-tts').addEventListener('click', () => {
+      const utterance = new SpeechSynthesisUtterance(cleanResponseText);
+      utterance.lang = 'pt-BR';
+      window.speechSynthesis.speak(utterance);
+    });
+
+    actionsContainer.querySelector('.btn-copy').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(cleanResponseText);
+        const btn = actionsContainer.querySelector('.btn-copy');
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="material-icons-outlined">check</span> Copiado!';
+        setTimeout(() => btn.innerHTML = oldHtml, 2000);
+      } catch (e) {
+        console.error('Copy failed', e);
+      }
+    });
+
+    inner.appendChild(actionsContainer);
+
     // O conteúdo de NASA será exibido na grid abaixo, e também inline se citado.
     if (!textSources.length) sourcesContainer.style.display = 'none';
 
@@ -1601,6 +1637,8 @@
         sourcesContainer.style.opacity = '1';
         scrollToBottom();
       }
+      await delay(150);
+      actionsContainer.style.opacity = '1';
     } else {
       thinkingContainer.style.opacity = '1';
       responseContainer.style.opacity = '1';

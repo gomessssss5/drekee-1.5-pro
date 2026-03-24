@@ -390,6 +390,49 @@ async function callGemini(prompt) {
   return json.candidates?.[0]?.content?.parts?.[0]?.text || null;
 }
 
+// ============ ANALYZE USER UPLOADS (Vision with Gemini) ============
+async function analyzeUserFilesWithGemini(files, userQuestion) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || !files || files.length === 0) return null;
+
+  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey;
+
+  const parts = [
+    { text: `Você é um agente educacional científico analisando uma imagem enviada por um aluno. Descreva detalhadamente o conteúdo das imagens. Foque nos aspectos científicos que possam responder à pergunta do aluno: "${userQuestion}". Retorne APENAS a descrição detalhada do visual das imagens.` }
+  ];
+
+  for (const file of files) {
+    if (file.type && file.type.startsWith('image/') && file.data) {
+      parts.push({
+        inlineData: {
+          mimeType: file.type,
+          data: file.data
+        }
+      });
+    }
+  }
+
+  if (parts.length === 1) return null;
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 2000 },
+      }),
+    });
+    
+    const json = await res.json();
+    if (!res.ok) throw new Error(JSON.stringify(json));
+    return json.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  } catch (err) {
+    console.error('Gemini vision error:', err);
+    return null;
+  }
+}
+
 // ============ ANALYZE NASA IMAGES (First 4 with GROQ_API_KEY_2) ============
 async function analyzeNasaImagesWithGroq(nasaMedia) {
   if (!nasaMedia || nasaMedia.length === 0) return null;
@@ -464,13 +507,14 @@ Sejam descritivos mas concisos. Retorne apenas as descrições das imagens.`;
 }
 
 // ============ STEP 1: Generate Action Plan (internal) ============
-async function generateActionPlan(userQuestion, history = []) {
+async function generateActionPlan(userQuestion, history = [], visionContext = '') {
   const historyText = history.length > 0 
     ? `\nHISTÓRICO (Contexto prévio):\n${history.map(m => `${m.role === 'user' ? 'Usuário' : 'IA'}: ${m.content}`).join('\n')}\n`
     : '';
+  const visionText = visionContext ? `\n${visionContext}\n` : '';
 
   const prompt = `Você é um planejador científico. Para a pergunta, crie um plano de ação:
-${historyText}
+${historyText}${visionText}
 Pergunta atual: "${userQuestion}"
 
 Retorne APENAS JSON válido (sem markdown):
@@ -732,6 +776,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   const historyText = historyArray.length > 0
     ? `\nHISTÓRICO DA CONVERSA (Contexto mantido em memória para continuidade):\n${historyArray.map(m => `${m.role === 'user' ? 'Usuário' : 'IA'}: ${m.content}`).join('\n')}\n`
     : '';
+  const visionText = options.visionContext ? `\n${options.visionContext}\n` : '';
 
   logs.push('🧠 Processando e raciocinando...');
 
@@ -739,7 +784,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
 CONTEXTO PESQUISADO:
 ${context || 'Nenhum contexto externo necessário'}
-${historyText}
+${historyText}${visionText}
 FONTES DISPONÍVEIS PARA CITAÇÃO:
 ${sources.map(s => `${s.id}: ${s.label} - ${s.detail}`).join('\n')}
 
@@ -886,9 +931,20 @@ async function handler(req, res) {
   try {
     logs.push('🚀 Iniciando Agente Científico...');
 
-    const actionPlan = await generateActionPlan(userQuestion, history);
+    const files = Array.isArray(body?.files) ? body.files : [];
+    let visionContext = '';
+    if (files.length > 0) {
+      logs.push('👁️ Analisando arquivos anexados com visão computacional...');
+      const imgDesc = await analyzeUserFilesWithGemini(files, userQuestion);
+      if (imgDesc) {
+        visionContext = `[IMAGEM ENVIADA PELO ALUNO]: ${imgDesc}\n`;
+        logs.push('✅ Análise visual concluída');
+      }
+    }
 
-    const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history });
+    const actionPlan = await generateActionPlan(userQuestion, history, visionContext);
+
+    const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext });
 
     logs.push('👁️ Revisando resposta com Gemini...');
     let response = await reviewResponse(exec.response);
