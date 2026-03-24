@@ -741,7 +741,7 @@ Siga EXATAMENTE este processo:
 5. Se a resposta for longa, não pare no meio de uma frase; continue até concluir a explicação.
 6. Ao final, inclua apenas a tag: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
 
-IMPORTANTE: Cite fontes inline usando [ID-DA-FONTE] sempre que usar informações de uma fonte específica. Use apenas os IDs disponíveis no contexto. Não invente citações.
+IMPORTANTE: É OBRIGATÓRIO citar fontes ao longo de TODA a resposta usando [ID-DA-FONTE]. Faça isso extensivamente, várias vezes por parágrafo, para CADA afirmação, e referencie as imagens/vídeos. Não deixe de citar a NASA se houver imagens no contexto. Use apenas os IDs disponíveis no contexto. Não invente citações.
 
 Seja honesto e preciso. Não especule.`;
 

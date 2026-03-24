@@ -1229,7 +1229,7 @@
   const STORAGE_KEY = 'drekee_chat_history_v1';
   let chatHistory = [];
 
-  loadHistory();
+  // loadHistory();
 
   function loadHistory() {
     try {
@@ -1531,9 +1531,7 @@
     inner.appendChild(mediaContainer);
     inner.appendChild(sourcesContainer);
 
-    // O conteúdo de NASA será exibido inline nos parágrafos referenciados,
-    // não em um bloco separado de mídia.
-    mediaContainer.style.display = 'none';
+    // O conteúdo de NASA será exibido na grid abaixo, e também inline se citado.
     if (!textSources.length) sourcesContainer.style.display = 'none';
 
     wrapper.appendChild(inner);
