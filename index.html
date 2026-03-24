@@ -193,7 +193,43 @@
   .header-title {
     font-size: 0.875rem; font-weight: 600;
     color: #cbd5e1; letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 60%;
   }
+
+  /* ── Mobile New Chat Button ── */
+  .mobile-header-btn {
+    display: none;
+    align-items: center; justify-content: center;
+    width: 2.25rem; height: 2.25rem;
+    border-radius: 0.75rem;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--blue);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mobile-header-btn:active { transform: scale(0.92); background: var(--border); }
+
+  /* ── Mobile Layout Adaptation ── */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .layout { height: 100dvh; } /* Suporte para Dynamic Viewport */
+    .header {
+      justify-content: space-between;
+      padding: 0 1rem;
+    }
+    .mobile-header-btn { display: flex; }
+    .chat-area {
+      padding: 1.5rem 1rem 12rem;
+    }
+    .messages-inner { max-width: 100%; }
+    .welcome-title { font-size: 1.5rem; text-align: center; }
+    .welcome-subtitle { padding: 0 1.5rem; text-align: center; }
+    .input-container { padding: 1rem; }
+    .input-box { border-radius: 1.25rem; padding: 0.85rem 1rem; }
+  }
+
 
   /* ── Chat area ── */
   .chat-area {
@@ -1014,8 +1050,17 @@
   <!-- ──────── MAIN ──────── -->
   <main class="main" id="mainContainer">
     <header class="header">
-      <h1 class="header-title" id="conversationTitle"></h1>
+      <div class="header-mobile-brand lg:hidden flex items-center gap-2" style="display:none">
+        <div class="brand-logo" style="width:1.75rem;height:1.75rem;font-size:0.75rem">
+           <video src="oi.mp4" autoplay muted loop playsinline></video>
+        </div>
+      </div>
+      <h1 class="header-title" id="conversationTitle">Chat</h1>
+      <button class="mobile-header-btn" id="mobileNewChatBtn" title="Nova Conversa">
+        <span class="material-icons-outlined">add</span>
+      </button>
     </header>
+
 
     <div class="chat-area" id="chatArea">
       <div class="welcome" id="welcomeScreen">
@@ -1945,17 +1990,24 @@
   });
 
   // ── New chat ──────────────────────────────────────────────
-  document.getElementById('newChatBtn').addEventListener('click', () => {
+  function startNewChat() {
     messagesContainer.innerHTML = '';
     welcomeScreen.classList.remove('hidden');
     conversationActive = false;
-    convTitle.textContent = '';
+    convTitle.textContent = 'Chat';
     attachedFiles = [];
     attachedFilesContainer.innerHTML = '';
     attachedFilesContainer.style.display = 'none';
     chatHistory = [];
     localStorage.removeItem(STORAGE_KEY);
-  });
+  }
+
+  document.getElementById('newChatBtn').addEventListener('click', startNewChat);
+  const mobileNewChatBtn = document.getElementById('mobileNewChatBtn');
+  if (mobileNewChatBtn) {
+    mobileNewChatBtn.addEventListener('click', startNewChat);
+  }
+
 
   // ── Scroll ────────────────────────────────────────────────
   const chatArea  = document.getElementById('chatArea');
