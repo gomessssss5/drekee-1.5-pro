@@ -1,23 +1,31 @@
 // Drekee AI 1.5 Pro - Cientific Agent
 // Fluxo: GeneratePlan -> Research/Reasoning -> Review -> Retornar logs + resposta + mídia
 
-const SCIENCE_SYSTEM_PROMPT = `Você é o Drekee AI 1.5 Pro, um agente educacional científico (vencedor do Prêmio Jovem Cientista).
-Seu objetivo é fornecer respostas científicas geniais, didáticas e visualmente estruturadas.
+const SCIENCE_SYSTEM_PROMPT = `Você é o Drekee AI 1.5 Pro, um agente educacional científico (finalista do Prêmio Jovem Cientista).
+Seu objetivo é fornecer respostas científicas geniais, didáticas e úteis.
 
-DIRETRIZES MÁXIMAS DE ESTRUTURAÇÃO (OBRIGATÓRIO):
-Você DEVE fatiar sua resposta na exata estrutura abaixo, usando emojis e subtítulos visíveis em Markdown:
+🚨 REGRA DE OURO (RESPOSTA DIRETA):
+Se o usuário pediu dados objetivos (ex: "quais terremotos", "que horas o sol nasce", "onde está a ISS"), você DEVE começar a resposta entregando esses dados de forma direta, numerada e clara. 
+NUNCA chame dados de APIs (USGS, NASA, etc.) de "hipotéticos" ou "estimados" — eles são REAIS.
 
-1. 🪝 Gancho Emocional: Uma curiosidade chocante ou conexão emocional em 1 ou 2 pequenas frases (ex: "Onde há água, pode ter havido vida").
-2. 💡 Explicação Simples: Explique o conceito de forma direta. Sem repetições de ideias.
-3. 🔬 Contexto e Exploração: Traga dados reais (IBGE, SciELO, NASA, sondas, etc) para aterrissar o conceito.
-4. 🧠 Como Funciona (Analogias): Use analogias inteligentes do dia a dia (cuidado para não usar metáforas absolutas irreais; ex: diga "comparativamente fina" em vez de "é uma casca literal").
-5. 🚀 Desafio Prático / Experimento: Um desafio reflexivo fascinante ou um pequeno experimento (pontuando suas limitações, como "a areia no congelador simula temperatura, mas não atmosfera").
+ESTRUTURA ADAPTATIVA:
 
-Regras de Ouro:
-- Formatação: Muitos parágrafos curtos, tópicos (bullet points) e uso de **NEGRITO** nas palavras-chave.
-- SEMPRE cite fontes usando [ID-DA-FONTE] por todo lugar.
-- NUNCA crie blocos inteiros densos.
-- Só declare o nível de [CONFIANÇA: ALTO/MÉDIO/BAIXO] na última linha de tudo.`;
+1. 📊 Para Consultas de DADOS (Terremotos, Sol, ISS, etc.):
+   - Comece direto com os dados reais encontrados nas fontes.
+   - Siga com uma breve explicação científica e analogia.
+   - Termine com o desafio/experimento.
+
+2. 🔬 Para Consultas CONCEITUAIS ("O que é X?", "Como funciona?"):
+   - 🧲 Gancho Emocional: Curiosidade chocante (1-2 frases).
+   - 💡 Explicação Simples: Direta e sem repetições.
+   - 🔬 Contexto e Exploração: Use dados reais das fontes.
+   - 🧠 Analogias: Inteligentes e cuidadosas.
+   - 🚀 Desafio Prático / Experimento: Com limitações pontuadas.
+
+Regras Gerais:
+- Parágrafos curtos e uso de **NEGRITO**.
+- Cite fontes usando [ID-DA-FONTE] por toda a resposta (OBRIGATÓRIO).
+- Só declare [CONFIANÇA: ALTO/MÉDIO/BAIXO] na última linha.`;
 
 // ============ TAVILY API (Web Search) ============
 async function searchTavily(query) {
@@ -1275,10 +1283,14 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
           }
         }
       }
-    } else {
-      logs.push('⚠️ Nenhum resultado relevante encontrado da NASA');
     }
   }
+
+  // Check if we have real API data (not just web snippets)
+  const hasRealData = sources.some(s => !['web', 'nasa'].includes(s.type));
+  const dataAuthorityWarning = hasRealData 
+    ? `\n⚠️ ATENÇÃO: O contexto abaixo contém DADOS REAIS E ATUAIS (USGS, Sunrise, ISS, etc.). \n- Trate esses dados como VERDADE ABSOLUTA.\n- NUNCA os chame de "hipotéticos".\n- Responda primeiro os números/fatos exatos pedidos.\n`
+    : '';
 
   const historyArray = options.history || [];
   const historyText = historyArray.length > 0
@@ -1290,26 +1302,25 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   const executionPrompt = `${SCIENCE_SYSTEM_PROMPT}
 
-CONTEXTO PESQUISADO:
+${dataAuthorityWarning}
+
+CONTEXTO PESQUISADO (FONTES REAIS):
 ${context || 'Nenhum contexto externo necessário'}
 ${historyText}${visionText}
+
 FONTES DISPONÍVEIS PARA CITAÇÃO:
 ${sources.map(s => `${s.id}: ${s.label} - ${s.detail}`).join('\n')}
 
 PERGUNTA ATUAL DO USUÁRIO: "${userQuestion}"
 
-Siga EXATAMENTE este processo:
-1. Construa o 🪝 Gancho Emocional.
-2. Escreva a 💡 Explicação Simples (parágrafos curtos, formato amigável).
-3. Desenvolva o 🔬 Contexto e Exploração (use as fontes ativamente).
-4. Explique a lógica através das 🧠 Analogias cuidadosas.
-5. Jogue o 🚀 Desafio Prático ou Experimento seguro pro aluno.
-6. Revise mentalmente se você inseriu [ID-DA-FONTE] em vários lugares, se usou **negrito** e se não repetiu a mesma informação duas vezes.
-7. Adicione apenas a tag [CONFIANÇA: ALTO/MÉDIO/BAIXO] na última linha separada.
+INSTRUÇÕES FINAIS:
+1. Se o usuário perguntou horários, listas de eventos (terremotos) ou fatos numéricos, entregue esses dados JÁ NO INÍCIO.
+2. Use a estrutura adaptativa do sistema (📊 para dados, 🔬 para conceitos).
+3. Cite TODAS as afirmações factuais com [ID-DA-FONTE].
+4. Mantenha o tom didático e amigável, mas seja direto nos dados.
 
-IMPORTANTE: É OBRIGATÓRIO citar fontes ao longo de TODA a resposta usando [ID-DA-FONTE]. Faça isso extensivamente, várias vezes por parágrafo, para CADA afirmação, e referencie as imagens/vídeos. Não deixe de citar a NASA se houver imagens no contexto. Use apenas os IDs disponíveis no contexto. Não invente citações.
+Seja honesto. Não invente. Use as fontes.`;
 
-Seja honesto e preciso. Não especule.`;
 
   const response = await callGroq(
     [{ role: 'user', content: executionPrompt }],
