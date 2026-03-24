@@ -707,28 +707,22 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   }
 }
 
-// ============ GEMINI Call (Review with dual-key fallback + Groq emergency) ============
-async function callGemini(prompt, logs = []) {
+// ============ GEMINI Helper (with multiple keys) ============
+async function tryGeminiWithFallback(preparePayload, logs = []) {
   const keys = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2].filter(Boolean);
   
-  const tryGemini = async (key) => {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
-      }),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(`Gemini error ${res.status}: ${JSON.stringify(json)}`);
-    return json.candidates?.[0]?.content?.parts?.[0]?.text || null;
-  };
-
   for (let i = 0; i < keys.length; i++) {
     try {
-      return await tryGemini(keys[i]);
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keys[i]}`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(preparePayload()),
+      });
+      
+      const json = await res.json();
+      if (!res.ok) throw new Error(`Gemini error ${res.status}: ${JSON.stringify(json)}`);
+      return json.candidates?.[0]?.content?.parts?.[0]?.text || null;
     } catch (err) {
       console.warn(`⚠️ Gemini Key ${i+1} failed:`, err.message);
       if (logs) logs.push(`⚠️ Limite Gemini ${i+1} atingido, tentando alternativa...`);
@@ -754,6 +748,7 @@ async function callGemini(prompt, logs = []) {
   if (logs) logs.push('🚨 Gemini indisponível, usando motor de emergência Groq...');
   return await callGroq([{ role: 'user', content: prompt }], 'GROQ_API_KEY_2', { maxTokens: 4096 });
 }
+
 
 
 // ============ ANALYZE USER UPLOADS (Vision with Gemini) ============
