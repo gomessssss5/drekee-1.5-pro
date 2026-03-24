@@ -290,6 +290,69 @@ async function buscarSciELO(query) {
   }
 }
 
+// ============ Open Library Integration ============
+async function buscarOpenLibrary(query) {
+  if (!query) return [];
+  const apiUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=5`;
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.docs || []).slice(0, 5).map(book => ({
+      title: book.title,
+      author: book.author_name ? book.author_name.join(', ') : 'Desconhecido',
+      year: book.first_publish_year || 'N/A',
+      subject: book.subject ? book.subject.slice(0, 3).join(', ') : 'N/A',
+      link: book.key ? `https://openlibrary.org${book.key}` : null
+    }));
+  } catch (err) {
+    console.error('Open Library fetch error:', err);
+    return [];
+  }
+}
+
+// ============ GBIF (Biodiversity) Integration ============
+async function buscarGBIF(query) {
+  if (!query) return [];
+  const apiUrl = `https://api.gbif.org/v1/species/search?q=${encodeURIComponent(query)}&limit=5`;
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.results || []).slice(0, 5).map(item => ({
+      scientificName: item.scientificName,
+      canonicalName: item.canonicalName,
+      kingdom: item.kingdom,
+      phylum: item.phylum,
+      family: item.family,
+      genus: item.genus,
+      status: item.taxonomicStatus
+    }));
+  } catch (err) {
+    console.error('GBIF fetch error:', err);
+    return [];
+  }
+}
+
+// ============ USGS Earthquake Integration ============
+async function buscarUSGS() {
+  const apiUrl = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&orderby=time&limit=8`;
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.features || []).map(f => ({
+      mag: f.properties.mag,
+      place: f.properties.place,
+      time: new Date(f.properties.time).toLocaleString('pt-BR'),
+      url: f.properties.url
+    }));
+  } catch (err) {
+    console.error('USGS fetch error:', err);
+    return [];
+  }
+}
+
 // ============ Wikipedia Integration ============
 async function buscarWikipedia(termo) {
   if (!termo) return null;
@@ -428,7 +491,7 @@ async function callGemini(prompt) {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 3500,
+        maxOutputTokens: 8192,
       },
     }),
   });
@@ -568,18 +631,20 @@ async function generateActionPlan(userQuestion, history = [], visionContext = ''
 ${historyText}${visionText}
 Pergunta atual: "${userQuestion}"
 
+Dica de Autodetecção: 
+- "ibge": busca dados estatísticos/notícias do Brasil (termos: brasil, população, estado, economia, dados).
+- "scielo": busca artigos acadêmicos (termos: artigo, tese, periódico, científico, revista).
+- "openlibrary": busca livros e autores (termos: livro, autor, obra, literatura, biografia).
+- "gbif": busca seres vivos e biodiversidade (termos: espécie, animal, planta, biologia, taxonomia, nome científico).
+- "usgs": busca terremotos e sismicidade (termos: terremoto, sismo, tremor, abalo, vulcão).
+
 Retorne APENAS JSON válido (sem markdown):
 {
   "objetivo": "Descrição clara do que responder",
-  "area_cientifica": "Área(s) científica(s) envolvida(s)",
-  "passos": [
-    {
-      "numero": 1,
-      "nome": "Nome do passo",
-      "descricao": "O que será feito"
-    }
-  ],
-  "precisa_busca_web": true/false
+  "area_cientifica": "Área(s) científica(s)",
+  "passos": [ { "numero": 1, "nome": "Passo", "descricao": "O que fazer" } ],
+  "precisa_busca_web": true/false,
+  "termo_de_busca": "um termo de busca real para o Google (ex: 'Marte clima') se precisar de busca web (combine a pergunta atual com o histórico, se houver). Use null se não precisar pesquisar nada na internet para esta interação."
 }`;
 
   const response = await callGroq(
@@ -643,10 +708,12 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   let context = '';
   let nasaMedia = [];
+  
+  const queryParaBuscar = actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion;
 
   if (actionPlan?.precisa_busca_web) {
-    logs.push('🌐 Buscando na web (Tavily)...');
-    const searchResult = await searchTavily(userQuestion);
+    logs.push(`🌐 Buscando na web: "${queryParaBuscar}"`);
+    const searchResult = await searchTavily(queryParaBuscar);
     if (searchResult) {
       context += `\n\n📰 Resultados de busca web:\n`;
       context += `Resposta resumida: ${searchResult.answer}\n\n`;
@@ -671,8 +738,8 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   // Data de cada conector
   
   if (selectedConnectors.includes('scielo')) {
-    logs.push('📚 Buscando na SciELO...');
-    const scielo = await buscarSciELO(userQuestion);
+    logs.push(`📚 Buscando na SciELO: "${queryParaBuscar}"`);
+    const scielo = await buscarSciELO(queryParaBuscar);
     if (scielo && scielo.length > 0) {
       scielo.forEach((item, i) => {
         context += `\n\n🇧🇷 SciELO ${i + 1}: ${item.title}\nAutores: ${item.authors}\nResumo: ${item.summary}\nLink: ${item.link}\n`;
@@ -683,8 +750,8 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   }
 
   if (selectedConnectors.includes('ibge')) {
-    logs.push('📊 Buscando no IBGE...');
-    const ibge = await buscarIBGE(userQuestion);
+    logs.push(`📊 Buscando no IBGE: "${queryParaBuscar}"`);
+    const ibge = await buscarIBGE(queryParaBuscar);
     if (ibge && ibge.length > 0) {
       ibge.forEach((item, i) => {
         context += `\n\n🇧🇷 IBGE Notícia ${i + 1} (${item.date}): ${item.title}\n${item.summary}\nLink: ${item.link}\n`;
@@ -693,9 +760,45 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       logs.push('✅ Dados IBGE coletados');
     }
   }
+
+  if (selectedConnectors.includes('openlibrary')) {
+    logs.push(`📚 Buscando na Open Library: "${queryParaBuscar}"`);
+    const books = await buscarOpenLibrary(queryParaBuscar);
+    if (books && books.length > 0) {
+      books.forEach((b, i) => {
+        context += `\n\n📖 Livro ${i + 1}: ${b.title}\nAutor: ${b.author}\nAno: ${b.year}\nAssuntos: ${b.subject}\nLink: ${b.link}\n`;
+        addSource(`BOOK-${i + 1}`, b.title, 'openlibrary', `Autor: ${b.author}, Ano: ${b.year}`, b.link);
+      });
+      logs.push('✅ Livros encontrados na Open Library');
+    }
+  }
+
+  if (selectedConnectors.includes('gbif')) {
+    logs.push(`🌿 Buscando no GBIF (Biodiversidade): "${queryParaBuscar}"`);
+    const species = await buscarGBIF(queryParaBuscar);
+    if (species && species.length > 0) {
+      species.forEach((s, i) => {
+        context += `\n\n🧬 Espécie ${i + 1}: ${s.scientificName} (${s.canonicalName || 'S/N'})\nReino: ${s.kingdom}, Filo: ${s.phylum}, Família: ${s.family}\nStatus: ${s.status}\n`;
+        addSource(`GBIF-${i + 1}`, s.canonicalName || s.scientificName, 'gbif', `Taxonomia: ${s.kingdom} > ${s.family}`, null);
+      });
+      logs.push('✅ Dados de biodiversidade do GBIF coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('usgs')) {
+    logs.push(`🌍 Buscando Terremotos no USGS...`);
+    const quakes = await buscarUSGS();
+    if (quakes && quakes.length > 0) {
+      quakes.forEach((q, i) => {
+        context += `\n\n📍 Terremoto ${i + 1}: Mag ${q.mag} em ${q.place}\nData/Hora: ${q.time}\nLink USGS: ${q.url}\n`;
+        addSource(`USGS-${i + 1}`, `Terremoto em ${q.place}`, 'usgs', `Magnitude: ${q.mag}, Local: ${q.place}`, q.url);
+      });
+      logs.push('✅ Dados sísmicos do USGS coletados');
+    }
+  }
   if (selectedConnectors.includes('wikipedia')) {
-    logs.push('🌐 Buscando na Wikipedia...');
-    const wiki = await buscarWikipedia(userQuestion);
+    logs.push(`🌐 Buscando na Wikipedia: "${queryParaBuscar}"`);
+    const wiki = await buscarWikipedia(queryParaBuscar);
     if (wiki) {
       context += `\n\n📘 Wikipedia: ${wiki.title}\n${wiki.extract}\n`;  
       addSource('WIKIPEDIA', 'Wikipedia', 'wikipedia', wiki.extract || wiki.title, wiki.url);
@@ -706,8 +809,8 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   }
 
   if (selectedConnectors.includes('arxiv')) {
-    logs.push('📚 Buscando no arXiv...');
-    const arxiv = await buscarArxiv(userQuestion);
+    logs.push(`📚 Buscando no arXiv: "${queryParaBuscar}"`);
+    const arxiv = await buscarArxiv(queryParaBuscar);
     if (arxiv.length > 0) {
       arxiv.slice(0, 3).forEach((item, i) => {
         context += `\n\n🧾 arXiv ${i + 1}: ${item.title}\n${item.summary}\nLink: ${item.link}\n`;
@@ -720,8 +823,8 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   }
 
   if (selectedConnectors.includes('newton')) {
-    logs.push('🧮 Calculando com Newton/MathJS...');
-    const math = await calcular(userQuestion);
+    logs.push(`🧮 Calculando com Newton/MathJS: "${queryParaBuscar}"`);
+    const math = await calcular(queryParaBuscar);
     if (math) {
       context += `\n\n➗ Resultado MathJS para '${math.input}': ${math.result}\n`;
       addSource('NEWTON', 'MathJS (Newton)', 'newton', `${math.input} => ${math.result}`, 'https://api.mathjs.org');
@@ -755,8 +858,8 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   }
 
   if (useNasa) {
-    logs.push('🚀 Otimizando busca NASA com IA...');
-    const optimizedQuery = await optimizeNasaQuery(userQuestion);
+    logs.push(`🚀 Otimizando busca NASA com IA para: "${queryParaBuscar}"`);
+    const optimizedQuery = await optimizeNasaQuery(queryParaBuscar);
     logs.push(`📝 Query otimizada: "${optimizedQuery}"`);
 
     // Track NASA query as a source
@@ -890,7 +993,7 @@ Seja honesto e preciso. Não especule.`;
   const response = await callGroq(
     [{ role: 'user', content: executionPrompt }],
     'GROQ_API_KEY_1',
-    { maxTokens: 3000, temperature: 0.2 }
+    { maxTokens: 6000, temperature: 0.2 }
   );
 
   logs.push('✅ Resposta gerada pela IA principal');

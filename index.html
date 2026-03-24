@@ -333,14 +333,13 @@
     flex-shrink: 0; margin-top: 4px;
   }
   .msg-ai .bubble {
-    background: rgba(22,32,56,0.65);
-    border: 1px solid var(--border);
+    background: transparent;
+    border: none;
     color: #e2e8f0;
-    padding: 13px 17px;
-    border-radius: 4px 20px 20px 20px;
-    max-width: 80%;
+    padding: 13px 0; /* Removing horizontal padding to align text correctly with no border */
+    border-radius: 0;
+    max-width: 95%;
     font-size: 0.92rem; line-height: 1.7;
-    /* NOTE: no backdrop-filter here to avoid stacking context issues */
   }
 
   /* ── Action Plan ── */
@@ -1331,8 +1330,13 @@
     const sourcesMap = new Map(sources.map(s => [s.id, s]));
     const citations  = new Map();
 
+    let html = escapeHtml(response);
+    
+    // Parse Bold
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
     // Converter parágrafos e quebras de linha para HTML
-    let html = escapeHtml(response)
+    html = html
       .replace(/\r\n/g, '\n')
       .split('\n\n')
       .map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
@@ -1675,6 +1679,9 @@
     { key: 'ibge',       label: 'IBGE',        img: 'ibge.png',        description: 'Estatísticas, pesquisas e notícias do Brasil.' },
     { key: 'open-meteo', label: 'Open-Meteo',  img: 'open-meteo.png',  description: 'Dados meteorológicos globais por coordenadas.' },
     { key: 'nasa',       label: 'NASA',        img: 'NASA.png',        description: 'Imagens e dados de observações da NASA.' },
+    { key: 'openlibrary', label: 'Open Library', img: 'open.png', description: 'Busca de livros, autores e obras literárias globais.' },
+    { key: 'gbif',       label: 'GBIF',         img: 'gbif.png', description: 'Dados de biodiversidade e taxonomia de espécies.' },
+    { key: 'usgs',       label: 'USGS Earthquakes', img: 'usgs.png', description: 'Monitoramento de terremotos e sismos em tempo real.' },
   ];
 
   function openConnectorsCard() {
