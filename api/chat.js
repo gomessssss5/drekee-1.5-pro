@@ -1,18 +1,23 @@
 // Drekee AI 1.5 Pro - Cientific Agent
 // Fluxo: GeneratePlan -> Research/Reasoning -> Review -> Retornar logs + resposta + mídia
 
-const SCIENCE_SYSTEM_PROMPT = `Você é o Drekee AI 1.5 Pro, um agente educacional voltado para jovens cientistas estudantes. Seu projeto concorre ao Prêmio Jovem Cientista.
+const SCIENCE_SYSTEM_PROMPT = `Você é o Drekee AI 1.5 Pro, um agente educacional científico (vencedor do Prêmio Jovem Cientista).
+Seu objetivo é fornecer respostas científicas geniais, didáticas e visualmente estruturadas.
 
-Seu objetivo é fornecer respostas científicas confiáveis, incrivelmente didáticas e visualmente cativantes.
+DIRETRIZES MÁXIMAS DE ESTRUTURAÇÃO (OBRIGATÓRIO):
+Você DEVE fatiar sua resposta na exata estrutura abaixo, usando emojis e subtítulos visíveis em Markdown:
 
-Diretrizes:
-- Baseie as respostas em conhecimento científico consolidado.
-- LINGUAGEM E ANALOGIAS: Nunca seja "seco" ao usar termos técnicos. Para cada termo complexo, use uma analogia simples do dia a dia (ex: "A crosta de Marte é fina como a casca de um ovo").
-- FORMATAÇÃO ACESSÍVEL: Não crie blocos inteiros de texto densos. Quebre em parágrafos curtos, use marcadores (bullet points), numeração e textos em NEGRITO para destacar os conceitos chaves, facilitando a leitura fluida em celulares para escolas públicas.
-- INTERATIVIDADE: SEMPRE termine sua resposta de forma engajadora. Deixe uma pergunta fascinante para reflexão ou proponha um experimento simples e seguro que reforce a explicação.
-- Priorize a empatia e a clareza; você é como um professor de ciências muito legal e genial.
-- Indique nível de confiança (ALTO/MÉDIO/BAIXO) apenas no final da resposta.
-`;
+1. 🪝 Gancho Emocional: Uma curiosidade chocante ou conexão emocional em 1 ou 2 pequenas frases (ex: "Onde há água, pode ter havido vida").
+2. 💡 Explicação Simples: Explique o conceito de forma direta. Sem repetições de ideias.
+3. 🔬 Contexto e Exploração: Traga dados reais (IBGE, SciELO, NASA, sondas, etc) para aterrissar o conceito.
+4. 🧠 Como Funciona (Analogias): Use analogias inteligentes do dia a dia (cuidado para não usar metáforas absolutas irreais; ex: diga "comparativamente fina" em vez de "é uma casca literal").
+5. 🚀 Desafio Prático / Experimento: Um desafio reflexivo fascinante ou um pequeno experimento (pontuando suas limitações, como "a areia no congelador simula temperatura, mas não atmosfera").
+
+Regras de Ouro:
+- Formatação: Muitos parágrafos curtos, tópicos (bullet points) e uso de **NEGRITO** nas palavras-chave.
+- SEMPRE cite fontes usando [ID-DA-FONTE] por todo lugar.
+- NUNCA crie blocos inteiros densos.
+- Só declare o nível de [CONFIANÇA: ALTO/MÉDIO/BAIXO] na última linha de tudo.`;
 
 // ============ TAVILY API (Web Search) ============
 async function searchTavily(query) {
@@ -261,6 +266,30 @@ async function buscarArxiv(query) {
   }
 }
 
+// ============ SciELO Integration ============
+async function buscarSciELO(query) {
+  if (!query) return [];
+  // Europe PMC API supports searching SciELO via SRC:SCIELO
+  const apiUrl = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=SRC:SCIELO%20AND%20(${encodeURIComponent(query)})&format=json&resultType=lite`;
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const results = data.resultList?.result || [];
+    
+    return results.slice(0, 3).map(item => ({
+      title: item.title,
+      summary: item.abstractText || "Artigo científico (resumo indisponível - deduza pelo título).",
+      link: item.url || (item.doi ? `https://doi.org/${item.doi}` : null),
+      authors: item.authorString,
+      journal: item.journalTitle
+    }));
+  } catch (err) {
+    console.error('SciELO fetch error:', err);
+    return [];
+  }
+}
+
 // ============ Wikipedia Integration ============
 async function buscarWikipedia(termo) {
   if (!termo) return null;
@@ -325,6 +354,28 @@ async function buscarOpenMeteo(lat = -23.55, lon = -46.63) {
   } catch (err) {
     console.error('Open-Meteo fetch error:', err);
     return null;
+  }
+}
+
+// ============ IBGE Integration ============
+async function buscarIBGE(query) {
+  if (!query) return [];
+  const apiUrl = `https://servicodados.ibge.gov.br/api/v3/noticias/?busca=${encodeURIComponent(query)}&qtd=3`;
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items = data.items || [];
+    
+    return items.map(item => ({
+      title: item.titulo,
+      summary: item.introducao,
+      link: item.link,
+      date: item.data_publicacao
+    }));
+  } catch (err) {
+    console.error('IBGE fetch error:', err);
+    return [];
   }
 }
 
@@ -557,7 +608,16 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
 
   const autoDetectedConnectors = [];
   const normalizedText = (userQuestion || '').toLowerCase();
-  if (/\b(arxiv|paper|artigo|pesquisa|estudo)\b/.test(normalizedText)) autoDetectedConnectors.push('arxiv');
+  
+  if (/\b(arxiv|paper|artigo|pesquisa|estudo|tese|scielo)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('arxiv');
+    if (/\b(scielo|brasil|português|tese)\b/.test(normalizedText)) autoDetectedConnectors.push('scielo');
+  }
+  
+  if (/\b(brasil|ibge|demografia|população|estado|cidade|saneamento|município)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('ibge');
+  }
+  
   if (/\b(conceito|definição|o que é|explica|explicar|definir)\b/.test(normalizedText)) autoDetectedConnectors.push('wikipedia');
   if (/\b(matemática|equação|integral|derivada|cálculo|somar|subtrair|multiplicar|dividir)\b/.test(normalizedText)) autoDetectedConnectors.push('newton');
   if (/\b(espaço|nasa|planeta|satélite|foguete|astronomia|marte|lua|asteroide|asteróide)\b/.test(normalizedText)) {
@@ -609,6 +669,30 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   logs.push(`🔌 Conectores selecionados: ${selectedConnectors.join(', ') || 'nenhum'}`);
 
   // Data de cada conector
+  
+  if (selectedConnectors.includes('scielo')) {
+    logs.push('📚 Buscando na SciELO...');
+    const scielo = await buscarSciELO(userQuestion);
+    if (scielo && scielo.length > 0) {
+      scielo.forEach((item, i) => {
+        context += `\n\n🇧🇷 SciELO ${i + 1}: ${item.title}\nAutores: ${item.authors}\nResumo: ${item.summary}\nLink: ${item.link}\n`;
+        addSource(`SCIELO-${i + 1}`, item.title || `SciELO ${i + 1}`, 'scielo', item.summary || '', item.link);
+      });
+      logs.push('✅ Dados SciELO coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('ibge')) {
+    logs.push('📊 Buscando no IBGE...');
+    const ibge = await buscarIBGE(userQuestion);
+    if (ibge && ibge.length > 0) {
+      ibge.forEach((item, i) => {
+        context += `\n\n🇧🇷 IBGE Notícia ${i + 1} (${item.date}): ${item.title}\n${item.summary}\nLink: ${item.link}\n`;
+        addSource(`IBGE-${i + 1}`, item.title || `IBGE ${i + 1}`, 'ibge', item.summary || '', item.link);
+      });
+      logs.push('✅ Dados IBGE coletados');
+    }
+  }
   if (selectedConnectors.includes('wikipedia')) {
     logs.push('🌐 Buscando na Wikipedia...');
     const wiki = await buscarWikipedia(userQuestion);
@@ -791,12 +875,13 @@ ${sources.map(s => `${s.id}: ${s.label} - ${s.detail}`).join('\n')}
 PERGUNTA ATUAL DO USUÁRIO: "${userQuestion}"
 
 Siga EXATAMENTE este processo:
-1. Entenda profundamente a pergunta e o público (estudantes jovens).
-2. Organize sua resposta em subtítulos, parágrafos bem curtos e tópicos (bullet points) para fácil leitura. Use **negrito** nas palavras-chave.
-3. Inclua analogias divertidas e do cotidiano para cada termo técnico que utilizar.
-4. Inclua informações factuais e use os dados extraídos das fontes e da NASA, referenciando-os constantemente.
-5. Termine sempre a resposta com uma pergunta instigante reflexiva ou sugerindo um pequeno experimento/observação prática.
-6. Ao final de tudo, inclua apenas a tag: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
+1. Construa o 🪝 Gancho Emocional.
+2. Escreva a 💡 Explicação Simples (parágrafos curtos, formato amigável).
+3. Desenvolva o 🔬 Contexto e Exploração (use as fontes ativamente).
+4. Explique a lógica através das 🧠 Analogias cuidadosas.
+5. Jogue o 🚀 Desafio Prático ou Experimento seguro pro aluno.
+6. Revise mentalmente se você inseriu [ID-DA-FONTE] em vários lugares, se usou **negrito** e se não repetiu a mesma informação duas vezes.
+7. Adicione apenas a tag [CONFIANÇA: ALTO/MÉDIO/BAIXO] na última linha separada.
 
 IMPORTANTE: É OBRIGATÓRIO citar fontes ao longo de TODA a resposta usando [ID-DA-FONTE]. Faça isso extensivamente, várias vezes por parágrafo, para CADA afirmação, e referencie as imagens/vídeos. Não deixe de citar a NASA se houver imagens no contexto. Use apenas os IDs disponíveis no contexto. Não invente citações.
 
