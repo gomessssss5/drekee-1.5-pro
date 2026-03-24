@@ -659,109 +659,120 @@ async function buscarPoesia(query) {
   }
 }
 
-// ============ GROQ Call (flexible) ============
+// ============ GROQ Call (flexible with fallback) ============
 async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
-  const apiKey = process.env[apiKeyVar] || process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error(`${apiKeyVar} not configured`);
+  const primaryKey = process.env[apiKeyVar] || process.env.GROQ_API_KEY;
+  const secondaryKey = process.env.GROQ_API_KEY_2;
 
-  const model = options.model || 'llama-3.3-70b-versatile';
-  const maxTokens = options.maxTokens || 4096;
-  const temperature = options.temperature !== undefined ? options.temperature : 0.25;
+  const tryRequest = async (key) => {
+    if (!key) return null;
+    const model = options.model || 'llama-3.3-70b-versatile';
+    const maxTokens = options.maxTokens || 4096;
+    const temperature = options.temperature !== undefined ? options.temperature : 0.25;
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: maxTokens,
-      temperature,
-    }),
-  });
-
-  const json = await res.json();
-  if (!res.ok) {
-    throw new Error(`GROQ error ${res.status}: ${JSON.stringify(json)}`);
-  }
-
-  return json.choices?.[0]?.message?.content || null;
-}
-
-// ============ GEMINI Call (Review) ============
-async function callGemini(prompt) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn('GEMINI_API_KEY not configured; skipping Gemini calls.');
-    return null;
-  }
-
-  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey;
-
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 8192,
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
       },
-    }),
-  });
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+      }),
+    });
 
-  const json = await res.json();
-  if (!res.ok) {
-    throw new Error(`Gemini error ${res.status}: ${JSON.stringify(json)}`);
-  }
-
-  return json.candidates?.[0]?.content?.parts?.[0]?.text || null;
-}
-
-// ============ ANALYZE USER UPLOADS (Vision with Gemini) ============
-async function analyzeUserFilesWithGemini(files, userQuestion) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || !files || files.length === 0) return null;
-
-  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey;
-
-  const parts = [
-    { text: `Você é um agente educacional científico analisando uma imagem enviada por um aluno. Descreva detalhadamente o conteúdo das imagens. Foque nos aspectos científicos que possam responder à pergunta do aluno: "${userQuestion}". Retorne APENAS a descrição detalhada do visual das imagens.` }
-  ];
-
-  for (const file of files) {
-    if (file.type && file.type.startsWith('image/') && file.data) {
-      parts.push({
-        inlineData: {
-          mimeType: file.type,
-          data: file.data
-        }
-      });
+    const json = await res.json();
+    if (!res.ok) {
+        throw new Error(`GROQ error ${res.status}: ${JSON.stringify(json)}`);
     }
-  }
-
-  if (parts.length === 1) return null;
+    return json.choices?.[0]?.message?.content || null;
+  };
 
   try {
+    return await tryRequest(primaryKey);
+  } catch (err) {
+    if (secondaryKey && secondaryKey !== primaryKey) {
+      console.warn('⚠️ GROQ Primary failed, trying fallback...');
+      try {
+        return await tryRequest(secondaryKey);
+      } catch (err2) {
+        throw new Error(`Both GROQ keys failed. Last error: ${err2.message}`);
+      }
+    }
+    throw err;
+  }
+}
+
+// ============ GEMINI Call (Review with dual-key fallback + Groq emergency) ============
+async function callGemini(prompt, logs = []) {
+  const keys = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2].filter(Boolean);
+  
+  const tryGemini = async (key) => {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 2000 },
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
       }),
     });
-    
     const json = await res.json();
-    if (!res.ok) throw new Error(JSON.stringify(json));
+    if (!res.ok) throw new Error(`Gemini error ${res.status}: ${JSON.stringify(json)}`);
     return json.candidates?.[0]?.content?.parts?.[0]?.text || null;
-  } catch (err) {
-    console.error('Gemini vision error:', err);
-    return null;
+  };
+
+  for (let i = 0; i < keys.length; i++) {
+    try {
+      return await tryGemini(keys[i]);
+    } catch (err) {
+      console.warn(`⚠️ Gemini Key ${i+1} failed:`, err.message);
+      if (logs) logs.push(`⚠️ Limite Gemini ${i+1} atingido, tentando alternativa...`);
+    }
   }
+  return null;
+}
+
+// ============ GEMINI Call (Review with dual-key fallback + Groq emergency) ============
+async function callGemini(prompt, logs = []) {
+  const preparePayload = () => ({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
+  });
+
+  const geminiResult = await tryGeminiWithFallback(preparePayload, logs);
+  if (geminiResult !== null) {
+    return geminiResult;
+  }
+
+  // Final Emergency Fallback to Groq for text tasks
+  console.warn('🚨 Both Gemini keys failed, falling back to emergency GROQ...');
+  if (logs) logs.push('🚨 Gemini indisponível, usando motor de emergência Groq...');
+  return await callGroq([{ role: 'user', content: prompt }], 'GROQ_API_KEY_2', { maxTokens: 4096 });
+}
+
+
+// ============ ANALYZE USER UPLOADS (Vision with Gemini) ============
+async function analyzeUserFilesWithGemini(files, userQuestion, logs = []) {
+  if (!files || files.length === 0) return null;
+
+  const preparePayload = () => {
+    const parts = [
+      { text: `Você é um agente educacional científico analisando uma imagem enviada por um aluno. Descreva detalhadamente o conteúdo das imagens. Foque nos aspectos científicos que possam responder à pergunta do aluno: "${userQuestion}". Retorne APENAS a descrição detalhada do visual das imagens.` }
+    ];
+    for (const file of files) {
+      if (file.type && file.type.startsWith('image/') && file.data) {
+        parts.push({ inlineData: { mimeType: file.type, data: file.data } });
+      }
+    }
+    return { contents: [{ parts }], generationConfig: { temperature: 0.2, maxOutputTokens: 2000 } };
+  };
+
+  return await tryGeminiWithFallback(preparePayload, logs);
 }
 
 // ============ ANALYZE NASA IMAGES (First 4 with GROQ_API_KEY_2) ============
@@ -783,12 +794,7 @@ async function analyzeNasaImagesWithGroq(nasaMedia) {
 IMAGENS FORNECIDAS:
 ${imageList}
 
-TASK: Analise APENAS o conteúdo visual dessas imagens. Descreva:
-- O que cada imagem mostra (objetos, fenômenos, estruturas)
-- Contexto científico (se aparente)
-- Detalhes relevantes
-
-Sejam descritivos mas concisos. Retorne apenas as descrições das imagens.`;
+TASK: Analise APENAS o conteúdo visual dessas imagens. Descreva o que cada imagem mostra e o contexto científico. Retorne apenas as descrições.`;
 
   try {
     const response = await callGroq(
@@ -804,38 +810,26 @@ Sejam descritivos mas concisos. Retorne apenas as descrições das imagens.`;
 }
 
 // ============ ANALYZE NASA IMAGES (Last 4 with GEMINI) ============
-async function analyzeNasaImagesWithGemini(nasaMedia) {
+async function analyzeNasaImagesWithGemini(nasaMedia, logs = []) {
   if (!nasaMedia || nasaMedia.length === 0) return null;
 
-  // Selecionar as 4 ÚLTIMAS imagens
   const lastFourImages = nasaMedia.slice(-4);
   const validImages = lastFourImages.filter(m => m.media_type === 'image' && m.url);
-
   if (validImages.length === 0) return null;
 
   const imageList = validImages
     .map((img, i) => `${i + 1}. ${img.title}\n   Descrição: ${img.description}\n   URL: ${img.url}`)
     .join('\n\n');
 
-  const prompt = `Você é um especialista em análise de imagens científicas.
+  const preparePayload = () => ({
+    contents: [{ parts: [{ text: `Você é um especialista em análise de imagens científicas. IMAGENS FORNECIDAS:\n${imageList}\n\nTASK: Analise APENAS o conteúdo visual dessas imagens. Descreva o que cada uma mostra e o contexto científico. Retorne apenas as descrições.` }] }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 2000 }
+  });
 
-IMAGENS FORNECIDAS:
-${imageList}
-
-TASK: Analise APENAS o conteúdo visual dessas imagens. Descreva:
-- O que cada imagem mostra (objetos, fenômenos, estruturas)
-- Contexto científico (se aparente)
-- Detalhes relevantes
-
-Sejam descritivos mas concisos. Retorne apenas as descrições das imagens.`;
-
-  try {
-    return await callGemini(prompt);
-  } catch (err) {
-    console.error('Gemini image analysis error:', err);
-    return null;
-  }
+  return await tryGeminiWithFallback(preparePayload, logs);
 }
+
+
 
 // ============ STEP 1: Generate Action Plan (internal) ============
 async function generateActionPlan(userQuestion, history = [], visionContext = '') {
