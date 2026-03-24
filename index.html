@@ -1674,15 +1674,23 @@
     { key: 'wikipedia',  label: 'Wikipedia',   img: 'wikipedia.png',   description: 'Resumos e conteúdos enciclopédicos estruturados.' },
     { key: 'arxiv',      label: 'arXiv',       img: 'arxiv.png',       description: 'Artigos científicos de física, matemática e computação.' },
     { key: 'scielo',     label: 'SciELO',      img: 'scielo.png',      description: 'Artigos científicos da América Latina (Português).' },
-    { key: 'newton',     label: 'Newton (MathJS)', img: 'newton.png',  description: 'Resolve expressões e cálculos matemáticos.' },
+    { key: 'newton',     label: 'Newton (Cálculo)', img: 'newton.png', description: 'Resolve derivadas, integrais, fatoração e equações.' },
     { key: 'spacex',     label: 'SpaceX',      img: 'spacex.png',      description: 'Dados de lançamentos e missões espaciais atualizados.' },
     { key: 'ibge',       label: 'IBGE',        img: 'ibge.png',        description: 'Estatísticas, pesquisas e notícias do Brasil.' },
     { key: 'open-meteo', label: 'Open-Meteo',  img: 'open-meteo.png',  description: 'Dados meteorológicos globais por coordenadas.' },
     { key: 'nasa',       label: 'NASA',        img: 'NASA.png',        description: 'Imagens e dados de observações da NASA.' },
-    { key: 'openlibrary', label: 'Open Library', img: 'open.png', description: 'Busca de livros, autores e obras literárias globais.' },
-    { key: 'gbif',       label: 'GBIF',         img: 'gbif.png', description: 'Dados de biodiversidade e taxonomia de espécies.' },
-    { key: 'usgs',       label: 'USGS Earthquakes', img: 'usgs.png', description: 'Monitoramento de terremotos e sismos em tempo real.' },
+    { key: 'openlibrary', label: 'Open Library', img: 'open.png',     description: 'Busca de livros, autores e obras literárias globais.' },
+    { key: 'gbif',       label: 'GBIF',         img: 'gbif.png',       description: 'Dados de biodiversidade e taxonomia de espécies.' },
+    { key: 'usgs',       label: 'USGS Earthquakes', img: 'usgs.png',   description: 'Terremotos em tempo real — últimas 24h, mag ≥ 3.5.' },
+    { key: 'brasilapi',  label: 'BrasilAPI',    img: 'brasil.png',     description: 'Feriados, bancos, CEP e dados públicos do Brasil.' },
+    { key: 'camara',     label: 'Câmara dos Deputados', img: 'camara.png', description: 'Proposições e projetos de lei da Câmara Federal.' },
+    { key: 'iss',        label: 'ISS (Open Notify)', img: 'open-notify.png', description: 'Posição atual da Estação Espacial Internacional.' },
+    { key: 'sunrise',    label: 'Sunrise Sunset', img: 'sunrise.png', description: 'Horários de nascer e pôr do sol na sua localização.' },
+    { key: 'dictionary-en', label: 'Free Dictionary (EN)', img: 'dicio-ingles.png', description: 'Definições em inglês com fonética e exemplos.' },
+    { key: 'universities', label: 'Universities List', img: 'list.png', description: 'Busca de universidades no mundo inteiro.' },
+    { key: 'poetry',     label: 'PoetryDB',     img: 'poetry.png',     description: 'Poemas, poetas e obras da literatura universal.' },
   ];
+
 
   function openConnectorsCard() {
     connectorsCard.classList.add('show');
@@ -1891,7 +1899,8 @@
         connectors: selectedConnectors,
         connectorAuto,
         nasa: selectedConnectors.includes('nasa') || (!connectorAuto && selectedConnectors.includes('nasa')),
-        history: prevHistory
+        history: prevHistory,
+        userContext: window._userContext || {}
       };
 
       if (window.location.protocol === 'file:' || window.location.origin === 'null') {
@@ -1960,6 +1969,21 @@
     scrollBtn.classList.toggle('show', !nearBottom && chatArea.scrollTop > 100);
   });
   scrollBtn.addEventListener('click', scrollToBottom);
+
+  // ── User Context: Geolocation + Date/Time ──
+  window._userContext = {
+    localDate: new Date().toLocaleDateString('pt-BR'),
+    localTime: new Date().toLocaleTimeString('pt-BR'),
+  };
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        window._userContext.lat = pos.coords.latitude;
+        window._userContext.lon = pos.coords.longitude;
+      },
+      () => { /* geolocation denied — context remains without coords */ }
+    );
+  }
 </script>
 </body>
 </html>

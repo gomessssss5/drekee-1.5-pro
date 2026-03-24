@@ -336,16 +336,37 @@ async function buscarGBIF(query) {
 
 // ============ USGS Earthquake Integration ============
 async function buscarUSGS() {
-  const apiUrl = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&orderby=time&limit=8`;
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const endtime = now.toISOString().split('.')[0];
+  const starttime = yesterday.toISOString().split('.')[0];
+  const apiUrl = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&orderby=magnitude&limit=10&starttime=${starttime}&endtime=${endtime}&minmagnitude=3.5`;
   try {
     const res = await fetch(apiUrl);
     if (!res.ok) return [];
     const data = await res.json();
-    return (data.features || []).map(f => ({
+    const features = data.features || [];
+    if (features.length === 0) {
+      // If no quakes above 3.5, fallback without magnitude filter
+      const fallback = await fetch(`https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&orderby=magnitude&limit=5&starttime=${starttime}&endtime=${endtime}`);
+      if (!fallback.ok) return [];
+      const fallData = await fallback.json();
+      return (fallData.features || []).map(f => ({
+        mag: f.properties.mag,
+        place: f.properties.place,
+        time: new Date(f.properties.time).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+        depth: f.geometry?.coordinates?.[2],
+        url: f.properties.url,
+        status: f.properties.status
+      }));
+    }
+    return features.map(f => ({
       mag: f.properties.mag,
       place: f.properties.place,
-      time: new Date(f.properties.time).toLocaleString('pt-BR'),
-      url: f.properties.url
+      time: new Date(f.properties.time).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+      depth: f.geometry?.coordinates?.[2],
+      url: f.properties.url,
+      status: f.properties.status
     }));
   } catch (err) {
     console.error('USGS fetch error:', err);
@@ -373,20 +394,61 @@ async function buscarWikipedia(termo) {
   }
 }
 
-// ============ Newton/MathJS API Integration ============
-async function calcular(expressao) {
-  if (!expressao) return null;
-  const apiUrl = `https://api.mathjs.org/v4/?expr=${encodeURIComponent(expressao)}`;
-
+// ============ Newton API Integration (Calculus engine) ============
+// Operations: simplify, factor, derive, integrate, zeroes, tangent, area
+async function calcularNewton(operation, expression) {
+  if (!operation || !expression) return null;
+  const apiUrl = `https://newton.now.sh/api/v2/${encodeURIComponent(operation)}/${encodeURIComponent(expression)}`;
   try {
     const res = await fetch(apiUrl);
     if (!res.ok) return null;
-    const text = await res.text();
-    return { input: expressao, result: text };
+    const data = await res.json();
+    return { operation: data.operation, input: data.expression, result: data.result };
   } catch (err) {
-    console.error('MathJS calc error:', err);
+    console.error('Newton API error:', err);
     return null;
   }
+}
+
+// Detect math operation from user question and call Newton
+async function calcular(userQuestion) {
+  if (!userQuestion) return null;
+  const q = userQuestion.toLowerCase();
+  let operation = 'simplify';
+  let expression = userQuestion;
+  
+  // Try to extract operation from user question
+  if (q.includes('deriva') || q.includes('derivada') || q.includes('d/dx') || q.includes('diferenci')) {
+    operation = 'derive';
+  } else if (q.includes('integr') || q.includes('integral') || q.includes('antideriv')) {
+    operation = 'integrate';
+  } else if (q.includes('fator') || q.includes('fatorar') || q.includes('fatoriza')) {
+    operation = 'factor';
+  } else if (q.includes('zer') || q.includes('raiz') || q.includes('raízes') || q.includes('roots')) {
+    operation = 'zeroes';
+  } else if (q.includes('simplif')) {
+    operation = 'simplify';
+  }
+
+  // Extract the math expression (try to find something after "de" or after the operation keyword)
+  const exprMatch = userQuestion.match(/(?:de|of|para|from|:)?\s*([x0-9\^\+\-\*\/\(\)\s\=]+)/i);
+  if (exprMatch) {
+    expression = exprMatch[1].trim();
+  }
+
+  // Also try to call mathjs as fallback for simpler arithmetic
+  const result = await calcularNewton(operation, expression);
+  if (result) return result;
+  
+  // Fallback: mathjs arithmetic
+  try {
+    const mathRes = await fetch(`https://api.mathjs.org/v4/?expr=${encodeURIComponent(expression)}`);
+    if (mathRes.ok) {
+      const text = await mathRes.text();
+      if (text && !text.includes('Error')) return { operation: 'arithmetic', input: expression, result: text };
+    }
+  } catch {}
+  return null;
 }
 
 // ============ SpaceX API Integration ============
@@ -438,6 +500,153 @@ async function buscarIBGE(query) {
     }));
   } catch (err) {
     console.error('IBGE fetch error:', err);
+    return [];
+  }
+}
+
+// ============ BrasilAPI Integration ============
+async function buscarBrasilAPI(query) {
+  if (!query) return null;
+  // Search for national holidays by year as a rich fallback
+  const year = new Date().getFullYear();
+  try {
+    const res = await fetch(`https://brasilapi.com.br/api/feriados/v1/${year}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { feriados: data, ano: year };
+  } catch (err) {
+    console.error('BrasilAPI fetch error:', err);
+    return null;
+  }
+}
+
+// ============ Câmara dos Deputados Integration ============
+async function buscarCamara(query) {
+  if (!query) return [];
+  const apiUrl = `https://dadosabertos.camara.leg.br/api/v2/proposicoes?keywords=${encodeURIComponent(query)}&itens=5&ordem=DESC&ordenarPor=dataApresentacao`;
+  try {
+    const res = await fetch(apiUrl, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.dados || []).slice(0, 5).map(p => ({
+      sigle: p.siglaTipo,
+      number: p.numero,
+      year: p.ano,
+      summary: p.ementa,
+      date: p.dataApresentacao,
+      url: p.uri
+    }));
+  } catch (err) {
+    console.error('Câmara fetch error:', err);
+    return [];
+  }
+}
+
+// ============ ISS Location (Open Notify) ============
+async function buscarISS() {
+  try {
+    const res = await fetch('http://api.open-notify.org/iss-now.json');
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      lat: parseFloat(data.iss_position?.latitude),
+      lon: parseFloat(data.iss_position?.longitude),
+      timestamp: new Date(data.timestamp * 1000).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    };
+  } catch (err) {
+    console.error('ISS fetch error:', err);
+    return null;
+  }
+}
+
+// ============ Sunrise Sunset API ============
+async function buscarSunriseSunset(lat = -23.55, lon = -46.63) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${today}&formatted=0`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const r = data.results;
+    return {
+      sunrise: new Date(r.sunrise).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+      sunset: new Date(r.sunset).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+      solar_noon: new Date(r.solar_noon).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+      day_length: r.day_length
+    };
+  } catch (err) {
+    console.error('Sunrise-Sunset fetch error:', err);
+    return null;
+  }
+}
+
+// ============ Free Dictionary (Inglês) ============
+async function buscarDicionarioIngles(word) {
+  if (!word) return null;
+  try {
+    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const entry = data[0];
+    if (!entry) return null;
+    const meanings = entry.meanings?.slice(0, 2).map(m => ({
+      partOfSpeech: m.partOfSpeech,
+      definition: m.definitions?.[0]?.definition,
+      example: m.definitions?.[0]?.example
+    })) || [];
+    return { word: entry.word, phonetic: entry.phonetic, meanings };
+  } catch (err) {
+    console.error('Free Dictionary fetch error:', err);
+    return null;
+  }
+}
+
+// ============ Universidades (world universities by name) ============
+async function buscarUniversidades(query) {
+  if (!query) return [];
+  try {
+    const res = await fetch(`http://universities.hipolabs.com/search?name=${encodeURIComponent(query)}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data || []).slice(0, 6).map(u => ({
+      name: u.name,
+      country: u.country,
+      web: u.web_pages?.[0]
+    }));
+  } catch (err) {
+    console.error('Universities fetch error:', err);
+    return [];
+  }
+}
+
+// ============ PoetryDB ============
+async function buscarPoesia(query) {
+  if (!query) return [];
+  try {
+    // Try searching by author first, then by title
+    let res = await fetch(`https://poetrydb.org/author/${encodeURIComponent(query)}/title,author,lines:3`);
+    if (!res.ok || res.status === 200) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.slice(0, 3).map(p => ({
+          title: p.title,
+          author: p.author,
+          excerpt: (p.lines || []).join(' / ')
+        }));
+      }
+    }
+    // Fallback: search by title
+    res = await fetch(`https://poetrydb.org/title/${encodeURIComponent(query)}/title,author,lines:3`);
+    if (!res.ok) return [];
+    const titleData = await res.json();
+    if (!Array.isArray(titleData)) return [];
+    return titleData.slice(0, 3).map(p => ({
+      title: p.title,
+      author: p.author,
+      excerpt: (p.lines || []).join(' / ')
+    }));
+  } catch (err) {
+    console.error('PoetryDB fetch error:', err);
     return [];
   }
 }
@@ -786,16 +995,107 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   }
 
   if (selectedConnectors.includes('usgs')) {
-    logs.push(`🌍 Buscando Terremotos no USGS...`);
+    logs.push(`🌍 Buscando Terremotos no USGS (últimas 24h)...`);
     const quakes = await buscarUSGS();
     if (quakes && quakes.length > 0) {
+      context += `\n\n📡 USGS - Terremotos nas últimas 24h (magnitude ≥ 3.5):\n`;
       quakes.forEach((q, i) => {
-        context += `\n\n📍 Terremoto ${i + 1}: Mag ${q.mag} em ${q.place}\nData/Hora: ${q.time}\nLink USGS: ${q.url}\n`;
-        addSource(`USGS-${i + 1}`, `Terremoto em ${q.place}`, 'usgs', `Magnitude: ${q.mag}, Local: ${q.place}`, q.url);
+        context += `${i + 1}. Magnitude ${q.mag} em ${q.place} | Hora: ${q.time} | Profundidade: ${q.depth}km | ${q.url}\n`;
+        addSource(`USGS-${i + 1}`, `Mag ${q.mag} em ${q.place}`, 'usgs', `Magnitude: ${q.mag}, Profundidade: ${q.depth}km`, q.url);
       });
-      logs.push('✅ Dados sísmicos do USGS coletados');
+      logs.push(`✅ ${quakes.length} terremotos encontrados pelo USGS`);
+    } else {
+      context += `\n\n📡 USGS: Nenhum terremoto significativo (≥3.5) nas últimas 24 horas. Planeta tranquilo por hoje!\n`;
+      logs.push('✅ USGS consultado: sem terremotos relevantes nas últimas 24h');
     }
   }
+
+  if (selectedConnectors.includes('brasilapi')) {
+    logs.push(`🇧🇷 Buscando dados via BrasilAPI...`);
+    const brasil = await buscarBrasilAPI(queryParaBuscar);
+    if (brasil) {
+      const feriados = (brasil.feriados || []).slice(0, 5);
+      context += `\n\n🇧🇷 BrasilAPI - Feriados Nacionais ${brasil.ano}:\n`;
+      feriados.forEach(f => { context += `- ${f.date}: ${f.name} (${f.type})\n`; });
+      addSource('BRASILAPI', 'BrasilAPI - Feriados', 'brasilapi', `Feriados do Brasil ${brasil.ano}`, 'https://brasilapi.com.br');
+      logs.push('✅ Dados BrasilAPI coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('camara')) {
+    logs.push(`🏛️ Buscando proposições na Câmara dos Deputados: "${queryParaBuscar}"`);
+    const props = await buscarCamara(queryParaBuscar);
+    if (props && props.length > 0) {
+      context += `\n\n🏛️ Câmara dos Deputados - Proposições sobre "${queryParaBuscar}":\n`;
+      props.forEach((p, i) => {
+        context += `${i + 1}. ${p.sigle} ${p.number}/${p.year} (${p.date}): ${p.summary}\n`;
+        addSource(`CAMARA-${i + 1}`, `${p.sigle} ${p.number}/${p.year}`, 'camara', p.summary, p.url);
+      });
+      logs.push('✅ Proposições da Câmara coletadas');
+    }
+  }
+
+  if (selectedConnectors.includes('iss')) {
+    logs.push(`🛸 Buscando posição atual da ISS...`);
+    const iss = await buscarISS();
+    if (iss) {
+      context += `\n\n🛸 Estação Espacial Internacional (ISS) agora:\nLatitude: ${iss.lat}° | Longitude: ${iss.lon}° | Horário: ${iss.timestamp}\n`;
+      addSource('ISS', 'Open Notify - ISS Tracker', 'iss', `Posição: ${iss.lat}°, ${iss.lon}°`, 'http://open-notify.org');
+      logs.push('✅ Posição da ISS obtida');
+    }
+  }
+
+  if (selectedConnectors.includes('sunrise')) {
+    const userLat = options.userContext?.lat || -23.55;
+    const userLon = options.userContext?.lon || -46.63;
+    logs.push(`🌅 Buscando nascer/pôr do sol...`);
+    const sun = await buscarSunriseSunset(userLat, userLon);
+    if (sun) {
+      context += `\n\n🌅 Nascer/Pôr do Sol hoje:\nNascer: ${sun.sunrise} | Pôr: ${sun.sunset} | Meio-dia solar: ${sun.solar_noon}\n`;
+      addSource('SUNRISE', 'Sunrise-Sunset.org', 'sunrise', `Nascer: ${sun.sunrise}, Pôr: ${sun.sunset}`, 'https://sunrise-sunset.org');
+      logs.push('✅ Dados solares obtidos');
+    }
+  }
+
+  if (selectedConnectors.includes('dictionary-en')) {
+    logs.push(`📖 Buscando no Dicionário Inglês: "${queryParaBuscar}"`);
+    const def = await buscarDicionarioIngles(queryParaBuscar.split(' ')[0]);
+    if (def) {
+      context += `\n\n📖 Free Dictionary (EN) - "${def.word}" ${def.phonetic || ''}:\n`;
+      def.meanings.forEach(m => {
+        context += `[${m.partOfSpeech}] ${m.definition}${m.example ? ` — Exemplo: "${m.example}"` : ''}\n`;
+      });
+      addSource('DICT-EN', `Free Dictionary: ${def.word}`, 'dictionary-en', def.meanings[0]?.definition || '', `https://api.dictionaryapi.dev/api/v2/entries/en/${def.word}`);
+      logs.push('✅ Definição em inglês encontrada');
+    }
+  }
+
+  if (selectedConnectors.includes('universities')) {
+    logs.push(`🎓 Buscando universidades: "${queryParaBuscar}"`);
+    const unis = await buscarUniversidades(queryParaBuscar);
+    if (unis && unis.length > 0) {
+      context += `\n\n🎓 Universidades encontradas:\n`;
+      unis.forEach((u, i) => {
+        context += `${i + 1}. ${u.name} (${u.country}) — ${u.web || 'N/A'}\n`;
+        addSource(`UNI-${i + 1}`, u.name, 'universities', `País: ${u.country}`, u.web);
+      });
+      logs.push('✅ Dados de universidades coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('poetry')) {
+    logs.push(`📜 Buscando poesia: "${queryParaBuscar}"`);
+    const poems = await buscarPoesia(queryParaBuscar);
+    if (poems && poems.length > 0) {
+      context += `\n\n📜 PoetryDB - Poemas encontrados:\n`;
+      poems.forEach((p, i) => {
+        context += `${i + 1}. "${p.title}" — ${p.author}\n   Trecho: ${p.excerpt}\n`;
+        addSource(`POEM-${i + 1}`, `"${p.title}" by ${p.author}`, 'poetry', p.excerpt, null);
+      });
+      logs.push('✅ Poemas encontrados');
+    }
+  }
+
   if (selectedConnectors.includes('wikipedia')) {
     logs.push(`🌐 Buscando na Wikipedia: "${queryParaBuscar}"`);
     const wiki = await buscarWikipedia(queryParaBuscar);
@@ -1131,8 +1431,11 @@ async function handler(req, res) {
     }
 
     const actionPlan = await generateActionPlan(userQuestion, history, visionContext);
+    const userContext = body?.userContext || {};
+    const contextHeader = userContext.localTime ? `\n[CONTEXTO DO USUÁRIO]\nData e Hora Local: ${userContext.localDate} ${userContext.localTime}\nLocalização Aproximada: ${userContext.lat ? `Lat ${userContext.lat.toFixed(2)}, Lon ${userContext.lon.toFixed(2)}` : 'Não informada'}\n` : '';
+    if (contextHeader) visionContext = contextHeader + visionContext;
 
-    const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext });
+    const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext, userContext });
 
     logs.push('👁️ Revisando resposta com Gemini...');
     let response = await reviewResponse(exec.response);
