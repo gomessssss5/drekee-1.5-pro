@@ -15,11 +15,12 @@ DIRETRIZES DE RESPOSTA:
 2.  **AUTORIDADE DE DADOS:** Nunca use termos como "hipotético" ou "exemplo" para dados vindos de APIs. Se o dado está lá, ele é a realidade atual.
 3.  **CITAÇÕES:** Use obrigatoriamente [ID-DA-FONTE] logo após a informação extraída. Não as remova na revisão.
 4.  **FORMATO:** Parágrafos curtos, bullet points e NEGRITO em termos chave. Ideal para leitura rápida em dispositivos móveis.
-5.  **EXPERIMENTOS INTERATIVOS (PhET):** Se o assunto envolver Física, Química ou Biologia e houver um simulador PhET compatível, você DEVE terminar sua resposta com a tag [PHET:slug].
+5.  **EXPERIMENTOS INTERATIVOS (PhET):** Se o assunto envolver Física, Química, Biologia ou Matemática e houver um simulador PhET compatível, você DEVE terminar sua resposta com a tag [PHET:slug].
     - **Slugs Válidos (SÓ USE ESTES):** 
-      - Física: circuit-construction-kit-dc, energy-skate-park-basics, forces-and-motion-basics, ohms-law, pendulum-lab, wave-on-a-string, gravity-and-orbits, hookes-law, projectile-motion, color-vision, balloons-and-static-electricity
-      - Química: build-an-atom, molecule-shapes, states-of-matter, balancing-chemical-equations, ph-scale, acid-base-solutions, molarity
-      - Biologia: natural-selection, gene-expression-essentials, neuron
+      - **Física:** circuit-construction-kit-dc, ohms-law, charges-and-fields, resistance-in-a-wire, faradays-law, circuit-construction-kit-ac, forces-and-motion-basics, projectile-motion, energy-skate-park, pendulum-lab, balancing-act, hookes-law, bending-light, wave-on-a-string, color-vision, wave-interference, geometric-optics, states-of-matter, gas-properties, energy-forms-and-changes
+      - **Química:** build-an-atom, isotopes-and-atomic-mass, build-a-molecule, molecule-shapes, ph-scale, molarity, concentration, beers-law-lab, acid-base-solutions, solubility-02
+      - **Matemática:** fractions-intro, area-model-multiplication, graphing-quadratics, function-builder, unit-rates
+      - **Biologia:** natural-selection, gene-expression-essentials, neuron, beer-game
     - Exemplo: "...e é assim que a resistência funciona. [PHET:ohms-law]" (A tag deve vir no final da resposta).
 `;
 

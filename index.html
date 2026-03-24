@@ -458,7 +458,7 @@
     border-radius: 12px;
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 10px-25px rgba(0,0,0,0.4);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
     position: relative;
     width: 100%;
     padding-top: 62.5%; /* 16:10 Aspect Ratio */
@@ -468,7 +468,30 @@
     top: 0; left: 0;
     width: 100%; height: 100%;
     border: none;
+    z-index: 1;
   }
+  .phet-loading-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: #0f172a;
+    z-index: 2;
+    gap: 0.75rem;
+    transition: opacity 0.4s ease;
+  }
+  .phet-spinner {
+    width: 30px; height: 30px;
+    border: 3px solid rgba(59,130,246,0.1);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: phet-spin 0.8s linear infinite;
+  }
+  .phet-loading-text {
+    font-size: 0.75rem; color: #94a3b8; font-weight: 500;
+  }
+  @keyframes phet-spin { to { transform: rotate(360deg); } }
 
   /* ── Premium Links in AI Answers ── */
   .ai-response a {
@@ -1632,14 +1655,28 @@
     if (parsedResponse.phetSlug) {
       const phetCont = document.createElement('div');
       phetCont.className = 'phet-container';
+
+      // Loading Overlay
+      const loader = document.createElement('div');
+      loader.className = 'phet-loading-overlay';
+      loader.innerHTML = `<div class="phet-spinner"></div><div class="phet-loading-text">Carregando visualização do experimento...</div>`;
+      phetCont.appendChild(loader);
+
       const iframe = document.createElement('iframe');
       iframe.className = 'phet-iframe';
       iframe.src = `https://phet.colorado.edu/sims/html/${parsedResponse.phetSlug}/latest/${parsedResponse.phetSlug}_all.html`;
       iframe.setAttribute('scrolling', 'no');
       iframe.setAttribute('allowfullscreen', '');
+      
+      iframe.onload = () => {
+        loader.style.opacity = '0';
+        setTimeout(() => loader.remove(), 400);
+      };
+
       phetCont.appendChild(iframe);
       inner.appendChild(phetCont);
     }
+
     if (videoSources.length > 0) inner.appendChild(embeddedVideosContainer);
     inner.appendChild(mediaContainer);
     inner.appendChild(sourcesContainer);
