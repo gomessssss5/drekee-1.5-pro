@@ -607,6 +607,16 @@
   .msg-action-btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
   .msg-action-btn .material-icons-outlined { font-size: 0.95rem; }
 
+  /* Fallback para ícones de conectores */
+  .connector-icon-fallback {
+    width: 24px; height: 24px; border-radius: 4px;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    color: #fff; font-size: 0.7rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; text-transform: uppercase;
+  }
+  .sel-bar-chip .connector-icon-fallback { width: 13px; height: 13px; font-size: 0.5rem; border-radius: 2px; }
+
   video[src="oi.mp4"] {
     max-height: 120px;
     width: auto;
@@ -1566,7 +1576,8 @@
       .join('');
 
     // 5. Citações
-    html = html.replace(/\[(?:ID-DA-FONTE:\s*)?([A-Za-z0-9-]+)\]/gi, (match, id) => {
+    html = html.replace(/\[(?:ID-DA-FONTE:\s*)?([^\]]+)\]/gi, (match, rawId) => {
+      const id = rawId.trim();
       const source = sourcesMap.get(id);
       if (!source) return match;
       const index = response.indexOf(match);
@@ -1892,9 +1903,10 @@
             const label = card.classList.contains('sources-section') ? 'Abrir Fontes ↓' : 
                          (card.classList.contains('media-results') ? 'Imagens NASA ↓' : 'Vídeos Relacionados ↓');
             expandBtn.innerHTML = `<span><span class="material-icons-outlined">expand_more</span> ${label}</span>`;
-            expandBtn.onclick = () => {
+            expandBtn.onclick = (ev) => {
+              ev.stopPropagation();
               card.classList.remove('sidebar-card-collapsed');
-              expandBtn.remove();
+              if (expandBtn.parentNode) expandBtn.parentNode.removeChild(expandBtn);
             };
             card.appendChild(expandBtn);
           } else {
@@ -2023,8 +2035,25 @@
         const item = document.createElement('div');
         item.className = 'connector-item' + (isChecked ? ' checked' : '') + (connectorAuto ? ' disabled' : '');
 
+        const iconContainer = document.createElement('div');
+        iconContainer.style.position = 'relative';
+
         const icon = document.createElement('img');
         icon.src = opt.img; icon.alt = opt.label; icon.className = 'connector-item-icon';
+        
+        const fallback = document.createElement('div');
+        fallback.className = 'connector-icon-fallback';
+        fallback.innerText = opt.label.charAt(0);
+        fallback.style.display = 'none';
+
+        icon.onerror = () => {
+          icon.style.display = 'none';
+          fallback.style.display = 'flex';
+        };
+
+        iconContainer.appendChild(icon);
+        iconContainer.appendChild(fallback);
+        item.appendChild(iconContainer);
 
         const content = document.createElement('div');
         content.className = 'connector-item-content';
@@ -2124,7 +2153,11 @@
       const chip = document.createElement('div');
       chip.className = 'sel-bar-chip';
       chip.title = opt.label;
-      chip.innerHTML = `<img src="${opt.img}" alt="${opt.label}"/><span>${opt.label}</span>`;
+      chip.innerHTML = `
+        <img src="${opt.img}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="${opt.label}"/>
+        <div class="connector-icon-fallback" style="display:none">${opt.label.charAt(0)}</div>
+        <span>${opt.label}</span>
+      `;
       iconsDiv.appendChild(chip);
     });
   }
