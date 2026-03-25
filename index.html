@@ -601,8 +601,92 @@
     border-radius: 2px;
   }
 
+  /* ── Document Card (Manus Style) ── */
+  .document-card {
+    margin: 1.5rem 0;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: fadeUp 0.4s ease both;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+  .doc-header {
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(99, 102, 241, 0.05);
+  }
+  .doc-icon {
+    width: 36px;
+    height: 36px;
+    background: #3b82f6;
+    color: #fff;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .doc-title {
+    flex: 1;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .doc-body {
+    padding: 1rem;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: #cbd5e1;
+    max-height: 220px;
+    overflow-y: auto;
+    mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+    white-space: pre-wrap;
+  }
+  .doc-footer {
+    padding: 0.75rem 1rem;
+    display: flex;
+    gap: 0.75rem;
+    background: rgba(15, 23, 42, 0.4);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .doc-btn {
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    font-family: inherit;
+  }
+  .btn-download {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+  .btn-download:hover { background: rgba(59, 130, 246, 0.25); transform: translateY(-1px); }
+  .btn-copy-doc {
+    background: rgba(255, 255, 255, 0.05);
+    color: #cbd5e1;
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  .btn-copy-doc:hover { background: rgba(255, 255, 255, 0.1); transform: translateY(-1px); }
+
   /* ── Msg Actions (TTS/Copy) ── */
   .msg-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed rgba(255,255,255,0.08); }
+  .btn-summary { background: rgba(139, 92, 246, 0.1) !important; color: #a78bfa !important; border-color: rgba(139, 92, 246, 0.2) !important; }
+  .btn-summary:hover { background: rgba(139, 92, 246, 0.2) !important; transform: translateY(-1px); }
   .msg-action-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #cbd5e1; font-size: 0.75rem; padding: 0.3rem 0.6rem; display: flex; align-items: center; justify-content: center; gap: 0.3rem; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; outline: none; }
   .msg-action-btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
   .msg-action-btn .material-icons-outlined { font-size: 0.95rem; }
@@ -1833,13 +1917,14 @@
       inner.appendChild(fullSection);
     }
 
-    // Botões de Ação (TTS / Copiar)
+    // Botões de Ação (TTS / Copiar / Resumo)
     const cleanResponseText = response.replace(/\[[^\]]+\]/g, '').replace(/\*/g, '').trim();
     const actionsContainer = document.createElement('div');
     actionsContainer.className = 'msg-actions';
     actionsContainer.innerHTML = `
       <button class="msg-action-btn btn-tts"><span class="material-icons-outlined">volume_up</span> Ouvir</button>
       <button class="msg-action-btn btn-copy"><span class="material-icons-outlined">content_copy</span> Copiar Limpo</button>
+      <button class="msg-action-btn btn-summary"><span class="material-icons-outlined">article</span> Gerar Resumo Offline</button>
     `;
     
     actionsContainer.querySelector('.btn-tts').addEventListener('click', () => {
@@ -1860,7 +1945,55 @@
       }
     });
 
+    actionsContainer.querySelector('.btn-summary').addEventListener('click', () => {
+      userInput.value = "Gere um resumo sobre esse assunto que estamos conversando.";
+      sendMessage();
+    });
+
     leftCol.appendChild(actionsContainer);
+
+    // -- DOCUMENT CARD (OFFLINE SUMMARY) --
+    const docMatch = response.match(/\[OFFLINE_DOC:\s*(.*?)\s*\|\s*(.*?)\s*\|?\s*(.*?)\]/s);
+    if (docMatch) {
+      const [_, title, content, sources] = docMatch;
+      const docCard = document.createElement('div');
+      docCard.className = 'document-card';
+      docCard.innerHTML = `
+        <div class="doc-header">
+          <div class="doc-icon"><span class="material-icons-outlined">description</span></div>
+          <div class="doc-title">${title}</div>
+        </div>
+        <div class="doc-body">${content.replace(/\n/g, '<br/>')}</div>
+        <div class="doc-footer">
+          <button class="doc-btn btn-download"><span class="material-icons-outlined">download</span> Baixar (Offline)</button>
+          <button class="doc-btn btn-copy-doc"><span class="material-icons-outlined">content_copy</span> Copiar</button>
+        </div>
+      `;
+
+      docCard.querySelector('.btn-download').addEventListener('click', () => {
+        const fullText = `RESUMO OFFLINE - DREKEE AI\n\nTÍTULO: ${title}\n\n${content}\n\nFONTES UTILIZADAS:\n${sources || 'Baseado no histórico do chat.'}`;
+        const blob = new Blob([fullText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${title.toLowerCase().replace(/\s+/g, '_')}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+
+      docCard.querySelector('.btn-copy-doc').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(content);
+          const btn = docCard.querySelector('.btn-copy-doc');
+          btn.innerHTML = '<span class="material-icons-outlined">check</span> Copiado!';
+          setTimeout(() => btn.innerHTML = '<span class="material-icons-outlined">content_copy</span> Copiar', 2000);
+        } catch (e) {}
+      });
+
+      leftCol.appendChild(docCard);
+    }
 
     wrapper.appendChild(inner);
     messagesContainer.appendChild(wrapper);

@@ -27,6 +27,11 @@ DIRETRIZES DE RESPOSTA:
     - Exemplo: "...o que acontece se você mudar a resistência? [PHET:ohms-law]"
 6.  **MOLÉCULAS 3D (RCSB PDB):** Se o assunto envolver proteínas ou estruturas moleculares de alta complexidade e houver um ID no PDB (ex: 1u19, 4hhb), termine com a tag [PDB:id].
     - Exemplo: "...esta é a estrutura da Hemoglobina. [PDB:4hhb]"
+7.  **RESUMOS OFFLINE (GERE UM DOCUMENTO):** Quando o usuário pedir especificamente um resumo ou clicar no botão de "Gerar Resumo Offline", você deve:
+    - Elaborar um texto consolidado e pedagógico sobre os tópicos discutidos no chat até agora.
+    - Estrutura: Título impactante -> Texto fluido (3-4 parágrafos) -> Lista de fontes usadas no final.
+    - **TAG OBRIGATÓRIA:** Você deve envolver o conteúdo do documento na tag: \[OFFLINE_DOC: Título do Documento | Conteúdo do Resumo | Lista de Fontes e Links\].
+    - Coloque essa tag ao final da sua resposta curta de confirmação (Ex: "Aqui está o seu documento consolidado. [OFFLINE_DOC: ...]").
 `;
 
 // ============ TAVILY API (Web Search) ============
