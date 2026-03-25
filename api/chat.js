@@ -15,13 +15,15 @@ DIRETRIZES DE RESPOSTA:
 2.  **AUTORIDADE DE DADOS:** Nunca use termos como "hipotético" ou "exemplo" para dados vindos de APIs. Se o dado está lá, ele é a realidade atual.
 3.  **CITAÇÕES:** Use obrigatoriamente [ID-DA-FONTE] logo após a informação extraída. Não as remova na revisão.
 4.  **FORMATO:** Parágrafos curtos, bullet points e NEGRITO em termos chave. Ideal para leitura rápida em dispositivos móveis.
-5.  **EXPERIMENTOS INTERATIVOS (PhET):** Se o assunto envolver Física, Química, Biologia ou Matemática e houver um simulador PhET compatível, você DEVE terminar sua resposta com a tag [PHET:slug].
+5.  **EXPERIMENTOS INTERATIVOS (PhET):** Se o assunto envolver Física, Química, Biologia ou Matemática e houver um simulador PhET compatível, você DEVE incluí-lo.
+    - **GUIA DE EXPERIMENTO:** Antes da tag PhET, forneça obrigatoriamente um pequeno "Desafio de Laboratório" (1 parágrafo curto) incentivando o usuário a interagir com o simulador (ex: "Agora, no simulador abaixo, tente adicionar 6 prótons e veja qual elemento você criou!").
+    - **Tag [PHET:slug]:** Você deve terminar sua resposta com a tag [PHET:slug] (Sempre no final absoluto).
     - **Slugs Válidos (SÓ USE ESTES):** 
       - **Física:** circuit-construction-kit-dc, ohms-law, charges-and-fields, resistance-in-a-wire, faradays-law, circuit-construction-kit-ac, forces-and-motion-basics, projectile-motion, energy-skate-park, pendulum-lab, balancing-act, hookes-law, bending-light, wave-on-a-string, color-vision, wave-interference, geometric-optics, states-of-matter, gas-properties, energy-forms-and-changes
       - **Química:** build-an-atom, isotopes-and-atomic-mass, build-a-molecule, molecule-shapes, ph-scale, molarity, concentration, beers-law-lab, acid-base-solutions, solubility-02
       - **Matemática:** fractions-intro, area-model-multiplication, graphing-quadratics, function-builder, unit-rates
       - **Biologia:** natural-selection, gene-expression-essentials, neuron, beer-game
-    - Exemplo: "...e é assim que a resistência funciona. [PHET:ohms-law]"
+    - Exemplo: "...o que acontece se você mudar a resistência? [PHET:ohms-law]"
 6.  **MOLÉCULAS 3D (RCSB PDB):** Se o assunto envolver proteínas ou estruturas moleculares de alta complexidade e houver um ID no PDB (ex: 1u19, 4hhb), termine com a tag [PDB:id].
     - Exemplo: "...esta é a estrutura da Hemoglobina. [PDB:4hhb]"
 `;
@@ -744,6 +746,168 @@ async function buscarPoesia(query) {
   }
 }
 
+// ============ AntWeb Integration (Ants Imaging) ============
+async function buscarAntWeb(query) {
+  if (!query) return [];
+  const apiUrl = `https://www.antweb.org/api/v3/species?genus=${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const speciesList = data.specimens || [];
+    return speciesList.slice(0, 4).map(s => ({
+      scientific_name: s.scientific_name,
+      genus: s.genus,
+      family: s.family,
+      image: s.images?.find(img => img.type === 'p')?.url || (s.images?.[0]?.url)
+    })).filter(s => s.image);
+  } catch (err) {
+    console.error('AntWeb error:', err);
+    return [];
+  }
+}
+
+// ============ Periodic Table API ============
+async function buscarTabelaPeriodica(query) {
+  if (!query) return null;
+  // Try by symbol, then name
+  const tryFetch = async (param, val) => {
+    const res = await fetch(`https://neelpatel05.pythonanywhere.com/element/api/v1?${param}=${encodeURIComponent(val)}`);
+    return res.ok ? res.json() : null;
+  };
+  try {
+    let data = await tryFetch('symbol', query);
+    if (!data) data = await tryFetch('name', query);
+    return data;
+  } catch (err) {
+    console.error('Periodic Table error:', err);
+    return null;
+  }
+}
+
+// ============ OpenAQ (Air Quality) ============
+async function buscarQualidadeAr(city) {
+  if (!city) return null;
+  const apiUrl = `https://api.openaq.org/v2/latest?city=${encodeURIComponent(city)}&limit=1`;
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.results?.[0] || null;
+  } catch (err) {
+    console.error('OpenAQ error:', err);
+    return null;
+  }
+}
+
+// ============ Project Gutenberg (Books) ============
+async function buscarGutenberg(query) {
+  if (!query) return [];
+  const apiUrl = `https://gutendex.com/books/?search=${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.results || []).slice(0, 3).map(b => ({
+      title: b.title,
+      authors: b.authors?.map(a => a.name).join(', '),
+      link: b.formats?.['text/html'] || b.formats?.['text/plain'] || `https://www.gutenberg.org/ebooks/${b.id}`
+    }));
+  } catch (err) {
+    console.error('Gutenberg error:', err);
+    return [];
+  }
+}
+
+// ============ Bible API ============
+async function buscarBiblia(query) {
+  if (!query) return null;
+  const apiUrl = `https://bible-api.com/${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('Bible API error:', err);
+    return null;
+  }
+}
+
+// ============ FishWatch API ============
+async function buscarFishWatch(query) {
+  if (!query) return [];
+  try {
+    const res = await fetch('https://www.fishwatch.gov/api/species');
+    if (!res.ok) return [];
+    const data = await res.json();
+    const filtered = data.filter(f => 
+      f['Species Name']?.toLowerCase().includes(query.toLowerCase()) ||
+      f['Scientific Name']?.toLowerCase().includes(query.toLowerCase())
+    );
+    return filtered.slice(0, 3).map(f => ({
+      name: f['Species Name'],
+      scientific: f['Scientific Name'],
+      habitat: f['Habitat'],
+      image: f['Image Gallery']?.[0]?.src || f['Species Image Gallery']?.[0]?.src
+    }));
+  } catch (err) {
+    console.error('FishWatch error:', err);
+    return [];
+  }
+}
+
+// ============ Dog API ============
+async function buscarDog() {
+  try {
+    const res = await fetch('https://dog.ceo/api/breeds/image/random');
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.message;
+  } catch (err) {
+    console.error('Dog API error:', err);
+    return null;
+  }
+}
+
+// ============ Quotable (Quotes) ============
+async function buscarFrase() {
+  try {
+    const res = await fetch('https://api.quotable.io/random');
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('Quotable error:', err);
+    return null;
+  }
+}
+
+// ============ The Space Devs (Launches) ============
+async function buscarLancamentos() {
+  try {
+    const res = await fetch('https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=3');
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.results || [];
+  } catch (err) {
+    console.error('Space Devs error:', err);
+    return null;
+  }
+}
+
+// ============ Solar System Data ============
+async function buscarSistemaSolar(query) {
+  if (!query) return null;
+  const apiUrl = `https://api.le-systeme-solaire.net/rest/bodies/${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('Solar System API error:', err);
+    return null;
+  }
+}
+
 // ============ GROQ Call (flexible with fallback) ============
 async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
@@ -968,6 +1132,19 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const autoDetectedConnectors = ['phet', 'wikidata', 'pubmed', 'rcsb'];
   const normalizedText = (userQuestion || '').toLowerCase();
   
+  if (/\b(formiga|antweb|himenóptero|genus|inseto)\b/.test(normalizedText)) autoDetectedConnectors.push('antweb');
+  if (/\b(peixe|oceano|fishwatch|sustentabilidade|pesca|marinho)\b/.test(normalizedText)) autoDetectedConnectors.push('fishwatch');
+  if (/\b(elemento|química|tabela periódica|elétrons|átomo|metal|massa atômica)\b/.test(normalizedText)) autoDetectedConnectors.push('periodictable');
+  if (/\b(livro|literatura|gutenberg|autor|clássico|ebook)\b/.test(normalizedText)) autoDetectedConnectors.push('gutenberg');
+  if (/\b(bíblia|versículo|escritura|evangelho)\b/.test(normalizedText)) autoDetectedConnectors.push('bible');
+  if (/\b(satélite|órbita|celestrak|rastreio)\b/.test(normalizedText)) autoDetectedConnectors.push('celestrak');
+  if (/\b(lançamento|foguete|missão espacial|spacedevs|voo espacial)\b/.test(normalizedText)) autoDetectedConnectors.push('spacedevs');
+  if (/\b(planeta|sistema solar|corpo celeste|órbita solar)\b/.test(normalizedText)) autoDetectedConnectors.push('solarsystem');
+  if (/\b(frase|citação|pensamento|quotes|inspirar)\b/.test(normalizedText)) autoDetectedConnectors.push('quotes');
+  if (/\b(cachorro|cão|raça|dog|pet)\b/.test(normalizedText)) autoDetectedConnectors.push('dogapi');
+  if (/\b(ar|poluição|qualidade do ar|openaq|smog)\b/.test(normalizedText)) autoDetectedConnectors.push('openaq');
+  if (/\b(constante|física|codata|velocidade da luz|planck)\b/.test(normalizedText)) autoDetectedConnectors.push('codata');
+
   if (/\b(arxiv|paper|artigo|pesquisa|estudo|tese|scielo)\b/.test(normalizedText)) {
     autoDetectedConnectors.push('arxiv');
     if (/\b(scielo|brasil|português|tese)\b/.test(normalizedText)) autoDetectedConnectors.push('scielo');
@@ -1231,6 +1408,109 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       context += `\n\n🧬 Estruturas PDB encontradas: ${pdbIds.join(', ')}\n(Se for relevante, cite o ID e use a tag [PDB:id] para o visualizador 3D).\n`;
       addSource('PDB-1', `PDB ID: ${pdbIds[0]}`, 'rcsb', `Estrutura de proteína via Protein Data Bank`, `https://www.rcsb.org/structure/${pdbIds[0]}`);
       logs.push(`✅ ${pdbIds.length} estruturas de proteínas encontradas`);
+    }
+  }
+
+  if (selectedConnectors.includes('antweb')) {
+    logs.push(`🐜 Buscando formigas no AntWeb: "${queryParaBuscar}"`);
+    const ants = await buscarAntWeb(queryParaBuscar);
+    if (ants && ants.length > 0) {
+      context += `\n\n🐜 Dados de Formigas (AntWeb):\n`;
+      ants.forEach((ant, i) => {
+        context += `${i+1}. ${ant.scientific_name} (${ant.family})\n`;
+        if (ant.image) media.push({ title: ant.scientific_name, url: ant.image, media_type: 'image', description: `Gênero: ${ant.genus}, Família: ${ant.family}` });
+      });
+      addSource('ANT-1', `AntWeb: ${ants[0].scientific_name}`, 'antweb', `Imagens e dados taxonômicos de formigas.`, `https://www.antweb.org/description.do?genus=${ants[0].genus}`);
+      logs.push('✅ Imagens e dados de formigas coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('periodictable')) {
+    logs.push(`⚛️ Buscando na Tabela Periódica: "${queryParaBuscar}"`);
+    const element = await buscarTabelaPeriodica(queryParaBuscar);
+    if (element) {
+      context += `\n\n⚛️ Dados do Elemento (${element.name}):\nSímbolo: ${element.symbol}, Massa: ${element.atomicMass}, Número: ${element.atomicNumber}, Configuração: ${element.electronicConfiguration}\n`;
+      addSource('CHEM-1', `Tabela Periódica: ${element.name}`, 'periodictable', `Dados químicos oficiais do elemento ${element.name}.`, `https://pt.wikipedia.org/wiki/${element.name}`);
+      logs.push('✅ Dados químicos coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('gutenberg')) {
+    logs.push(`📖 Buscando livros no Project Gutenberg: "${queryParaBuscar}"`);
+    const books = await buscarGutenberg(queryParaBuscar);
+    if (books && books.length > 0) {
+      context += `\n\n📖 Livros Disponíveis (Gutenberg):\n`;
+      books.forEach((b, i) => {
+        context += `${i+1}. ${b.title} por ${b.authors}\n`;
+        addSource(`BOOK-${i+1}`, b.title, 'gutenberg', `Obra clássica de ${b.authors}`, b.link);
+      });
+      logs.push('✅ Obras literárias encontradas');
+    }
+  }
+
+  if (selectedConnectors.includes('bible')) {
+    logs.push(`📜 Buscando na Bíblia: "${queryParaBuscar}"`);
+    const passage = await buscarBiblia(queryParaBuscar);
+    if (passage) {
+      context += `\n\n📜 Escritura Sagrada:\n${passage.text}\nReferência: ${passage.reference}\n`;
+      addSource('BIBLE-1', passage.reference, 'bible', `Texto bíblico via Bible API`, `https://bible-api.com/${encodeURIComponent(passage.reference)}`);
+      logs.push('✅ Versículos coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('fishwatch')) {
+    logs.push(`🐟 Buscando espécies marinhas: "${queryParaBuscar}"`);
+    const fish = await buscarFishWatch(queryParaBuscar);
+    if (fish && fish.length > 0) {
+       context += `\n\n🐟 Dados de Peixes (FishWatch):\n`;
+       fish.forEach((f, i) => {
+         context += `${i+1}. ${f.name} (${f.scientific}) - Habitat: ${f.habitat}\n`;
+         if (f.image) media.push({ title: f.name, url: f.image, media_type: 'image', description: f.habitat });
+       });
+       addSource('FISH-1', fish[0].name, 'fishwatch', `Dados de biologia marinha.`, `https://www.fishwatch.gov/`);
+       logs.push('✅ Dados de biologia marinha coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('openaq')) {
+    logs.push(`🌬️ Buscando qualidade do ar: "${queryParaBuscar}"`);
+    const aq = await buscarQualidadeAr(queryParaBuscar);
+    if (aq) {
+      context += `\n\n🌬️ Qualidade do Ar (${aq.city}):\n`;
+      aq.measurements?.forEach(m => {
+        context += `- ${m.parameter}: ${m.value} ${m.unit} (Última atualização: ${m.lastUpdated})\n`;
+      });
+      addSource('AIR-1', `OpenAQ: ${aq.city}`, 'openaq', `Dados de qualidade do ar em tempo real.`, `https://openaq.org/#/city/${encodeURIComponent(aq.city)}`);
+      logs.push('✅ Dados atmosféricos coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('quotes')) {
+    logs.push(`💬 Buscando citação inspiradora`);
+    const q = await buscarFrase();
+    if (q) {
+      context += `\n\n💬 Citação: "${q.content}" — ${q.author}\n`;
+      addSource('QUOTE-1', `Citação: ${q.author}`, 'quotes', `Frases e pensamentos célebres.`, `https://quotable.io/`);
+      logs.push('✅ Citação coletada');
+    }
+  }
+
+  if (selectedConnectors.includes('dogapi')) {
+    logs.push(`🐶 Buscando imagem de pet`);
+    const dogImg = await buscarDog();
+    if (dogImg) {
+      media.push({ title: 'Dog do dia', url: dogImg, media_type: 'image', description: 'Uma imagem aleatória de um cachorro fofo.' });
+      logs.push('✅ Imagem de pet adicionada');
+    }
+  }
+
+  if (selectedConnectors.includes('solarsystem')) {
+    logs.push(`🪐 Buscando dados planetários: "${queryParaBuscar}"`);
+    const body = await buscarSistemaSolar(queryParaBuscar);
+    if (body) {
+      context += `\n\n🪐 Dados Celestiais (${body.englishName}):\nGravidade: ${body.gravity} m/s², Massa: ${body.mass?.massValue}x10^${body.mass?.massExponent} kg, Luas: ${body.moons?.length || 0}\n`;
+      addSource('SPACE-1', `Solar System: ${body.englishName}`, 'solarsystem', `Dados astronômicos oficiais.`, `https://solarsystem.nasa.gov/planets/${body.englishName.toLowerCase()}`);
+      logs.push('✅ Dados planetários coletados');
     }
   }
 

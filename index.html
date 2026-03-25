@@ -1566,7 +1566,7 @@
       .join('');
 
     // 5. Citações
-    html = html.replace(/\[([A-Za-z0-9-]+)\]/g, (match, id) => {
+    html = html.replace(/\[(?:ID-DA-FONTE:\s*)?([A-Za-z0-9-]+)\]/gi, (match, id) => {
       const source = sourcesMap.get(id);
       if (!source) return match;
       const index = response.indexOf(match);
@@ -1953,6 +1953,18 @@
     { key: 'pubmed',      label: 'PubMed Central',   img: 'pub-med.png',    description: 'Acesso à literatura biomédica e de saúde.' },
     { key: 'wikidata',    label: 'Wikidata SPARQL',  img: 'wikidata.png',   description: 'Base de dados estruturados e conhecimento geral.' },
     { key: 'rcsb',        label: 'RCSB PDB',         img: 'rcsb.png',       description: 'Banco de dados de estruturas de proteínas (3D).' },
+    { key: 'antweb',      label: 'AntWeb',           img: 'antweb.png',     description: 'Maior banco de dados e imagens de formigas do mundo.' },
+    { key: 'periodictable', label: 'Tabela Periódica', img: 'periodic.png',   description: 'Dados químicos completos sobre elementos da tabela periódica.' },
+    { key: 'fishwatch',   label: 'FishWatch',        img: 'fish.png',       description: 'Biologia marinha e sustentabilidade das espécies de peixes.' },
+    { key: 'gutenberg',   label: 'Project Gutenberg', img: 'gutenberg.png',  description: 'Biblioteca de ebooks gratuitos de obras clássicas.' },
+    { key: 'bible',       label: 'Bible API',        img: 'bible.png',      description: 'Consultas a versículos e capítulos das escrituras sagradas.' },
+    { key: 'openaq',      label: 'Air Quality (OpenAQ)', img: 'openaq.png',   description: 'Monitoramento global da qualidade do ar em tempo real.' },
+    { key: 'solarsystem', label: 'Solar System Data', img: 'solar.png',     description: 'Dados astronômicos sobre planetas e corpos celestes.' },
+    { key: 'spacedevs',   label: 'The Space Devs',   img: 'spacedevs.png',  description: 'Calendário de lançamentos e eventos da exploração espacial.' },
+    { key: 'quotes',      label: 'Quotes API',       img: 'quotes.png',     description: 'Citações e frases inspiradoras de grandes pensadores.' },
+    { key: 'dogapi',      label: 'Dog Images',       img: 'dog.png',        description: 'Imagens aleatórias e informações sobre raças de cães.' },
+    { key: 'celestrak',   label: 'CelesTrak',        img: 'celestrak.png',  description: 'Rastreamento de satélites e dados orbitais (TLE).' },
+    { key: 'codata',      label: 'CODATA Constants', img: 'codata.png',     description: 'Valores recomendados de constantes físicas fundamentais.' },
   ];
 
 
