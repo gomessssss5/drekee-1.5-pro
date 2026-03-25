@@ -601,6 +601,23 @@
     border-radius: 2px;
   }
 
+  .phet-text {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #cbd5e1;
+    margin: 0.75rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .phet-text .material-icons-outlined { color: #3b82f6; font-size: 1.2rem; margin-bottom: 0.2rem; }
+  .phet-intro { border-left: 4px solid #3b82f6; }
+  .phet-theory { border-left: 4px solid #10b981; }
+
   /* ── Document Card (Manus Style) ── */
   .document-card {
     margin: 1.5rem 0;
@@ -1629,10 +1646,14 @@
     let phetSlug = null;
     let pdbId = null;
 
-    // 1. Extrair PHET tag (ex: [PHET:ohms-law])
-    const phetMatch = response.match(/\[PHET:([a-z0-9-]+)\]/i);
+    // 1. Extrair PHET tag (ex: [PHET:slug|como_usar|teoria])
+    const phetMatch = response.match(/\[PHET:([a-z0-9-]+)(?:\|(.*?)\|(.*?))?\]/is);
+    let phetIntro = null;
+    let phetTheory = null;
     if (phetMatch) {
       phetSlug = phetMatch[1];
+      phetIntro = phetMatch[2] || null;
+      phetTheory = phetMatch[3] || null;
       response = response.replace(phetMatch[0], '').trim();
     }
 
@@ -1670,7 +1691,7 @@
       return `<span class="citation-tag" data-source="${id}">${label}</span>`;
     });
 
-    return { html, citations, phetSlug, pdbId };
+    return { html, citations, phetSlug, phetIntro, phetTheory, pdbId };
   }
 
   function truncateText(text, length = 120) {
@@ -1889,6 +1910,15 @@
     if (parsedResponse.phetSlug) {
       const fullSection = document.createElement('div');
       fullSection.className = 'ai-full-width-section';
+      
+      // Intro / Como Usar
+      if (parsedResponse.phetIntro) {
+        const intro = document.createElement('div');
+        intro.className = 'phet-text phet-intro';
+        intro.innerHTML = `<span class="material-icons-outlined">info</span> <strong>Como usar este experimento:</strong><br/>${parsedResponse.phetIntro}`;
+        fullSection.appendChild(intro);
+      }
+
       const phetCont = document.createElement('div');
       phetCont.className = 'phet-container';
       const loader = document.createElement('div');
@@ -1901,6 +1931,15 @@
       iframe.onload = () => { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 400); };
       phetCont.appendChild(iframe);
       fullSection.appendChild(phetCont);
+
+      // Teoria / Fenômeno
+      if (parsedResponse.phetTheory) {
+        const theory = document.createElement('div');
+        theory.className = 'phet-text phet-theory';
+        theory.innerHTML = `<span class="material-icons-outlined">science</span> <strong>O que está acontecendo:</strong><br/>${parsedResponse.phetTheory}`;
+        fullSection.appendChild(theory);
+      }
+
       inner.appendChild(fullSection);
     }
 

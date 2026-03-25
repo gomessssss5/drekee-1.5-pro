@@ -1,0 +1,37 @@
+CONECTORES DREKEE AI 1.5 PRO
+
+1. Tavily - Busca Geral na Web e agregação de resultados recentes.
+2. Wikipedia - Resumos e conteúdos enciclopédicos estruturados.
+3. arXiv - Artigos científicos de física, matemática e computação.
+4. SciELO - Artigos científicos da América Latina (Português).
+5. Newton - Resolução de derivadas, integrais, fatoração e equações.
+6. SpaceX - Dados de lançamentos e missões espaciais atualizados.
+7. IBGE - Estatísticas, pesquisas e notícias do Brasil.
+8. Open-Meteo - Dados meteorológicos globais por coordenadas.
+9. NASA - Imagens e dados de observações astronômicas.
+10. Open Library - Busca de livros, autores e obras literárias globais.
+11. GBIF - Dados de biodiversidade e taxonomia de espécies.
+12. USGS Earthquakes - Terremotos em tempo real (últimas 24h, mag ≥ 3.5).
+13. BrasilAPI - Feriados, bancos, CEP e dados públicos do Brasil.
+14. Câmara dos Deputados - Proposições e projetos de lei federais.
+15. ISS (Open Notify) - Posição atual da Estação Espacial Internacional.
+16. Sunrise Sunset - Horários de sol com base na localização.
+17. Free Dictionary (EN) - Definições em inglês com fonética.
+18. Universities List - Busca de universidades no mundo inteiro.
+19. PoetryDB - Poemas, poetas e obras da literatura universal.
+20. PhET Simulations - Simuladores interativos de ciência e matemática.
+21. PubMed Central - Literatura biomédica e de saúde.
+22. Wikidata SPARQL - Base de dados estruturados globais.
+23. RCSB PDB - Banco de dados de estruturas de proteínas (3D).
+24. AntWeb - Maior banco de dados e imagens de formigas do mundo.
+25. Tabela Periódica - Dados químicos completos sobre elementos.
+26. FishWatch - Biologia marinha e sustentabilidade de peixes.
+27. Project Gutenberg - Biblioteca de ebooks clássicos gratuitos.
+28. Bible API - Consultas a versículos e capítulos das escrituras.
+29. Air Quality (OpenAQ) - Monitoramento da qualidade do ar em tempo real.
+30. Solar System Data - Dados astronômicos sobre planetas e astros.
+31. The Space Devs - Calendário de lançamentos e eventos espaciais.
+32. Quotes API - Citações e frases inspiradoras de pensadores.
+33. Dog Images - Imagens e curiosidades sobre raças de cães.
+34. CelesTrak - Rastreamento de satélites e dados orbitais (TLE).
+35. CODATA Constants - Valores de constantes físicas fundamentais.
