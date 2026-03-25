@@ -556,7 +556,9 @@
     position: relative;
     width: 100%;
     padding-top: 62.5%; /* 16:10 Aspect Ratio */
+    display: block; /* Garante que comece visível se houver slug */
   }
+  .phet-container.hidden-phet { display: none !important; }
   .phet-iframe {
     position: absolute;
     top: 0; left: 0;
@@ -564,6 +566,42 @@
     border: none;
     z-index: 1;
   }
+  
+  /* ── Document Card (Manus Style Premium) ── */
+  .document-card {
+    margin: 1.5rem 0;
+    background: #ffffff; /* Fundo branco premium estilo Manus */
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: fadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    color: #1e293b;
+  }
+  .doc-header {
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    background: #fafafa;
+  }
+  .doc-icon {
+    width: 42px;
+    height: 42px;
+    background: #3b82f6;
+    color: #fff;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  }
+  .doc-icon span { font-size: 20px; }
+  
+  /* PhET Spinner & Loading (Restored) */
   .phet-loading-overlay {
     position: absolute;
     top: 0; left: 0;
@@ -586,97 +624,57 @@
     font-size: 0.75rem; color: #94a3b8; font-weight: 500;
   }
   @keyframes phet-spin { to { transform: rotate(360deg); } }
-
-  /* ── Premium Links in AI Answers ── */
-  .ai-response a {
-    color: #60a5fa;
-    text-decoration: none;
-    border-bottom: 1px solid rgba(96, 165, 250, 0.3);
-    transition: all 0.2s ease;
-  }
-  .ai-response a:hover {
-    color: #93c5fd;
-    border-bottom-color: #93c5fd;
-    background: rgba(96, 165, 250, 0.1);
-    border-radius: 2px;
-  }
-
-  .phet-text {
-    background: rgba(15, 23, 42, 0.4);
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    border-radius: 8px;
-    padding: 1rem;
-    font-size: 0.85rem;
-    line-height: 1.5;
-    color: #cbd5e1;
-    margin: 0.75rem 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-  .phet-text .material-icons-outlined { color: #3b82f6; font-size: 1.2rem; margin-bottom: 0.2rem; }
-  .phet-intro { border-left: 4px solid #3b82f6; }
-  .phet-theory { border-left: 4px solid #10b981; }
-
-  /* ── Document Card (Manus Style) ── */
-  .document-card {
-    margin: 1.5rem 0;
-    background: rgba(30, 41, 59, 0.7);
-    border: 1px solid rgba(99, 102, 241, 0.3);
-    border-radius: 12px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    animation: fadeUp 0.4s ease both;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  }
-  .doc-header {
-    padding: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    background: rgba(99, 102, 241, 0.05);
-  }
-  .doc-icon {
-    width: 36px;
-    height: 36px;
-    background: #3b82f6;
-    color: #fff;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
   .doc-title {
     flex: 1;
     font-weight: 700;
-    font-size: 0.9rem;
-    color: #e2e8f0;
+    font-size: 0.95rem;
+    color: #0f172a;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .doc-body {
-    padding: 1rem;
-    font-size: 0.82rem;
+    padding: 1.5rem;
+    font-size: 0.875rem;
     line-height: 1.6;
-    color: #cbd5e1;
-    max-height: 220px;
+    color: #334155;
+    max-height: 300px;
     overflow-y: auto;
-    mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+    position: relative;
     white-space: pre-wrap;
   }
+  .doc-body::after {
+    content: "";
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: linear-gradient(to top, rgba(255,255,255,1), transparent);
+    pointer-events: none;
+  }
   .doc-footer {
-    padding: 0.75rem 1rem;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8fafc;
+    border-top: 1px solid #f1f5f9;
+  }
+  .doc-footer-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .doc-footer-label span { color: #10b981; font-size: 16px; }
+  .doc-actions {
     display: flex;
     gap: 0.75rem;
-    background: rgba(15, 23, 42, 0.4);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
   }
   .doc-btn {
-    padding: 0.45rem 0.9rem;
-    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    border-radius: 99px; /* Pill style buttons */
     font-size: 0.75rem;
     font-weight: 700;
     cursor: pointer;
@@ -688,17 +686,16 @@
     font-family: inherit;
   }
   .btn-download {
-    background: rgba(59, 130, 246, 0.15);
-    color: #60a5fa;
-    border-color: rgba(59, 130, 246, 0.3);
+    background: #3b82f6;
+    color: #fff;
   }
-  .btn-download:hover { background: rgba(59, 130, 246, 0.25); transform: translateY(-1px); }
+  .btn-download:hover { background: #2563eb; transform: translateY(-1px); }
   .btn-copy-doc {
-    background: rgba(255, 255, 255, 0.05);
-    color: #cbd5e1;
-    border-color: rgba(255, 255, 255, 0.1);
+    background: #fff;
+    color: #64748b;
+    border-color: #e2e8f0;
   }
-  .btn-copy-doc:hover { background: rgba(255, 255, 255, 0.1); transform: translateY(-1px); }
+  .btn-copy-doc:hover { background: #f1f5f9; color: #1e293b; transform: translateY(-1px); }
 
   /* ── Msg Actions (TTS/Copy) ── */
   .msg-actions { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed rgba(255,255,255,0.08); }
@@ -1647,14 +1644,17 @@
     let pdbId = null;
 
     // 1. Extrair PHET tag (ex: [PHET:slug|como_usar|teoria])
-    const phetMatch = response.match(/\[PHET:([a-z0-9-]+)(?:\|(.*?)\|(.*?))?\]/is);
+    const phetMatch = response.match(/\[PHET:([a-z0-9-]+)(?:\|([^|]*?)\|([^|]*?))?\]/is);
     let phetIntro = null;
     let phetTheory = null;
-    if (phetMatch) {
-      phetSlug = phetMatch[1];
-      phetIntro = phetMatch[2] || null;
-      phetTheory = phetMatch[3] || null;
-      response = response.replace(phetMatch[0], '').trim();
+    if (phetMatch && phetMatch[1]) {
+      const slug = phetMatch[1].trim();
+      if (slug && slug !== 'slug') { // Evita placeholders
+        phetSlug = slug;
+        phetIntro = phetMatch[2] ? phetMatch[2].trim() : null;
+        phetTheory = phetMatch[3] ? phetMatch[3].trim() : null;
+        response = response.replace(phetMatch[0], '').trim();
+      }
     }
 
     // 2. Extrair PDB tag (ex: [PDB:1u19])
@@ -1928,7 +1928,20 @@
       const iframe = document.createElement('iframe');
       iframe.className = 'phet-iframe';
       iframe.src = `https://phet.colorado.edu/sims/html/${parsedResponse.phetSlug}/latest/${parsedResponse.phetSlug}_all.html`;
-      iframe.onload = () => { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 400); };
+      
+      // Auto-hide se falhar ou demorar demais (Box Branco)
+      const phetTimeout = setTimeout(() => {
+        if (loader.parentNode) {
+           fullSection.classList.add('hidden-phet');
+           console.warn('PhET timed out - hiding');
+        }
+      }, 10000);
+
+      iframe.onload = () => { 
+        clearTimeout(phetTimeout);
+        loader.style.opacity = '0'; 
+        setTimeout(() => loader.remove(), 400); 
+      };
       phetCont.appendChild(iframe);
       fullSection.appendChild(phetCont);
 
@@ -1991,7 +2004,7 @@
 
     leftCol.appendChild(actionsContainer);
 
-    // -- DOCUMENT CARD (OFFLINE SUMMARY) --
+    // -- DOCUMENT CARD (OFFLINE SUMMARY - MANUS STYLE) --
     const docMatch = response.match(/\[OFFLINE_DOC:\s*(.*?)\s*\|\s*(.*?)\s*\|?\s*(.*?)\]/s);
     if (docMatch) {
       const [_, title, content, sources] = docMatch;
@@ -1999,13 +2012,16 @@
       docCard.className = 'document-card';
       docCard.innerHTML = `
         <div class="doc-header">
-          <div class="doc-icon"><span class="material-icons-outlined">description</span></div>
+          <div class="doc-icon"><span class="material-icons-outlined">article</span></div>
           <div class="doc-title">${title}</div>
         </div>
         <div class="doc-body">${content.replace(/\n/g, '<br/>')}</div>
         <div class="doc-footer">
-          <button class="doc-btn btn-download"><span class="material-icons-outlined">download</span> Baixar (Offline)</button>
-          <button class="doc-btn btn-copy-doc"><span class="material-icons-outlined">content_copy</span> Copiar</button>
+          <div class="doc-footer-label"><span class="material-icons-outlined">verified</span> Documento Pronto</div>
+          <div class="doc-actions">
+            <button class="doc-btn btn-download"><span class="material-icons-outlined">download</span> Baixar (Offline)</button>
+            <button class="doc-btn btn-copy-doc"><span class="material-icons-outlined">content_copy</span> Copiar</button>
+          </div>
         </div>
       `;
 
@@ -2026,8 +2042,9 @@
         try {
           await navigator.clipboard.writeText(content);
           const btn = docCard.querySelector('.btn-copy-doc');
+          const oldHtml = btn.innerHTML;
           btn.innerHTML = '<span class="material-icons-outlined">check</span> Copiado!';
-          setTimeout(() => btn.innerHTML = '<span class="material-icons-outlined">content_copy</span> Copiar', 2000);
+          setTimeout(() => btn.innerHTML = oldHtml, 2000);
         } catch (e) {}
       });
 
