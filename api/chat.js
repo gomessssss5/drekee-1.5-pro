@@ -1192,6 +1192,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   let context = '';
   let nasaMedia = [];
+  const media = [];
   
   const queryParaBuscar = actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion;
 
@@ -1732,7 +1733,7 @@ Seja honesto. Não invente. Use as fontes.`;
   );
 
   logs.push('✅ Resposta gerada pela IA principal');
-  return { response, media: nasaMedia, sources };
+  return { response, media: [...media, ...nasaMedia], sources };
 }
 
 // ============ STEP 3: Review with Gemini ============

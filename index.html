@@ -1965,18 +1965,18 @@
     { key: 'pubmed',      label: 'PubMed Central',   img: 'pub-med.png',    description: 'Acesso à literatura biomédica e de saúde.' },
     { key: 'wikidata',    label: 'Wikidata SPARQL',  img: 'wikidata.png',   description: 'Base de dados estruturados e conhecimento geral.' },
     { key: 'rcsb',        label: 'RCSB PDB',         img: 'rcsb.png',       description: 'Banco de dados de estruturas de proteínas (3D).' },
-    { key: 'antweb',      label: 'AntWeb',           img: 'antweb.png',     description: 'Maior banco de dados e imagens de formigas do mundo.' },
-    { key: 'periodictable', label: 'Tabela Periódica', img: 'periodic.png',   description: 'Dados químicos completos sobre elementos da tabela periódica.' },
-    { key: 'fishwatch',   label: 'FishWatch',        img: 'fish.png',       description: 'Biologia marinha e sustentabilidade das espécies de peixes.' },
-    { key: 'gutenberg',   label: 'Project Gutenberg', img: 'gutenberg.png',  description: 'Biblioteca de ebooks gratuitos de obras clássicas.' },
-    { key: 'bible',       label: 'Bible API',        img: 'bible.png',      description: 'Consultas a versículos e capítulos das escrituras sagradas.' },
-    { key: 'openaq',      label: 'Air Quality (OpenAQ)', img: 'openaq.png',   description: 'Monitoramento global da qualidade do ar em tempo real.' },
-    { key: 'solarsystem', label: 'Solar System Data', img: 'solar.png',     description: 'Dados astronômicos sobre planetas e corpos celestes.' },
-    { key: 'spacedevs',   label: 'The Space Devs',   img: 'spacedevs.png',  description: 'Calendário de lançamentos e eventos da exploração espacial.' },
-    { key: 'quotes',      label: 'Quotes API',       img: 'quotes.png',     description: 'Citações e frases inspiradoras de grandes pensadores.' },
-    { key: 'dogapi',      label: 'Dog Images',       img: 'dog.png',        description: 'Imagens aleatórias e informações sobre raças de cães.' },
-    { key: 'celestrak',   label: 'CelesTrak',        img: 'celestrak.png',  description: 'Rastreamento de satélites e dados orbitais (TLE).' },
-    { key: 'codata',      label: 'CODATA Constants', img: 'codata.png',     description: 'Valores recomendados de constantes físicas fundamentais.' },
+    { key: 'antweb',      label: 'AntWeb',           icon: 'bug_report',    description: 'Maior banco de dados e imagens de formigas do mundo.' },
+    { key: 'periodictable', label: 'Tabela Periódica', icon: 'science',      description: 'Dados químicos completos sobre elementos da tabela periódica.' },
+    { key: 'fishwatch',   label: 'FishWatch',        icon: 'phishing',     description: 'Biologia marinha e sustentabilidade das espécies de peixes.' },
+    { key: 'gutenberg',   label: 'Project Gutenberg', icon: 'auto_stories', description: 'Biblioteca de ebooks gratuitos de obras clássicas.' },
+    { key: 'bible',       label: 'Bible API',        icon: 'menu_book',     description: 'Consultas a versículos e capítulos das escrituras sagradas.' },
+    { key: 'openaq',      label: 'Air Quality (OpenAQ)', icon: 'air',        description: 'Monitoramento global da qualidade do ar em tempo real.' },
+    { key: 'solarsystem', label: 'Solar System Data', icon: 'public',      description: 'Dados astronômicos sobre planetas e corpos celestes.' },
+    { key: 'spacedevs',   label: 'The Space Devs',   icon: 'rocket_launch', description: 'Calendário de lançamentos e eventos da exploração espacial.' },
+    { key: 'quotes',      label: 'Quotes API',       icon: 'format_quote',  description: 'Citações e frases inspiradoras de grandes pensadores.' },
+    { key: 'dogapi',      label: 'Dog Images',       icon: 'pets',          description: 'Imagens aleatórias e informações sobre raças de cães.' },
+    { key: 'celestrak',   label: 'CelesTrak',        icon: 'satellite_alt', description: 'Rastreamento de satélites e dados orbitais (TLE).' },
+    { key: 'codata',      label: 'CODATA Constants', icon: 'functions',     description: 'Valores recomendados de constantes físicas fundamentais.' },
   ];
 
 
@@ -2038,21 +2038,29 @@
         const iconContainer = document.createElement('div');
         iconContainer.style.position = 'relative';
 
-        const icon = document.createElement('img');
-        icon.src = opt.img; icon.alt = opt.label; icon.className = 'connector-item-icon';
-        
-        const fallback = document.createElement('div');
-        fallback.className = 'connector-icon-fallback';
-        fallback.innerText = opt.label.charAt(0);
-        fallback.style.display = 'none';
+        if (opt.icon) {
+          const mIcon = document.createElement('span');
+          mIcon.className = 'material-icons-outlined';
+          mIcon.style.fontSize = '1.3rem';
+          mIcon.style.color = '#94a3b8';
+          mIcon.innerText = opt.icon;
+          iconContainer.appendChild(mIcon);
+        } else {
+          const icon = document.createElement('img');
+          icon.src = opt.img; icon.alt = opt.label; icon.className = 'connector-item-icon';
+          
+          const fallback = document.createElement('div');
+          fallback.className = 'connector-icon-fallback';
+          fallback.innerText = opt.label.charAt(0);
+          fallback.style.display = 'none';
 
-        icon.onerror = () => {
-          icon.style.display = 'none';
-          fallback.style.display = 'flex';
-        };
-
-        iconContainer.appendChild(icon);
-        iconContainer.appendChild(fallback);
+          icon.onerror = () => {
+            icon.style.display = 'none';
+            fallback.style.display = 'flex';
+          };
+          iconContainer.appendChild(icon);
+          iconContainer.appendChild(fallback);
+        }
         item.appendChild(iconContainer);
 
         const content = document.createElement('div');
@@ -2153,11 +2161,15 @@
       const chip = document.createElement('div');
       chip.className = 'sel-bar-chip';
       chip.title = opt.label;
-      chip.innerHTML = `
-        <img src="${opt.img}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="${opt.label}"/>
-        <div class="connector-icon-fallback" style="display:none">${opt.label.charAt(0)}</div>
-        <span>${opt.label}</span>
-      `;
+      if (opt.icon) {
+        chip.innerHTML = `<span class="material-icons-outlined" style="font-size:0.9rem; margin-right:4px;">${opt.icon}</span><span>${opt.label}</span>`;
+      } else {
+        chip.innerHTML = `
+          <img src="${opt.img}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="${opt.label}"/>
+          <div class="connector-icon-fallback" style="display:none">${opt.label.charAt(0)}</div>
+          <span>${opt.label}</span>
+        `;
+      }
       iconsDiv.appendChild(chip);
     });
   }
