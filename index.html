@@ -684,7 +684,7 @@
   .btn-copy-doc:hover { background: rgba(255, 255, 255, 0.1); transform: translateY(-1px); }
 
   /* ── Msg Actions (TTS/Copy) ── */
-  .msg-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed rgba(255,255,255,0.08); }
+  .msg-actions { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed rgba(255,255,255,0.08); }
   .btn-summary { background: rgba(139, 92, 246, 0.1) !important; color: #a78bfa !important; border-color: rgba(139, 92, 246, 0.2) !important; }
   .btn-summary:hover { background: rgba(139, 92, 246, 0.2) !important; transform: translateY(-1px); }
   .msg-action-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #cbd5e1; font-size: 0.75rem; padding: 0.3rem 0.6rem; display: flex; align-items: center; justify-content: center; gap: 0.3rem; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; outline: none; }
@@ -1922,9 +1922,9 @@
     const actionsContainer = document.createElement('div');
     actionsContainer.className = 'msg-actions';
     actionsContainer.innerHTML = `
+      <button class="msg-action-btn btn-summary"><span class="material-icons-outlined">article</span> Gerar Resumo Offline</button>
       <button class="msg-action-btn btn-tts"><span class="material-icons-outlined">volume_up</span> Ouvir</button>
       <button class="msg-action-btn btn-copy"><span class="material-icons-outlined">content_copy</span> Copiar Limpo</button>
-      <button class="msg-action-btn btn-summary"><span class="material-icons-outlined">article</span> Gerar Resumo Offline</button>
     `;
     
     actionsContainer.querySelector('.btn-tts').addEventListener('click', () => {
@@ -2030,35 +2030,34 @@
     };
     if (media.length > 0) renderMedia();
 
-    // -- LÓGICA DE COLAPSAR SIDEBAR (Desktop) --
-    if (window.innerWidth > 768 && rightCol.children.length > 0) {
-      setTimeout(() => {
-        const leftH = leftCol.offsetHeight;
-        let rightH = 0;
-        const cards = [embeddedVideosContainer, mediaContainer, sourcesContainer];
-        
-        cards.forEach(card => {
-          if (!card || card.parentElement !== rightCol) return;
-          const h = card.offsetHeight;
-          if (leftH > 50 && (rightH + h) > (leftH + 100)) {
-            card.classList.add('sidebar-card-collapsed');
-            const expandBtn = document.createElement('div');
-            expandBtn.className = 'sidebar-expand-btn';
-            const label = card.classList.contains('sources-section') ? 'Abrir Fontes ↓' : 
-                         (card.classList.contains('media-results') ? 'Imagens NASA ↓' : 'Vídeos Relacionados ↓');
-            expandBtn.innerHTML = `<span><span class="material-icons-outlined">expand_more</span> ${label}</span>`;
-            expandBtn.onclick = (ev) => {
-              ev.stopPropagation();
-              card.classList.remove('sidebar-card-collapsed');
-              if (expandBtn.parentNode) expandBtn.parentNode.removeChild(expandBtn);
-            };
-            card.appendChild(expandBtn);
-          } else {
-            rightH += h + 24; // gap
-          }
-        });
-      }, 100);
-    }
+    // -- LÓGICA DE COLAPSAR SIDEBAR/GALEIRA --
+    const leftH = leftCol.offsetHeight;
+    const cards = [embeddedVideosContainer, mediaContainer, sourcesContainer];
+    
+    cards.forEach(card => {
+      if (!card || card.children.length === 0) return;
+      const h = card.offsetHeight;
+      const isMobile = window.innerWidth <= 768;
+      
+      // Colapsar se for sidebar muito longa (> leftCol + 100) OU se a galeria de mídia no mobile tiver > 400px
+      const shouldCollapse = (!isMobile && leftH > 50 && (h > 400 || h > leftH)) || 
+                             (isMobile && card.classList.contains('media-results') && h > 450);
+
+      if (shouldCollapse) {
+        card.classList.add('sidebar-card-collapsed');
+        const expandBtn = document.createElement('div');
+        expandBtn.className = 'sidebar-expand-btn';
+        const label = card.classList.contains('sources-section') ? 'Mostrar todas as fontes ↓' : 
+                     (card.classList.contains('media-results') ? 'Mostrar galeria completa ↓' : 'Ver vídeos relacionados ↓');
+        expandBtn.innerHTML = `<span><span class="material-icons-outlined">expand_more</span> ${label}</span>`;
+        expandBtn.onclick = (ev) => {
+          ev.stopPropagation();
+          card.classList.remove('sidebar-card-collapsed');
+          if (expandBtn.parentNode) expandBtn.parentNode.removeChild(expandBtn);
+        };
+        card.appendChild(expandBtn);
+      }
+    });
 
     if (!instant) {
       await delay(50);
