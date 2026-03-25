@@ -262,12 +262,12 @@
   }
 
   .welcome-icon {
-    width: 6.5rem; height: 6.5rem;
-    border-radius: 1.25rem;
+    width: 5rem; height: 5rem;
+    border-radius: 1.1rem;
     background: transparent;
     border: none;
     display: flex; align-items: center; justify-content: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     animation: float 4s ease-in-out infinite;
   }
   @keyframes float {
@@ -275,24 +275,24 @@
     50%       { transform: translateY(-8px); }
   }
   .welcome-icon-inner {
-    width: 4.5rem; height: 4.5rem;
-    border-radius: 0.75rem;
+    width: 3.5rem; height: 3.5rem;
+    border-radius: 0.65rem;
     background: transparent;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.4rem; font-weight: 800; color: #fff;
+    font-size: 1.2rem; font-weight: 800; color: #fff;
     letter-spacing: -0.05em;
     font-family: 'Space Mono', monospace;
   }
 
   .welcome-title {
     font-family: 'DM Sans', sans-serif;
-    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-size: clamp(1.6rem, 4vw, 2.5rem);
     font-weight: 300;
     letter-spacing: -0.04em;
     color: #f1f5f9;
     line-height: 1.1;
     text-align: center;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
   }
   .welcome-title strong {
     font-weight: 600;
@@ -301,21 +301,21 @@
     -webkit-text-fill-color: transparent;
   }
   .welcome-subtitle {
-    font-size: 0.9rem; color: #475569; font-weight: 400;
-    margin-bottom: 2rem;
+    font-size: 0.82rem; color: #475569; font-weight: 400;
+    margin-bottom: 1.5rem;
     text-align: center;
   }
 
   /* ── Suggestion chips ── */
   .suggestions {
-    display: flex; flex-direction: column; gap: 0.4rem;
-    width: 100%; max-width: 38rem;
+    display: flex; flex-direction: column; gap: 0.35rem;
+    width: 100%; max-width: 36rem;
     pointer-events: auto;
   }
   .suggestion-item {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    border-radius: 0.85rem;
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.75rem;
     background: rgba(22,32,56,0.5);
     border: 1px solid var(--border);
     cursor: pointer;
@@ -478,7 +478,37 @@
     margin-top: 0 !important;
     background: rgba(15,23,42,0.4);
     border: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
+
+  /* Card Colapsado */
+  .sidebar-card-collapsed {
+    max-height: 100px !important;
+  }
+  .sidebar-card-collapsed .media-grid,
+  .sidebar-card-collapsed .sources-grid {
+    opacity: 0.3;
+    filter: blur(2px);
+    pointer-events: none;
+  }
+
+  /* Botão de Expansão */
+  .sidebar-expand-btn {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 45px;
+    background: linear-gradient(to top, rgba(15,23,42,0.95), transparent);
+    display: flex; align-items: center; justify-content: center;
+    color: #60a5fa;
+    font-size: 0.75rem; font-weight: 700;
+    cursor: pointer;
+    z-index: 10;
+    transition: background 0.2s;
+  }
+  .sidebar-expand-btn:hover { color: #93c5fd; background: linear-gradient(to top, rgba(15,23,42,1), transparent); }
+  .sidebar-expand-btn span { display: flex; align-items: center; gap: 0.25rem; }
 
   /* Full Width (abaixo do split) */
   .ai-full-width-section {
@@ -576,6 +606,14 @@
   .msg-action-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #cbd5e1; font-size: 0.75rem; padding: 0.3rem 0.6rem; display: flex; align-items: center; justify-content: center; gap: 0.3rem; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; outline: none; }
   .msg-action-btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
   .msg-action-btn .material-icons-outlined { font-size: 0.95rem; }
+
+  video[src="oi.mp4"] {
+    max-height: 120px;
+    width: auto;
+    margin: 0 auto;
+    display: block;
+    border-radius: 12px;
+  }
 
   @keyframes msgRight { from{opacity:0;transform:translateX(16px) scale(0.97)} to{opacity:1;transform:none} }
   @keyframes msgLeft  { from{opacity:0;transform:translateX(-14px) scale(0.97)} to{opacity:1;transform:none} }
@@ -1836,6 +1874,35 @@
       });
     };
     if (media.length > 0) renderMedia();
+
+    // -- LÓGICA DE COLAPSAR SIDEBAR (Desktop) --
+    if (window.innerWidth > 768 && rightCol.children.length > 0) {
+      setTimeout(() => {
+        const leftH = leftCol.offsetHeight;
+        let rightH = 0;
+        const cards = [embeddedVideosContainer, mediaContainer, sourcesContainer];
+        
+        cards.forEach(card => {
+          if (!card || card.parentElement !== rightCol) return;
+          const h = card.offsetHeight;
+          if (leftH > 50 && (rightH + h) > (leftH + 100)) {
+            card.classList.add('sidebar-card-collapsed');
+            const expandBtn = document.createElement('div');
+            expandBtn.className = 'sidebar-expand-btn';
+            const label = card.classList.contains('sources-section') ? 'Abrir Fontes ↓' : 
+                         (card.classList.contains('media-results') ? 'Imagens NASA ↓' : 'Vídeos Relacionados ↓');
+            expandBtn.innerHTML = `<span><span class="material-icons-outlined">expand_more</span> ${label}</span>`;
+            expandBtn.onclick = () => {
+              card.classList.remove('sidebar-card-collapsed');
+              expandBtn.remove();
+            };
+            card.appendChild(expandBtn);
+          } else {
+            rightH += h + 24; // gap
+          }
+        });
+      }, 100);
+    }
 
     if (!instant) {
       await delay(50);
