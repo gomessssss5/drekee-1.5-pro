@@ -1,4 +1,5 @@
-CONECTORES DREKEE AI 1.5 PRO
+DREKEE AI 1.5 PRO - INVENTÁRIO DE CONECTORES (V2.0)
+TOTAL DE APIs INTEGRADAS: 81
 
 1. Tavily - Busca Geral na Web e agregação de resultados recentes.
 2. Wikipedia - Resumos e conteúdos enciclopédicos estruturados.
@@ -35,3 +36,52 @@ CONECTORES DREKEE AI 1.5 PRO
 33. Dog Images - Imagens e curiosidades sobre raças de cães.
 34. CelesTrak - Rastreamento de satélites e dados orbitais (TLE).
 35. CODATA Constants - Valores de constantes físicas fundamentais.
+
+--- NOVAS APIs (MEGA EXPANSÃO) ---
+
+36. Quotes Free API - Acesso a milhares de citações famosas.
+37. Open Food Facts - Dados colaborativos sobre produtos alimentícios.
+38. Lorem Picsum - Gerador de imagens de alta qualidade.
+39. OpenUniverse - Exploração de dados astronômicos profundos.
+40. ESA Images - Galeria de imagens da Agência Espacial Europeia.
+41. Stellarium Web - Planetário virtual para observação estelar.
+42. Gravitational Waves (LIGO) - Detecção de ondas gravitacionais.
+43. Solar Dynamics (SDO) - Monitoramento da atividade solar (NASA).
+44. NOAA Space Weather - Previsões de aurora e clima espacial.
+45. NASA Exoplanets - Arquivo oficial de planetas fora do sistema solar.
+46. Kepler/TESS Data - Busca por planetas via missões espaciais.
+47. Math.js Advanced - Cálculos complexos, matrizes e álgebra.
+48. Numberempire - Plotagem de funções e análise numérica.
+49. PubChem 3D - Estruturas 3D de milhões de compostos químicos.
+50. Ensembl Genomics - Navegador genômico para diversas espécies.
+51. MyGene.info - Consulta e anotação de genes em tempo real.
+52. UniProt Proteins - Base centralizada de sequências proteicas.
+53. Reactome Pathway - Vias biológicas e processos celulares.
+54. STRING Interaction - Redes de interações proteína-proteína.
+55. PubChem Bioassay - Resultados de testes biológicos químicos.
+56. OpenFDA - Dados oficiais sobre fármacos e alimentos (EUA).
+57. OMIM Genetics - Catálogo de genes e distúrbios humanos.
+58. ClinVar Variations - Relação entre variações genéticas e saúde.
+59. COSMIC Cancer - Mutações somáticas em câncer humano.
+60. Johns Hopkins COVID-19 - Dados históricos da pandemia global.
+61. NOAA Climate - Histórico climático global (+150 anos).
+62. World Bank Climate - Previsões climáticas por país e região.
+63. USGS Water - Monitoramento de recursos hídricos mundiais.
+64. Sentinel/Copernicus - Observação da Terra via satélite radar.
+65. NASA FIRMS (Fogo) - Monitoramento global de incêndios ativos.
+66. edX Open Courses - Busca de cursos de alto nível acadêmico.
+67. MIT OpenCourseWare - Materiais gratuitos de cursos do MIT.
+68. MEC e-Jovem - Plataforma brasileira de inclusão digital.
+69. Educ4Share - Compartilhamento de recursos educacionais.
+70. MODIS Earth Data - Dinâmica terrestre e atmosférica global.
+71. TCU Brasil - Fiscalização e contas públicas do Tribunal.
+72. Portal Transparência - Gastos do Governo Federal Brasileiro.
+73. DATASUS Saúde - Estatísticas de saúde pública e SUS (Brasil).
+74. SEADE SP - Indicadores socioeconômicos do estado de SP.
+75. OSF (Open Science) - Gerenciamento de projetos científicos abertos.
+76. Met Museum - Coleção digital do Metropolitan Museum of Art.
+77. Getty Museum - Imagens e metadados de obras de arte clássicas.
+78. Libras Online - Recursos de Língua Brasileira de Sinais.
+79. Sketchfab 3D - Busca de modelos 3D interativos.
+80. Google Earth Timelapse - Evolução do planeta em vídeo temporal.
+81. BrasilAPI (Extra) - Serviços de CEP e dados públicos unificados.

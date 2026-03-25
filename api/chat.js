@@ -598,6 +598,58 @@ async function buscarSunriseSunset(lat = -23.55, lon = -46.63) {
   }
 }
 
+// ============ Mega Expansão: Mapa de APIs Genéricas (no-key) ============
+const GENERIC_API_MAP = {
+  'quotes-free': { url: 'https://type.fit/api/quotes', processor: 'array' },
+  'openfoodfacts': { url: 'https://world.openfoodfacts.org/api/v2/search?categories_tags_en=${query}&fields=product_name,brands,nutriments&json=1', processor: 'json' },
+  'picsum': { url: 'https://picsum.photos/v2/list?limit=5', processor: 'json' },
+  'esa': { url: 'https://images-api.nasa.gov/search?q=${query}&center=ESA', processor: 'nasa' },
+  'mathjs': { url: 'https://api.mathjs.org/v4/?expr=${query}', processor: 'text' },
+  'pubchem': { url: 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${query}/JSON', processor: 'json' },
+  'uniprot': { url: 'https://rest.uniprot.org/uniprotkb/search?query=${query}&format=json', processor: 'json' },
+  'mygene': { url: 'https://mygene.info/v3/query?q=${query}', processor: 'json' },
+  'ensembl': { url: 'https://rest.ensembl.org/lookup/symbol/homo_sapiens/${query}?content-type=application/json', processor: 'json' },
+  'openfda': { url: 'https://api.fda.gov/drug/label.json?search=adverse_reactions:${query}&limit=1', processor: 'json' },
+  'covid-jhu': { url: 'https://disease.sh/v3/covid-19/historical/all?lastdays=30', processor: 'json' },
+  'noaa-climate': { url: 'https://www.ncei.noaa.gov/access/services/data/v1?dataset=global-summary-of-the-month&stations=GHCND:USW00094728&startDate=2023-01-01&endDate=2023-12-31&format=json', processor: 'json' },
+  'worldbank-climate': { url: 'https://api.worldbank.org/v2/country/${query}/indicator/EN.ATM.CO2E.PC?format=json', processor: 'json' },
+  'usgs-water': { url: 'https://waterservices.usgs.gov/nwis/iv/?format=json&sites=01646500&parameterCd=00060,00065', processor: 'json' },
+  'firms': { url: 'https://firms.modaps.eosdis.nasa.gov/api/area/csv/MODIS_Standard/world/1', processor: 'text' },
+  'datasus': { url: 'https://dados.saude.gov.br/api/3/action/package_search?q=${query}', processor: 'json' },
+  'seade': { url: 'https://repositorio.seade.gov.br/api/3/action/package_search?q=${query}', processor: 'json' },
+  'metmuseum': { url: 'https://collectionapi.metmuseum.org/public/collection/v1/search?q=${query}', processor: 'json' },
+  'getty': { url: 'https://data.getty.edu/museum/api/open/v1/search?q=${query}', processor: 'json' },
+  'sketchfab': { url: 'https://api.sketchfab.com/v3/search?type=models&q=${query}', processor: 'json' },
+  'generic': { url: 'https://api.publicapis.org/entries?title=${query}', processor: 'json' }
+};
+
+async function buscarGeneric(key, query) {
+  const config = GENERIC_API_MAP[key];
+  if (!config) return null;
+
+  let url = config.url.replace('${query}', encodeURIComponent(query));
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'DrekeeAI/1.5 (PocketLab; contact@drekee.edu)' } });
+    if (!res.ok) return { error: `HTTP ${res.status}`, source: key };
+
+    if (config.processor === 'json') return await res.json();
+    if (config.processor === 'text') return await res.text();
+    if (config.processor === 'array') return (await res.json());
+    if (config.processor === 'nasa') {
+      const data = await res.json();
+      return (data.collection?.items || []).slice(0, 3).map(i => ({
+        title: i.data?.[0]?.title,
+        url: i.links?.[0]?.href,
+        description: i.data?.[0]?.description
+      }));
+    }
+    return await res.json();
+  } catch (err) {
+    console.error(`Error fetching ${key}:`, err);
+    return { error: 'Fetch failed', source: key };
+  }
+}
+
 // ============ Wikidata SPARQL Integration ============
 async function buscarWikidata(query) {
   if (!query) return null;
@@ -1149,10 +1201,35 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(satélite|órbita|celestrak|rastreio)\b/.test(normalizedText)) autoDetectedConnectors.push('celestrak');
   if (/\b(lançamento|foguete|missão espacial|spacedevs|voo espacial)\b/.test(normalizedText)) autoDetectedConnectors.push('spacedevs');
   if (/\b(planeta|sistema solar|corpo celeste|órbita solar)\b/.test(normalizedText)) autoDetectedConnectors.push('solarsystem');
-  if (/\b(frase|citação|pensamento|quotes|inspirar)\b/.test(normalizedText)) autoDetectedConnectors.push('quotes');
+  if (/\b(frase|citação|pensamento|quotes|inspirar)\b/i.test(normalizedText)) autoDetectedConnectors.push('quotes', 'quotes-free');
   if (/\b(cachorro|cão|raça|dog|pet)\b/.test(normalizedText)) autoDetectedConnectors.push('dogapi');
   if (/\b(ar|poluição|qualidade do ar|openaq|smog)\b/.test(normalizedText)) autoDetectedConnectors.push('openaq');
   if (/\b(constante|física|codata|velocidade da luz|planck)\b/.test(normalizedText)) autoDetectedConnectors.push('codata');
+  
+  // Maga Expansão Keys
+  if (/\b(comida|alimento|food|caloria|nutrição|ingrediente)\b/.test(normalizedText)) autoDetectedConnectors.push('openfoodfacts');
+  if (/\b(imagem|foto|picsum|paisagem)\b/.test(normalizedText)) autoDetectedConnectors.push('picsum');
+  if (/\b(universo|cosmos|openuniverse|galáxia|espaço profundo)\b/.test(normalizedText)) autoDetectedConnectors.push('openuniverse');
+  if (/\b(esa|europa|agência espacial europeia)\b/.test(normalizedText)) autoDetectedConnectors.push('esa');
+  if (/\b(estrela|constelação|céu|stellarium|mapa estelar)\b/.test(normalizedText)) autoDetectedConnectors.push('stellarium');
+  if (/\b(onda|gravidade|ligo|virgo|colisão|buraco negro)\b/.test(normalizedText)) autoDetectedConnectors.push('ligo');
+  if (/\b(sol|sdo|atividade solar|mancha solar)\b/.test(normalizedText)) autoDetectedConnectors.push('sdo');
+  if (/\b(exoplaneta|planeta|kepler|tess|estrela binária)\b/.test(normalizedText)) autoDetectedConnectors.push('exoplanet', 'kepler');
+  if (/\b(matemática|álgebra|calculadora|mathjs|matriz|equação complexa)\b/.test(normalizedText)) autoDetectedConnectors.push('mathjs');
+  if (/\b(química|composto|molécula|pubchem|farmac|3d)\b/.test(normalizedText)) autoDetectedConnectors.push('pubchem', 'pubchem-bio');
+  if (/\b(gene|genoma|dna|rna|ensembl|mygene|mutação)\b/.test(normalizedText)) autoDetectedConnectors.push('ensembl', 'mygene');
+  if (/\b(proteína|aminoácido|uniprot|interação|string)\b/.test(normalizedText)) autoDetectedConnectors.push('uniprot', 'string-db', 'reactome');
+  if (/\b(saúde|médico|fda|datasus|sus|hospital|vacina)\b/.test(normalizedText)) autoDetectedConnectors.push('openfda', 'datasus', 'covid-jhu');
+  if (/\b(genética|heran|omim|clinvar|câncer|cosmic)\b/.test(normalizedText)) autoDetectedConnectors.push('omim', 'clinvar', 'cosmic');
+  if (/\b(clima|aquecimento|mudança climática|worldbank|noaa)\b/.test(normalizedText)) autoDetectedConnectors.push('noaa-climate', 'worldbank-climate');
+  if (/\b(água|rio|usgs|recurso hídrico|seca|enchente)\b/.test(normalizedText)) autoDetectedConnectors.push('usgs-water');
+  if (/\b(queimada|fogo|incêndio|firms|fumaça)\b/.test(normalizedText)) autoDetectedConnectors.push('firms');
+  if (/\b(curso|aula|educação|mit|edx|mec|escola)\b/.test(normalizedText)) autoDetectedConnectors.push('edx', 'mit-ocw', 'mec-ejovem', 'educ4share');
+  if (/\b(governo|transparência|tcu|gastos|público|dinheiro)\b/.test(normalizedText)) autoDetectedConnectors.push('tcu', 'transparencia');
+  if (/\b(arte|museu|pessoal|met|getty|pintura|escultura)\b/.test(normalizedText)) autoDetectedConnectors.push('metmuseum', 'getty');
+  if (/\b(libras|sinal|surdo|mudo)\b/.test(normalizedText)) autoDetectedConnectors.push('libras');
+  if (/\b(modelo 3d|sketchfab|objetos|realidade)\b/.test(normalizedText)) autoDetectedConnectors.push('sketchfab');
+  if (/\b(timelapse|earth|google|satélite|evolução)\b/.test(normalizedText)) autoDetectedConnectors.push('google-earth');
 
   if (/\b(arxiv|paper|artigo|pesquisa|estudo|tese|scielo)\b/.test(normalizedText)) {
     autoDetectedConnectors.push('arxiv');
@@ -1601,6 +1678,19 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       context += `\n\n☁️ Open-Meteo para lat/lon (${weather.location.lat},${weather.location.lon}):\nTemperatura atual: ${temp}°C\nUmidade Relativa: ${humi}%\n`; 
       addSource('OPEN-METEO', 'Open-Meteo API', 'open-meteo', `Temperatura atual: ${temp}°C, Umidade: ${humi}%`, 'https://open-meteo.com');
       logs.push('✅ Dados Open-Meteo coletados');
+    }
+  }
+
+  // Loop para Conectores da Mega Expansão (Generic Map)
+  for (const key of selectedConnectors) {
+    if (GENERIC_API_MAP[key]) {
+      logs.push(`🔍 Consultando conector especializado: ${key}...`);
+      const data = await buscarGeneric(key, queryParaBuscar);
+      if (data && !data.error) {
+        context += `\n\n📊 Dados de ${key.toUpperCase()} (Conector especializado):\n${JSON.stringify(data, null, 2).slice(0, 1500)}\n`;
+        addSource(key.toUpperCase(), `API ${key}`, key, `Dados brutos via ${key}`, 'https://drekee.edu/connectors');
+        logs.push(`✅ Dados de ${key} integrados`);
+      }
     }
   }
 
