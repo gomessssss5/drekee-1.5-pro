@@ -1771,7 +1771,18 @@
 
     const mediaContainer = document.createElement('div');
     mediaContainer.className = 'media-results';
-    mediaContainer.innerHTML = `<div class="media-header">📷 NASA Media</div><div class="media-grid"></div>`;
+    
+    // Título dinâmico da galeria
+    let galleryTitle = '📷 Galeria Científica';
+    const hasNasa = media.some(m => m.url?.includes('nasa.gov') || m.title?.toLowerCase().includes('nasa'));
+    const hasDogs = media.some(m => m.url?.includes('dog.ceo'));
+    const hasAnts = media.some(m => m.url?.includes('antweb.org'));
+    
+    if (hasNasa && !hasDogs && !hasAnts) galleryTitle = '🚀 NASA Media';
+    else if (hasDogs && !hasNasa) galleryTitle = '🐶 Galeria Pet';
+    else if (hasAnts && !hasNasa) galleryTitle = '🐜 Galeria Entomológica';
+
+    mediaContainer.innerHTML = `<div class="media-header">${galleryTitle}</div><div class="media-grid"></div>`;
 
     const sourcesContainer = document.createElement('div');
     sourcesContainer.className = 'sources-section';

@@ -1501,8 +1501,14 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     logs.push(`🐶 Buscando imagem de pet`);
     const dogImg = await buscarDog();
     if (dogImg) {
-      media.push({ title: 'Dog do dia', url: dogImg, media_type: 'image', description: 'Uma imagem aleatória de um cachorro fofo.' });
-      logs.push('✅ Imagem de pet adicionada');
+      // Extrair raça da URL (ex: https://dog.ceo/api/img/pitbull/...)
+      const breedMatch = dogImg.match(/breeds\/([^\/]+)/);
+      const rawBreed = breedMatch ? breedMatch[1].replace('-', ' ') : 'cachorro';
+      const breed = rawBreed.charAt(0).toUpperCase() + rawBreed.slice(1);
+      
+      context += `\n\n🐶 Foto de Pet Encontrada: Raça ${breed}.\n`;
+      media.push({ title: `Raça: ${breed}`, url: dogImg, media_type: 'image', description: `Um exemplar de ${breed} capturado pela Dog CEO API.` });
+      logs.push(`✅ Imagem de ${breed} adicionada`);
     }
   }
 
