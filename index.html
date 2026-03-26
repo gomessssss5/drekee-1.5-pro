@@ -2247,7 +2247,7 @@
     { key: 'ligo',            label: 'Gravitational Waves', icon: 'waves',         description: 'Dados de ondas gravitacionais detectadas pelo LIGO/Virgo.' },
     { key: 'sdo',             label: 'Solar Dynamics (SDO)', icon: 'wb_sunny',      description: 'Monitoramento em tempo real da atividade solar via NASA.' },
     { key: 'noaa-space',      label: 'NOAA Space Weather',  icon: 'storm',         description: 'Previsões de clima espacial, auroras e tempestades solares.' },
-    { key: 'exoplanet',       label: 'NASA Exoplanets',     icon: 'public',        description: 'Arquivo oficial de exoplanetas confirmados e candidatos.' },
+    { key: 'exoplanets',      label: 'NASA Exoplanets',     icon: 'public',        description: 'Arquivo oficial de exoplanetas confirmados e candidatos.' },
     { key: 'kepler',          label: 'Kepler/TESS Data',    icon: 'search',        description: 'Dados de missões de busca por planetas fora do sistema solar.' },
     { key: 'mathjs',          label: 'Math.js Advanced',    icon: 'functions',     description: 'Cálculos matemáticos complexos, matrizes e unidades.' },
     { key: 'numberempire',    label: 'Numberempire',        icon: 'show_chart',    description: 'Plotagem de funções, análise numérica e séries matemáticas.' },
@@ -2282,22 +2282,8 @@
     { key: 'getty',           label: 'Getty Museum',        icon: 'palette',       description: 'Imagens e metadados de obras de arte do Getty Museum.' },
     { key: 'libras',          label: 'Libras Online',       icon: 'sign_language', description: 'Recursos e dicionários de Língua Brasileira de Sinais.' },
     { key: 'sketchfab',       label: 'Sketchfab 3D',        icon: 'view_in_ar',    description: 'Busca de modelos 3D e visualizações interativas.' },
-    { key: 'google-earth',    label: 'Earth Timelapse',     icon: 'history',       description: 'Evolução temporal do planeta via Google Earth Engine.' },
+    { key: 'timelapse',       label: 'Earth Timelapse',     icon: 'history',       description: 'Evolução temporal do planeta via Google Earth Engine.' },
   ];
-
-
-  function openConnectorsCard() {
-    connectorsCard.classList.add('show');
-    connectorsOverlay.classList.add('show');
-    connectorsBtn.classList.add('active');
-    renderConnectorsList(connectorsSearch.value);
-  }
-
-  function closeConnectorsCard() {
-    connectorsCard.classList.remove('show');
-    connectorsOverlay.classList.remove('show');
-    connectorsBtn.classList.remove('active');
-  }
 
   connectorsBtn.addEventListener('click', e => {
     e.stopPropagation();
