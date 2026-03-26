@@ -1815,7 +1815,9 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       const data = await buscarGeneric(key, queryParaBuscar);
       if (data && !data.error) {
         context += `\n\n📊 Dados de ${key.toUpperCase()} (Conector especializado):\n${JSON.stringify(data, null, 2).slice(0, 1500)}\n`;
-        addSource(key.toUpperCase(), `API ${key}`, key, `Dados brutos via ${key}`, 'https://drekee.edu/connectors');
+        const apiConfig = GENERIC_API_MAP[key];
+        const apiUrl = apiConfig ? apiConfig.url.replace('${query}', queryParaBuscar) : null;
+        addSource(key.toUpperCase(), `API ${key}`, key, `Dados via ${key}`, apiUrl);
         logs.push(`✅ Dados de ${key} integrados`);
       }
     }
