@@ -592,7 +592,7 @@ async function buscarSunriseSunset(lat = -23.55, lon = -46.63) {
 // ============ Mega Expansão: Mapa de APIs Genéricas (no-key) ============
 const GENERIC_API_MAP = {
   'quotes-free': { url: 'https://type.fit/api/quotes', processor: 'array' },
-  'openfoodfacts': { url: 'https://world.openfoodfacts.org/api/v2/search?categories_tags_en=${query}&fields=product_name,brands,nutriments&json=1', processor: 'json' },
+  'openfoodfacts': { url: 'https://world.openfoodfacts.org/api/v2/search?search_terms=${query}&fields=product_name,brands,nutriments&json=1', processor: 'json' },
   'picsum': { url: 'https://picsum.photos/v2/list?limit=5', processor: 'json' },
   'esa': { url: 'https://images-api.nasa.gov/search?q=${query}&center=ESA', processor: 'nasa' },
   'mathjs': { url: 'https://api.mathjs.org/v4/?expr=${query}', processor: 'text' },
@@ -606,16 +606,16 @@ const GENERIC_API_MAP = {
   'worldbank-climate': { url: 'https://api.worldbank.org/v2/country/${query}/indicator/EN.ATM.CO2E.PC?format=json', processor: 'json' },
   'usgs-water': { url: 'https://waterservices.usgs.gov/nwis/iv/?format=json&sites=01646500&parameterCd=00060,00065', processor: 'json' },
   'firms': { url: 'https://firms.modaps.eosdis.nasa.gov/api/area/csv/MODIS_Standard/world/1', processor: 'text' },
-  'datasus': { url: 'https://dados.saude.gov.br/api/3/action/package_search?q=${query}', processor: 'json' },
-  'seade': { url: 'https://repositorio.seade.gov.br/api/3/action/package_search?q=${query}', processor: 'json' },
+  'datasus': { url: 'https://dados.saude.gov.br/api/v1/package/search?q=${query}', processor: 'json' },
+  'seade': { url: 'https://repositorio.seade.gov.br/api/v1/package/search?q=${query}', processor: 'json' },
   'metmuseum': { url: 'https://collectionapi.metmuseum.org/public/collection/v1/search?q=${query}', processor: 'json' },
-  'getty': { url: 'https://data.getty.edu/museum/api/open/v1/search?q=${query}', processor: 'json' },
+  'getty': { url: 'https://api.getty.edu/museum/api/open/v1/search?q=${query}', processor: 'json' },
   'sketchfab': { url: 'https://api.sketchfab.com/v3/search?type=models&q=${query}', processor: 'json' },
   'celestrak': { url: 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json', processor: 'json' },
   'openuniverse': { url: 'https://api.astrocatalogs.com/catalog/${query}?format=json', processor: 'json' },
   'stellarium': { url: 'https://api.noctuasky.com/api/v1/skysources/name/${query}', processor: 'json' },
   'ligo': { url: 'https://gracedb.ligo.org/api/superevents/?query=${query}&format=json', processor: 'json' },
-  'noaa-space': { url: 'https://services.swpc.noaa.gov/json/indices.json', processor: 'json' },
+  'noaa-space': { url: 'https://services.swpc.noaa.gov/json/solar-wind.json', processor: 'json' },
   'exoplanets': { url: 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+*+from+ps+where+pl_name+like+%27%25${query}%25%27&format=json', processor: 'json' },
   'reactome': { url: 'https://reactome.org/ContentService/search/query?query=${query}&species=Homo+sapiens', processor: 'json' },
   'string-db': { url: 'https://string-db.org/api/json/network?identifiers=${query}', processor: 'json' },
@@ -1303,7 +1303,7 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(arte|museu|pessoal|met|getty|pintura|escultura)\b/.test(normalizedText)) autoDetectedConnectors.push('metmuseum', 'getty');
   if (/\b(libras|sinal|surdo|mudo)\b/.test(normalizedText)) autoDetectedConnectors.push('libras');
   if (/\b(modelo 3d|sketchfab|objetos|realidade)\b/.test(normalizedText)) autoDetectedConnectors.push('sketchfab');
-  if (/\b(timelapse|earth|google|satélite|evolução)\b/.test(normalizedText)) autoDetectedConnectors.push('google-earth');
+  if (/\b(timelapse|earth|google|satélite|evolução)\b/.test(normalizedText)) autoDetectedConnectors.push('timelapse');
 
   if (/\b(arxiv|paper|artigo|pesquisa|estudo|tese|scielo)\b/.test(normalizedText)) {
     autoDetectedConnectors.push('arxiv');
