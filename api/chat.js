@@ -2406,6 +2406,42 @@ function extractConfidenceLevel(response) {
   return 'MÉDIO';
 }
 
+function openAgentEventStream(res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+}
+
+function writeAgentEvent(res, event, payload) {
+  if (!res || res.writableEnded) return;
+  const serialized = JSON.stringify(payload ?? {});
+  res.write(`event: ${event}\n`);
+  serialized.split('\n').forEach(line => {
+    res.write(`data: ${line}\n`);
+  });
+  res.write('\n');
+}
+
+function createStreamingLogs(onLog) {
+  const logs = [];
+  logs.push = (...entries) => {
+    entries.forEach(entry => {
+      Array.prototype.push.call(logs, entry);
+      if (typeof onLog === 'function') {
+        onLog(entry, logs.length);
+      }
+    });
+    return logs.length;
+  };
+  return logs;
+}
+
 // ============ MAIN HANDLER ============
 async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -2434,6 +2470,7 @@ async function handler(req, res) {
   const connectorAuto = body?.connectorAuto !== false;
   const connectors = Array.isArray(body?.connectors) ? body.connectors : [];
   const history = Array.isArray(body?.history) ? body.history : [];
+  const wantsStream = body?.stream === true;
 
   // Resolve user context: prefer browser-sent coords, fall back to IP geolocation
   let userContext = body?.userContext || {};
@@ -2466,7 +2503,18 @@ async function handler(req, res) {
     return res.status(400).json({ error: 'Pergunta vazia' });
   }
 
-  const logs = [];
+  if (wantsStream) {
+    openAgentEventStream(res);
+    writeAgentEvent(res, 'status', {
+      message: 'Agente científico inicializado. Preparando o plano de execução.',
+    });
+  }
+
+  const logs = createStreamingLogs((entry, index) => {
+    if (wantsStream) {
+      writeAgentEvent(res, 'log', { message: entry, index });
+    }
+  });
 
   try {
     logs.push('🚀 Iniciando Agente Científico...');
@@ -2475,7 +2523,7 @@ async function handler(req, res) {
     let visionContext = '';
     if (files.length > 0) {
       logs.push('👁️ Analisando arquivos anexados com visão computacional...');
-      const imgDesc = await analyzeUserFilesWithGemini(files, userQuestion);
+      const imgDesc = await analyzeUserFilesWithGemini(files, userQuestion, logs);
       if (imgDesc) {
         visionContext = `[IMAGEM ENVIADA PELO ALUNO]: ${imgDesc}\n`;
         logs.push('✅ Análise visual concluída');
@@ -2506,27 +2554,40 @@ async function handler(req, res) {
     // Convert logs to thinking paragraph
     const thinking = convertLogsToThinking(logs);
 
-    return res.status(200).json({
+    const payload = {
       response: displayResponse || 'Desculpe, não consegui gerar uma resposta confiável.',
       thinking,
       logs,
       media: exec.media || [],
       sources: exec.sources || [],
-    });
+    };
+    if (wantsStream) {
+      writeAgentEvent(res, 'final', payload);
+      writeAgentEvent(res, 'done', { ok: true });
+      return res.end();
+    }
+    return res.status(200).json(payload);
   } catch (err) {
     console.error('Agent error:', err);
     logs.push(`❌ Erro: ${err.message}`);
 
     const thinking = convertLogsToThinking(logs);
 
-    return res.status(200).json({
+    const payload = {
       response: 'Desculpe, não consegui processar sua solicitação agora. Tente novamente em alguns instantes.',
       thinking,
       error: err.message,
       logs,
       media: [],
       sources: [],
-    });
+    };
+    if (wantsStream) {
+      writeAgentEvent(res, 'error', { message: err.message });
+      writeAgentEvent(res, 'final', payload);
+      writeAgentEvent(res, 'done', { ok: false });
+      return res.end();
+    }
+    return res.status(200).json(payload);
   }
 }
 

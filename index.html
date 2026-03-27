@@ -381,6 +381,181 @@
     max-width: 100%;
     font-size: 0.92rem; line-height: 1.7;
   }
+  .agent-live-card {
+    background: linear-gradient(180deg, rgba(15,23,42,0.94), rgba(8,15,30,0.96));
+    border: 1px solid rgba(96,165,250,0.18);
+    border-radius: 1.15rem;
+    padding: 1rem 1rem 0.95rem;
+    box-shadow: 0 24px 60px rgba(2,6,23,0.24);
+    overflow: hidden;
+  }
+  .agent-live-card.is-complete {
+    border-color: rgba(74,222,128,0.18);
+    box-shadow: 0 22px 48px rgba(2,6,23,0.2);
+  }
+  .agent-live-card.is-error {
+    border-color: rgba(248,113,113,0.28);
+  }
+  .agent-live-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.95rem;
+  }
+  .agent-live-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.72rem;
+    min-width: 0;
+  }
+  .agent-live-pulse {
+    width: 0.78rem;
+    height: 0.78rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #38bdf8, #818cf8);
+    box-shadow: 0 0 0 0 rgba(56,189,248,0.42);
+    animation: agentPulse 1.8s ease-out infinite;
+    flex-shrink: 0;
+  }
+  .agent-live-card.is-complete .agent-live-pulse {
+    background: linear-gradient(135deg, #22c55e, #4ade80);
+    animation: none;
+    box-shadow: 0 0 0 0 rgba(34,197,94,0);
+  }
+  .agent-live-card.is-error .agent-live-pulse {
+    background: linear-gradient(135deg, #f87171, #fb7185);
+    animation: none;
+  }
+  .agent-live-title-wrap { min-width: 0; }
+  .agent-live-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #f8fafc;
+    line-height: 1.2;
+  }
+  .agent-live-subtitle {
+    margin-top: 0.2rem;
+    font-size: 0.76rem;
+    color: #94a3b8;
+    line-height: 1.45;
+  }
+  .agent-live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    padding: 0.38rem 0.72rem;
+    border-radius: 999px;
+    border: 1px solid rgba(96,165,250,0.18);
+    background: rgba(15,23,42,0.64);
+    color: #cbd5e1;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .agent-live-badge::before {
+    content: '';
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 999px;
+    background: #38bdf8;
+    box-shadow: 0 0 0 0 rgba(56,189,248,0.42);
+    animation: agentPulse 1.8s ease-out infinite;
+  }
+  .agent-live-card.is-complete .agent-live-badge::before {
+    background: #22c55e;
+    animation: none;
+    box-shadow: none;
+  }
+  .agent-live-card.is-error .agent-live-badge::before {
+    background: #f87171;
+    animation: none;
+    box-shadow: none;
+  }
+  .agent-live-steps {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.78rem;
+    max-height: 21rem;
+    overflow-y: auto;
+    padding-right: 0.35rem;
+  }
+  .agent-live-steps::before {
+    content: '';
+    position: absolute;
+    left: 0.72rem;
+    top: 0.38rem;
+    bottom: 0.38rem;
+    width: 1px;
+    background: linear-gradient(180deg, rgba(96,165,250,0.28), rgba(30,41,59,0.2));
+    pointer-events: none;
+  }
+  .agent-live-step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.45rem minmax(0, 1fr);
+    gap: 0.85rem;
+    align-items: start;
+  }
+  .agent-live-step-dot {
+    width: 1.45rem;
+    height: 1.45rem;
+    border-radius: 999px;
+    border: 1px solid rgba(96,165,250,0.2);
+    background: rgba(15,23,42,0.96);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+    color: #60a5fa;
+    font-size: 0.78rem;
+    line-height: 1;
+  }
+  .agent-live-step.is-active .agent-live-step-dot {
+    color: #e0f2fe;
+    border-color: rgba(56,189,248,0.38);
+    box-shadow: 0 0 0 5px rgba(14,165,233,0.08);
+  }
+  .agent-live-step.is-done .agent-live-step-dot {
+    color: #4ade80;
+    border-color: rgba(74,222,128,0.3);
+  }
+  .agent-live-step.is-error .agent-live-step-dot {
+    color: #fda4af;
+    border-color: rgba(248,113,113,0.34);
+  }
+  .agent-live-step-body {
+    min-width: 0;
+    background: rgba(15,23,42,0.52);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 0.9rem;
+    padding: 0.72rem 0.85rem;
+  }
+  .agent-live-step.is-active .agent-live-step-body {
+    background: linear-gradient(135deg, rgba(15,23,42,0.82), rgba(22,45,86,0.62));
+    border-color: rgba(96,165,250,0.16);
+  }
+  .agent-live-step-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .agent-live-step-meta {
+    margin-top: 0.28rem;
+    font-size: 0.72rem;
+    color: #64748b;
+    line-height: 1.35;
+  }
+  @keyframes agentPulse {
+    0% { box-shadow: 0 0 0 0 rgba(56,189,248,0.4); }
+    70% { box-shadow: 0 0 0 12px rgba(56,189,248,0); }
+    100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); }
+  }
 
   /* ── Action Plan ── */
   .action-plan {
@@ -1707,6 +1882,207 @@
     }
   }
 
+  function createAgentLiveStep(message, state = 'active', meta = '') {
+    const step = document.createElement('div');
+    step.className = `agent-live-step is-${state}`;
+
+    const dot = document.createElement('div');
+    dot.className = 'agent-live-step-dot';
+    dot.textContent = state === 'done' ? '✓' : (state === 'error' ? '!' : '•');
+
+    const body = document.createElement('div');
+    body.className = 'agent-live-step-body';
+
+    const title = document.createElement('div');
+    title.className = 'agent-live-step-title';
+    title.textContent = message;
+    body.appendChild(title);
+
+    if (meta) {
+      const metaEl = document.createElement('div');
+      metaEl.className = 'agent-live-step-meta';
+      metaEl.textContent = meta;
+      body.appendChild(metaEl);
+    }
+
+    step.appendChild(dot);
+    step.appendChild(body);
+    return step;
+  }
+
+  function setAgentLiveStepState(step, state) {
+    if (!step) return;
+    step.classList.remove('is-active', 'is-done', 'is-error');
+    step.classList.add(`is-${state}`);
+    const dot = step.querySelector('.agent-live-step-dot');
+    if (dot) dot.textContent = state === 'done' ? '✓' : (state === 'error' ? '!' : '•');
+  }
+
+  function createAgentLiveCard(context = {}) {
+    showMessages();
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-ai';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    const card = document.createElement('section');
+    card.className = 'agent-live-card';
+
+    const header = document.createElement('div');
+    header.className = 'agent-live-header';
+
+    const heading = document.createElement('div');
+    heading.className = 'agent-live-heading';
+
+    const pulse = document.createElement('div');
+    pulse.className = 'agent-live-pulse';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'agent-live-title-wrap';
+
+    const title = document.createElement('div');
+    title.className = 'agent-live-title';
+    title.textContent = 'Agente científico em execução';
+
+    const subtitle = document.createElement('div');
+    subtitle.className = 'agent-live-subtitle';
+    subtitle.textContent = context.connectorAuto
+      ? 'Selecionando fontes e montando a resposta em tempo real.'
+      : 'Executando o plano com os conectores escolhidos e registrando cada passo.';
+
+    titleWrap.appendChild(title);
+    titleWrap.appendChild(subtitle);
+    heading.appendChild(pulse);
+    heading.appendChild(titleWrap);
+
+    const badge = document.createElement('div');
+    badge.className = 'agent-live-badge';
+    badge.textContent = 'Em execução';
+
+    header.appendChild(heading);
+    header.appendChild(badge);
+
+    const steps = document.createElement('div');
+    steps.className = 'agent-live-steps';
+
+    const seenLogs = new Set();
+    let activeStep = createAgentLiveStep('Preparando o agente e abrindo o fluxo de pesquisa.', 'active', 'Aguardando os primeiros eventos do backend');
+    steps.appendChild(activeStep);
+
+    card.appendChild(header);
+    card.appendChild(steps);
+    bubble.appendChild(card);
+    wrapper.appendChild(bubble);
+    messagesContainer.appendChild(wrapper);
+    scrollToBottom();
+
+    return {
+      addLog(message) {
+        const clean = String(message || '').trim();
+        if (!clean || seenLogs.has(clean)) return;
+        seenLogs.add(clean);
+        if (activeStep) setAgentLiveStepState(activeStep, 'done');
+        const nextStep = createAgentLiveStep(clean, 'active', `Passo ${seenLogs.size}`);
+        steps.appendChild(nextStep);
+        activeStep = nextStep;
+        subtitle.textContent = clean;
+        steps.scrollTop = steps.scrollHeight;
+        scrollToBottom();
+      },
+      setSubtitle(text) {
+        const clean = String(text || '').trim();
+        if (clean) subtitle.textContent = clean;
+      },
+      complete(text) {
+        if (activeStep) setAgentLiveStepState(activeStep, 'done');
+        card.classList.remove('is-error');
+        card.classList.add('is-complete');
+        badge.textContent = 'Concluído';
+        subtitle.textContent = text || 'Resposta pronta para leitura.';
+      },
+      fail(text) {
+        if (activeStep) setAgentLiveStepState(activeStep, 'error');
+        card.classList.remove('is-complete');
+        card.classList.add('is-error');
+        badge.textContent = 'Falhou';
+        subtitle.textContent = text || 'O agente encontrou um erro durante a execução.';
+      },
+      remove() {
+        wrapper.remove();
+      },
+    };
+  }
+
+  function parseEventStreamChunk(chunk) {
+    const lines = chunk.split(/\r?\n/);
+    let event = 'message';
+    const dataLines = [];
+
+    lines.forEach(line => {
+      if (line.startsWith('event:')) {
+        event = line.slice(6).trim();
+      } else if (line.startsWith('data:')) {
+        dataLines.push(line.slice(5).trim());
+      }
+    });
+
+    if (dataLines.length === 0) return null;
+
+    try {
+      return { event, data: JSON.parse(dataLines.join('\n')) };
+    } catch {
+      return null;
+    }
+  }
+
+  async function readAgentStreamResponse(resp, liveCard) {
+    const reader = resp.body?.getReader();
+    if (!reader) {
+      throw new Error('Streaming indisponível nesta resposta.');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finalPayload = null;
+    let streamError = null;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split(/\r?\n\r?\n/);
+      buffer = parts.pop() || '';
+
+      parts.forEach(part => {
+        const parsed = parseEventStreamChunk(part);
+        if (!parsed) return;
+
+        if (parsed.event === 'status' && parsed.data?.message) {
+          liveCard.setSubtitle(parsed.data.message);
+        } else if (parsed.event === 'log' && parsed.data?.message) {
+          liveCard.addLog(parsed.data.message);
+        } else if (parsed.event === 'error') {
+          streamError = parsed.data?.message || 'Erro no fluxo do agente.';
+          liveCard.fail(streamError);
+        } else if (parsed.event === 'final') {
+          finalPayload = parsed.data;
+        }
+      });
+    }
+
+    if (streamError && !finalPayload) {
+      throw new Error(streamError);
+    }
+    if (!finalPayload) {
+      throw new Error('Fluxo do agente foi encerrado sem resposta final.');
+    }
+
+    return finalPayload;
+  }
+
   // -- RENDERIZADOR DE MARKDOWN SIMPLIFICADO --
   function simpleMarkdownToHTML(text) {
     if (!text) return '';
@@ -2825,6 +3201,7 @@
     if (!text && attachedFiles.length === 0) return;
 
     addMessage('user', text || '(arquivo enviado)');
+    const liveCard = createAgentLiveCard({ connectorAuto, connectors: selectedConnectors });
     textarea.value = '';
     textarea.style.height = 'auto';
 
@@ -2833,8 +3210,6 @@
     attachedFilesContainer.innerHTML = '';
     attachedFilesContainer.style.display = 'none';
     fileInput.value = '';
-
-    document.getElementById('thinkingIndicator').classList.add('show');
 
     try {
       const prevHistory = chatHistory.slice(0, -1).slice(-10).map(msg => ({
@@ -2849,7 +3224,8 @@
         connectorAuto,
         nasa: selectedConnectors.includes('nasa') || (!connectorAuto && selectedConnectors.includes('nasa')),
         history: prevHistory,
-        userContext: window._userContext || {}
+        userContext: window._userContext || {},
+        stream: true
       };
 
       if (window.location.protocol === 'file:' || window.location.origin === 'null') {
@@ -2862,12 +3238,19 @@
         body: JSON.stringify(payload),
       });
 
-      const respText = await resp.text();
+      const contentType = resp.headers.get('content-type') || '';
       let json;
-      try { json = JSON.parse(respText); }
-      catch { throw new Error(`Invalid JSON (status ${resp.status}): ${respText}`); }
 
-      if (!resp.ok) throw new Error(`Server returned ${resp.status}: ${JSON.stringify(json)}`);
+      if (contentType.includes('text/event-stream')) {
+        if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+        json = await readAgentStreamResponse(resp, liveCard);
+      } else {
+        const respText = await resp.text();
+        try { json = JSON.parse(respText); }
+        catch { throw new Error(`Invalid JSON (status ${resp.status}): ${respText}`); }
+        if (!resp.ok) throw new Error(`Server returned ${resp.status}: ${JSON.stringify(json)}`);
+        (json?.logs || []).forEach(log => liveCard.addLog(log));
+      }
 
       const aiText = json?.response || 'Desculpe, não consegui gerar uma resposta no momento.';
       const metadata = {
@@ -2877,12 +3260,18 @@
         sources: json?.sources || [],
       };
 
+      if (json?.error) {
+        liveCard.fail(json.error);
+      } else {
+        liveCard.complete(metadata.thinking || 'Resposta pronta para leitura.');
+      }
+
       addMessage('ai', aiText, metadata);
       if (json?.error) addMessage('ai', `<em style="color:#f87171;font-size:0.8rem;">(debug) ${json.error}</em>`);
 
     } catch (err) {
       console.error(err);
-      addMessage('ai', `<em style="color:#f87171;font-size:0.85rem;">Erro: ${err?.message || err}</em>`);
+      liveCard.fail(err?.message || String(err));
     } finally {
       document.getElementById('thinkingIndicator').classList.remove('show');
     }
