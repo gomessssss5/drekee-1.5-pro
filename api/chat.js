@@ -4,17 +4,20 @@
 const SCIENCE_SYSTEM_PROMPT = `Você é o Drekee AI 1.5 Pro, um agente de elite em pesquisa e educação científica de nível mundial. Sua missão é democratizar a ciência de alta performance para estudantes brasileiros.
 
 DIRETRIZES DE OURO:
-1.  **PROFUNDIDADE CIENTÍFICA (Nível Gemini/Acadêmico):**
-    - Nunca dê respostas superficiais. Se o tema for "Leis de Faraday", mergulhe na física (indução, fluxo) e na química (eletrólise).
-    - Use obrigatoriamente **Headers (###)** para organizar seções.
-    - Use **Tabelas Markdown** para comparações e resumos de dados.
-    - Use parágrafos densos e informativos, intercalados com bullet points técnicos.
-2.  **FOCO TEMÁTICO E RELEVÂNCIA:**
+1.  **RESPOSTA DIRETA PRIMEIRO:**
+    - Abra SEMPRE com 1 parágrafo curto, objetivo e sem rodeios, respondendo exatamente o que o usuário pediu.
+    - Se houver dado numérico, horário, lista factual ou resposta binária, entregue isso logo na primeira frase.
+    - Só expanda depois da resposta direta, e apenas se isso realmente ajudar a entender melhor.
+2.  **PROFUNDIDADE CIENTÍFICA QUANDO NECESSÁRIO:**
+    - Nunca dê respostas superficiais quando o tema exigir mais contexto. Se o tema for "Leis de Faraday", mergulhe na física (indução, fluxo) e na química (eletrólise).
+    - Use **Headers (###)**, tabelas e bullets apenas quando melhorarem a compreensão. Não force estruturas longas em respostas curtas.
+    - Prefira clareza, precisão e boa progressão lógica.
+3.  **FOCO TEMÁTICO E RELEVÂNCIA:**
     - Se a pergunta é sobre um tema específico (ex: Física, Biologia), **NÃO mencione dados climáticos ou de localização** a menos que sejam o centro da pergunta. O aluno quer ciência, não a previsão do tempo.
-3.  **CITAÇÕES REAIS E RÍGIDAS:**
+4.  **CITAÇÕES REAIS E RÍGIDAS:**
     - Use APENAS os IDs que aparecerem explicitamente nas ferramentas ou contexto, sempre no formato [ID-DA-FONTE: ID_EXATO] (ex: [ID-DA-FONTE: TAV-1], [ID-DA-FONTE: NAS-1]).
     - **PROIBIDO:** Inventar IDs ou repetir IDs de turnos anteriores que não estejam no contexto atual. Se não há fonte direta para um dado, não use colchetes de citação.
-4.  **REGRAS DE TAGS INTERATIVAS:**
+5.  **REGRAS DE TAGS INTERATIVAS:**
     - **PhET [PHET:slug|Guia|Teoria]:** SÓ ative se for o tema CENTRAL e se você tiver certeza absoluta do slug.
     - **Slugs Válidos (SÓ USE ESTES):** 
       - **Física:** circuit-construction-kit-dc, ohms-law, charges-and-fields, resistance-in-a-wire, faradays-law, circuit-construction-kit-ac, forces-and-motion-basics, projectile-motion, energy-skate-park, pendulum-lab, balancing-act, hookes-law, bending-light, wave-on-a-string, color-vision, wave-interference, geometric-optics, states-of-matter, gas-properties, energy-forms-and-changes
@@ -22,7 +25,7 @@ DIRETRIZES DE OURO:
       - **Matemática:** fractions-intro, area-model-multiplication, graphing-quadratics, function-builder, unit-rates
       - **Biologia:** natural-selection, gene-expression-essentials, neuron, beer-game
     - **PDB [PDB:id]:** Para moléculas complexas (PDB real).
-5.  **RESUMOS OFFLINE (TAG [OFFLINE_DOC]):**
+6.  **RESUMOS OFFLINE (TAG [OFFLINE_DOC]):**
     - **CONTEÚDO:** Quando o usuário pedir um resumo, o conteúdo dentro da tag [OFFLINE_DOC: ... ] deve ser um **DOCUMENTO COMPLETO E ESTRUTURADO** (Markdown rico). 
     - **NÃO FAÇA:** Não escreva meta-comentários como "Discussão sobre tal coisa". Escreva a ciência de fato, pronta para virar uma apostila de estudo.
     - Estrutura interna da tag: Título | Conteúdo (Markdown denso) | Lista de Fontes e Links.
@@ -1286,6 +1289,11 @@ function getSourceAliases(source = {}) {
   }
 
   switch ((source.type || '').toLowerCase()) {
+    case 'phet':
+      aliases.add('phet');
+      aliases.add('simulacao phet');
+      aliases.add('simulador phet');
+      break;
     case 'iss':
       aliases.add('iss');
       aliases.add('dados orbitais da iss');
@@ -1448,6 +1456,14 @@ function detectPhetSimulation(userQuestion = '', response = '', selectedConnecto
   return catalog.find(entry => entry.pattern.test(text)) || null;
 }
 
+function formatPhetTitle(slug = '') {
+  return String(slug || '')
+    .split('-')
+    .filter(Boolean)
+    .map(token => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(' ');
+}
+
 function ensureInteractiveTags(response, userQuestion, selectedConnectors = []) {
   let finalResponse = String(response || '').trim();
   if (!finalResponse) return finalResponse;
@@ -1460,6 +1476,21 @@ function ensureInteractiveTags(response, userQuestion, selectedConnectors = []) 
   }
 
   return finalResponse;
+}
+
+function stripConfidenceTags(response = '') {
+  return String(response || '')
+    .replace(/\[\s*CONFIAN[ÇC]A\s*:\s*[^\]]+\]/gi, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function sanitizeFinalResponse(response = '') {
+  return stripConfidenceTags(
+    String(response || '')
+      .replace(/^Como\s+Revisor[\s\S]*?\n/i, '')
+      .trim()
+  );
 }
 
 // ============ STEP 2: Execute Research & Reasoning ============
@@ -1583,8 +1614,17 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   let context = '';
   let nasaMedia = [];
   const media = [];
+  const phetSuggestion = detectPhetSimulation(userQuestion, '', selectedConnectors);
   
   const queryParaBuscar = actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion;
+
+  if (phetSuggestion) {
+    const phetTitle = formatPhetTitle(phetSuggestion.slug);
+    const phetUrl = `https://phet.colorado.edu/sims/html/${phetSuggestion.slug}/latest/${phetSuggestion.slug}_all.html`;
+    addSource('PHET-1', `PhET: ${phetTitle}`, 'phet', phetSuggestion.theory || phetSuggestion.guide || 'Simulação interativa recomendada para este conceito.', phetUrl);
+    context += `\n\n🧪 Simulação interativa disponível (PhET): ${phetTitle}\nComo usar: ${phetSuggestion.guide}\nBase teórica: ${phetSuggestion.theory}\nLink: ${phetUrl}\n`;
+    logs.push(`🧪 Simulação PhET preparada: ${phetTitle}`);
+  }
 
   const isEarthquakeQuery = selectedConnectors.includes('usgs') && 
     /terremoto|sismo|tremor|abalo|sism|quake/i.test(userQuestion);
@@ -2386,11 +2426,13 @@ ${sources.map(s => `${s.id}: ${s.label} - ${s.detail}`).join('\n')}
 PERGUNTA ATUAL DO USUÁRIO: "${userQuestion}"
 
 INSTRUÇÕES FINAIS:
-1. Se o usuário perguntou horários, listas de eventos (terremotos) ou fatos numéricos, entregue esses dados JÁ NO INÍCIO.
-2. Use a estrutura adaptativa do sistema (📊 para dados, 🔬 para conceitos).
-3. Cite TODAS as afirmações factuais com o formato exato [ID-DA-FONTE: ID_EXATO].
-4. Nunca use formatos como [FONTE: nome] ou rótulos livres no lugar do ID.
-5. Mantenha o tom didático e amigável, mas seja direto nos dados.
+1. Abra com um parágrafo objetivo de no máximo 3 frases, respondendo diretamente ao pedido do usuário.
+2. Se o usuário perguntou horários, listas de eventos (terremotos) ou fatos numéricos, entregue esses dados JÁ NO INÍCIO.
+3. Expanda só o necessário depois da resposta direta.
+4. Use a estrutura adaptativa do sistema (📊 para dados, 🔬 para conceitos).
+5. Cite TODAS as afirmações factuais com o formato exato [ID-DA-FONTE: ID_EXATO].
+6. Nunca use formatos como [FONTE: nome] ou rótulos livres no lugar do ID.
+7. Mantenha o tom didático e amigável, mas seja direto nos dados.
 
 Seja honesto. Não invente. Use as fontes.`;
 
@@ -2411,15 +2453,15 @@ async function reviewResponse(response) {
 
 Objetivo:
 - Garantir precisão e remover erros factuais.
-- Otimizar a estrutura e o tom: garantir uso de analogias simples do dia a dia.
-- Manter formatação excelente e acessível (parágrafos curtos, bullet points, negrito em conceitos chave).
-- Assegurar que há uma proposta de experimento ou pergunta instigante no final.
+- Otimizar a estrutura e o tom: abrir com um parágrafo curto e direto, e só depois expandir.
+- Manter formatação excelente e acessível (parágrafos curtos, bullet points e negrito apenas quando ajudarem).
+- Manter analogias simples do dia a dia apenas quando elas realmente ajudarem.
 
 REGRAS CRUCIAIS (RESPEITE 100%):
 1) Retorne APENAS a resposta final para o usuário. NADA mais.
 2) NÃO inclua nenhum texto como "Como revisor...", "Observação:", ou explicações sobre o processo de revisão.
-3) NÃO inclua títulos, cabeçalhos ou listas de etapas. Apenas texto fluido.
-4) Ao final, inclua SOMENTE a tag de confiança no formato: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
+3) A primeira parte da resposta deve ser um parágrafo direto e objetivo, respondendo à pergunta sem rodeios.
+4) NÃO inclua títulos artificiais, listas de etapas ou qualquer prefácio sobre revisão. Apenas a resposta final ao usuário.
 5) Se não for possível afirmar com certeza, seja honesto e explique por que.
 6) IMPORTANTE: NÃO REMOVA as tags [ID-DA-FONTE: ID_EXATO] presentes no texto original. Se o texto estiver afirmando informações sem as tags apropriadas originais, ADICIONE tags no mesmo formato exato [ID-DA-FONTE: ID_EXATO]. Nunca use [FONTE: nome] nem rótulos livres. É vital manter o rastreio das fontes.
 
@@ -2629,8 +2671,8 @@ async function handler(req, res) {
 
     response = ensureInteractiveTags(response, userQuestion, exec.selectedConnectors || []);
     response = normalizeResponseCitations(response, exec.sources || []);
-    response = response.replace(/^Como\s+Revisor[\s\S]*?\n/, '').trim();
-    const displayResponse = response.replace(/\s*\[CONFIANÇA:\s*\w+\]\s*$/i, '').trim();
+    response = sanitizeFinalResponse(response);
+    const displayResponse = response;
 
     // Convert logs to thinking paragraph
     const thinking = convertLogsToThinking(logs);
