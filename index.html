@@ -377,7 +377,8 @@
     color: #e2e8f0;
     padding: 13px 0; /* Removing horizontal padding to align text correctly with no border */
     border-radius: 0;
-    max-width: 95%;
+    width: 100%;
+    max-width: 100%;
     font-size: 0.92rem; line-height: 1.7;
   }
 
@@ -464,7 +465,7 @@
   .ai-response { margin-bottom: 1rem; white-space: pre-wrap; word-break: break-word; }
   .ai-response-dark-table { white-space: normal; margin-bottom: 0.35rem; }
 
-  .citation-tag { display: inline-block; background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.4); border-radius: 3px; padding: 0.1rem 0.3rem; font-size: 0.7rem; font-weight: 600; color: #3b82f6; margin: 0 0.2rem; cursor: pointer; transition: background 0.2s ease; vertical-align: baseline; }
+  .citation-tag { display: inline-block; max-width: 100%; background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.4); border-radius: 3px; padding: 0.12rem 0.34rem; font-size: 0.7rem; font-weight: 600; color: #3b82f6; margin: 0 0.2rem; cursor: pointer; transition: background 0.2s ease; vertical-align: baseline; white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
   .citation-tag:hover { background: rgba(59,130,246,0.4); }
   .highlight-yellow { background-color: rgba(255, 193, 7, 0.3); border-radius: 2px; transition: background-color 0.2s ease; }
 
@@ -480,29 +481,30 @@
 
   /* ── Split Layout ── */
   .ai-split-container {
-    display: flex;
-    gap: 1.5rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(240px, 24vw, 320px);
+    gap: 1.25rem;
     width: 100%;
     margin-bottom: 1rem;
     align-items: flex-start;
   }
+  .ai-split-container.has-third-column {
+    grid-template-columns: minmax(0, 1fr) clamp(210px, 21vw, 285px) clamp(220px, 23vw, 305px);
+  }
   .ai-left-column {
-    flex: 1.5;
     min-width: 0;
   }
   .ai-right-column {
-    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
-    min-width: 260px;
+    gap: 1.25rem;
+    min-width: 0;
   }
   .ai-third-row {
-    flex: 0.95;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
-    min-width: 260px;
+    gap: 1.25rem;
+    min-width: 0;
   }
   .ai-third-row .media-results,
   .ai-third-row .sources-section,
@@ -578,11 +580,13 @@
   }
 
   @media (max-width: 1200px) {
-    .ai-split-container { gap: 1rem; }
+    .ai-split-container { grid-template-columns: minmax(0, 1fr) clamp(220px, 26vw, 285px); gap: 1rem; }
+    .ai-split-container.has-third-column { grid-template-columns: minmax(0, 1fr) clamp(190px, 23vw, 250px) clamp(200px, 24vw, 265px); }
   }
 
   @media (max-width: 768px) {
-    .ai-split-container { flex-direction: column; }
+    .ai-split-container,
+    .ai-split-container.has-third-column { grid-template-columns: 1fr; }
     .ai-right-column { min-width: 100%; }
     .ai-third-row { min-width: 100%; gap: 1rem; }
   }
@@ -2296,10 +2300,12 @@
     if (rightCol.children.length > 0) {
       splitContainer.appendChild(rightCol);
     } else {
+      splitContainer.style.gridTemplateColumns = 'minmax(0, 1fr)';
       leftCol.style.flex = "1"; // Ocupa tudo se não houver mídia na direita
     }
 
     if (thirdRow.children.length > 0) {
+      splitContainer.classList.add('has-third-column');
       splitContainer.appendChild(thirdRow);
     }
     inner.appendChild(splitContainer);
