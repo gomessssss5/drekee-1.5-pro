@@ -10,9 +10,10 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<link rel="icon" href="data:,"/>
 <style>
   :root {
     --bg:        #0d1526;
@@ -3277,6 +3278,20 @@
     `).join('');
   }
 
+  function renderMathSafely(container) {
+    if (!window.renderMathInElement || !container) return;
+    renderMathInElement(container, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '\\(', right: '\\)', display: false },
+        { left: '\\[', right: '\\]', display: true }
+      ],
+      ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+      ignoredClasses: ['no-katex', 'katex'],
+      throwOnError: false
+    });
+  }
+
   function isNasaLike(entry) {
     const url = String(entry?.url || '').toLowerCase();
     const type = String(entry?.type || entry?.media_type || '').toLowerCase();
@@ -3590,17 +3605,7 @@
     leftCol.appendChild(responseContainer);
 
     // Renderizar Fórmulas Mateḿaticas (KaTeX)
-    if (window.renderMathInElement) {
-      renderMathInElement(responseContainer, {
-        delimiters: [
-          {left: '$$', right: '$$', display: true},
-          {left: '$', right: '$', display: false},
-          {left: '\\(', right: '\\)', display: false},
-          {left: '\\[', right: '\\]', display: true}
-        ],
-        throwOnError: false
-      });
-    }
+    renderMathSafely(responseContainer);
 
     // -- COLUNA DIREITA: Vídeos, NASA Media e Fontes --
     const embeddedVideosContainer = document.createElement('div');
@@ -4174,11 +4179,26 @@
       if (opt.icon) {
         chip.innerHTML = `<span class="material-icons-outlined" style="font-size:0.9rem; margin-right:4px;">${opt.icon}</span><span>${opt.label}</span>`;
       } else {
-        chip.innerHTML = `
-          <img src="${opt.img}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="${opt.label}"/>
-          <div class="connector-icon-fallback" style="display:none">${opt.label.charAt(0)}</div>
-          <span>${opt.label}</span>
-        `;
+        const img = document.createElement('img');
+        img.src = opt.img;
+        img.alt = opt.label;
+
+        const fallback = document.createElement('div');
+        fallback.className = 'connector-icon-fallback';
+        fallback.style.display = 'none';
+        fallback.textContent = opt.label.charAt(0);
+
+        img.onerror = () => {
+          img.style.display = 'none';
+          fallback.style.display = 'flex';
+        };
+
+        const label = document.createElement('span');
+        label.textContent = opt.label;
+
+        chip.appendChild(img);
+        chip.appendChild(fallback);
+        chip.appendChild(label);
       }
       iconsDiv.appendChild(chip);
     });
