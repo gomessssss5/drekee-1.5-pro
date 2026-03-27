@@ -12,7 +12,7 @@ DIRETRIZES DE OURO:
 2.  **FOCO TEMÁTICO E RELEVÂNCIA:**
     - Se a pergunta é sobre um tema específico (ex: Física, Biologia), **NÃO mencione dados climáticos ou de localização** a menos que sejam o centro da pergunta. O aluno quer ciência, não a previsão do tempo.
 3.  **CITAÇÕES REAIS E RÍGIDAS:**
-    - Use APENAS os IDs (ex: [TAV-1], [NAS-1]) que aparecerem explicitamente nas ferramentas ou contexto.
+    - Use APENAS os IDs que aparecerem explicitamente nas ferramentas ou contexto, sempre no formato [ID-DA-FONTE: ID_EXATO] (ex: [ID-DA-FONTE: TAV-1], [ID-DA-FONTE: NAS-1]).
     - **PROIBIDO:** Inventar IDs ou repetir IDs de turnos anteriores que não estejam no contexto atual. Se não há fonte direta para um dado, não use colchetes de citação.
 4.  **REGRAS DE TAGS INTERATIVAS:**
     - **PhET [PHET:slug|Guia|Teoria]:** SÓ ative se for o tema CENTRAL e se você tiver certeza absoluta do slug.
@@ -1259,6 +1259,129 @@ Retorne APENAS JSON válido (sem markdown):
   }
 }
 
+function normalizeSourceToken(value = '') {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/^(?:id-da-fonte|fonte|source|src)\s*:\s*/i, '')
+    .replace(/^https?:\/\/(www\.)?/i, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function getSourceAliases(source = {}) {
+  const aliases = new Set([
+    source.id,
+    source.label,
+    source.type,
+    source.detail,
+    source.url,
+  ]);
+
+  if (source.url) {
+    try {
+      aliases.add(new URL(source.url).hostname.replace(/^www\./i, ''));
+    } catch (error) {}
+  }
+
+  switch ((source.type || '').toLowerCase()) {
+    case 'iss':
+      aliases.add('iss');
+      aliases.add('dados orbitais da iss');
+      aliases.add('posicao atual da iss');
+      aliases.add('posicao da iss');
+      aliases.add('estacao espacial internacional');
+      aliases.add('open notify');
+      break;
+    case 'open-meteo':
+      aliases.add('open meteo');
+      aliases.add('dados meteorologicos');
+      aliases.add('clima atual');
+      aliases.add('meteorologia');
+      break;
+    case 'sunrise':
+      aliases.add('dados solares');
+      aliases.add('sunrise sunset');
+      aliases.add('nascer do sol');
+      aliases.add('por do sol');
+      break;
+    case 'usgs':
+      aliases.add('dados sismicos');
+      aliases.add('terremotos');
+      break;
+    case 'nasa':
+      aliases.add('dados da nasa');
+      aliases.add('nasa');
+      break;
+  }
+
+  return [...aliases].filter(Boolean);
+}
+
+function buildSourceLookup(sources = []) {
+  const byId = new Map();
+  const byAlias = new Map();
+
+  sources.forEach(source => {
+    if (!source?.id) return;
+    byId.set(source.id, source);
+
+    for (const alias of getSourceAliases(source)) {
+      const normalizedAlias = normalizeSourceToken(alias);
+      if (normalizedAlias && !byAlias.has(normalizedAlias)) {
+        byAlias.set(normalizedAlias, source);
+      }
+    }
+  });
+
+  return { byId, byAlias };
+}
+
+function resolveSourceReference(rawReference, lookup) {
+  const rawValue = String(rawReference || '').trim();
+  if (!rawValue) return null;
+
+  if (lookup.byId.has(rawValue)) {
+    return lookup.byId.get(rawValue);
+  }
+
+  const cleanedValue = rawValue
+    .replace(/^(?:id-da-fonte|fonte|source|src)\s*:\s*/i, '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .trim();
+
+  if (lookup.byId.has(cleanedValue)) {
+    return lookup.byId.get(cleanedValue);
+  }
+
+  const normalizedValue = normalizeSourceToken(cleanedValue);
+  return normalizedValue ? (lookup.byAlias.get(normalizedValue) || null) : null;
+}
+
+function normalizeResponseCitations(response, sources = []) {
+  if (!response || !sources.length) return response;
+
+  const lookup = buildSourceLookup(sources);
+  return String(response).replace(/\[([^\]]+)\]/g, (match, rawReference) => {
+    const token = String(rawReference || '').trim();
+    if (/^(?:PHET|PDB|OFFLINE_DOC|CONFIANCA|CONFIANÇA|IMAGEM ENVIADA PELO ALUNO)\b/i.test(token)) {
+      return match;
+    }
+
+    const source = resolveSourceReference(token, lookup);
+    if (source) {
+      return `[ID-DA-FONTE: ${source.id}]`;
+    }
+
+    if (/^(?:id-da-fonte|fonte|source|src)\s*:/i.test(token)) {
+      return '';
+    }
+
+    return match;
+  });
+}
+
 // ============ STEP 2: Execute Research & Reasoning ============
 async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const connectorAuto = options.connectorAuto !== false;
@@ -1272,13 +1395,16 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(elemento|química|tabela periódica|elétrons|átomo|metal|massa atômica)\b/.test(normalizedText)) autoDetectedConnectors.push('periodictable');
   if (/\b(livro|literatura|gutenberg|autor|clássico|ebook)\b/.test(normalizedText)) autoDetectedConnectors.push('gutenberg');
   if (/\b(bíblia|versículo|escritura|evangelho)\b/.test(normalizedText)) autoDetectedConnectors.push('bible');
+  if (/\b(iss|estação espacial internacional|estacao espacial internacional)\b/.test(normalizedText)) autoDetectedConnectors.push('iss');
   if (/\b(satélite|órbita|celestrak|rastreio)\b/.test(normalizedText)) autoDetectedConnectors.push('celestrak');
   if (/\b(lançamento|foguete|missão espacial|spacedevs|voo espacial)\b/.test(normalizedText)) autoDetectedConnectors.push('spacedevs');
   if (/\b(planeta|sistema solar|corpo celeste|órbita solar)\b/.test(normalizedText)) autoDetectedConnectors.push('solarsystem');
+  if (/\b(sunrise|sunset|nascer do sol|pôr do sol|por do sol|amanhecer|anoitecer)\b/.test(normalizedText)) autoDetectedConnectors.push('sunrise');
   if (/\b(frase|citação|pensamento|quotes|inspirar)\b/i.test(normalizedText)) autoDetectedConnectors.push('quotes', 'quotes-free');
   if (/\b(cachorro|cão|raça|dog|pet)\b/.test(normalizedText)) autoDetectedConnectors.push('dogapi');
   if (/\b(ar|poluição|qualidade do ar|openaq|smog)\b/.test(normalizedText)) autoDetectedConnectors.push('openaq');
   if (/\b(constante|física|codata|velocidade da luz|planck)\b/.test(normalizedText)) autoDetectedConnectors.push('codata');
+  if (/\b(clima|tempo|temperatura|umidade|chuva|vento|previsão|previsao|meteorolog)\b/.test(normalizedText)) autoDetectedConnectors.push('open-meteo');
   
   // Maga Expansão Keys
   if (/\b(comida|alimento|food|caloria|nutrição|ingrediente)\b/.test(normalizedText)) autoDetectedConnectors.push('openfoodfacts');
@@ -1332,7 +1458,6 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     autoDetectedConnectors.push('nasa');
     autoDetectedConnectors.push('spacex');
   }
-  autoDetectedConnectors.push('open-meteo');
 
   const selectedConnectors = connectorAuto
     ? [...new Set(autoDetectedConnectors)]
@@ -1345,7 +1470,33 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
 
   // Function to add sources for citation
   function addSource(id, label, type, detail, url) {
-    sources.push({ id, label, type, detail, url });
+    const safeId = String(id || 'SOURCE').trim() || 'SOURCE';
+    const safeLabel = String(label || safeId).trim() || safeId;
+    const safeType = String(type || 'generic').trim() || 'generic';
+    const safeDetail = String(detail || '').trim();
+    const safeUrl = typeof url === 'string' && url.trim() ? url.trim() : null;
+
+    const duplicateSource = sources.find(source =>
+      source.label === safeLabel &&
+      source.type === safeType &&
+      source.detail === safeDetail &&
+      source.url === safeUrl
+    );
+
+    if (duplicateSource) {
+      return duplicateSource;
+    }
+
+    let finalId = safeId;
+    let counter = 2;
+    while (sources.some(source => source.id === finalId)) {
+      finalId = `${safeId}-${counter}`;
+      counter += 1;
+    }
+
+    const source = { id: finalId, label: safeLabel, type: safeType, detail: safeDetail, url: safeUrl };
+    sources.push(source);
+    return source;
   }
 logs.push('🧠 Iniciando raciocínio (processo interno)');
 
@@ -1493,7 +1644,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     const iss = await buscarISS();
     if (iss) {
       context += `\n\n🛸 Estação Espacial Internacional (ISS) agora:\nLatitude: ${iss.lat}° | Longitude: ${iss.lon}° | Horário: ${iss.timestamp}\n`;
-      addSource('ISS', 'Open Notify - ISS Tracker', 'iss', `Posição: ${iss.lat}°, ${iss.lon}°`, 'http://open-notify.org');
+      addSource('ISS', 'Dados Orbitais da ISS', 'iss', `Posição: ${iss.lat}°, ${iss.lon}°`, 'http://open-notify.org');
       logs.push('✅ Posição da ISS obtida');
     }
   }
@@ -1505,7 +1656,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     const sun = await buscarSunriseSunset(userLat, userLon);
     if (sun) {
       context += `\n\n🌅 Nascer/Pôr do Sol hoje:\nNascer: ${sun.sunrise} | Pôr: ${sun.sunset} | Meio-dia solar: ${sun.solar_noon}\n`;
-      addSource('SUNRISE', 'Sunrise-Sunset.org', 'sunrise', `Nascer: ${sun.sunrise}, Pôr: ${sun.sunset}`, 'https://sunrise-sunset.org');
+      addSource('SUNRISE', 'Nascer e Pôr do Sol', 'sunrise', `Nascer: ${sun.sunrise}, Pôr: ${sun.sunset}`, 'https://sunrise-sunset.org');
       logs.push('✅ Dados solares obtidos');
     }
   }
@@ -1803,7 +1954,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
         humi = weather.weather.hourly.relativehumidity_2m[0];
       } catch(e) {}
       context += `\n\n☁️ Open-Meteo para lat/lon (${weather.location.lat},${weather.location.lon}):\nTemperatura atual: ${temp}°C\nUmidade Relativa: ${humi}%\n`; 
-      addSource('OPEN-METEO', 'Open-Meteo API', 'open-meteo', `Temperatura atual: ${temp}°C, Umidade: ${humi}%`, 'https://open-meteo.com');
+      addSource('OPEN-METEO', 'Clima Atual (Open-Meteo)', 'open-meteo', `Temperatura atual: ${temp}°C, Umidade: ${humi}%`, 'https://open-meteo.com');
       logs.push('✅ Dados Open-Meteo coletados');
     }
   }
@@ -2157,8 +2308,9 @@ PERGUNTA ATUAL DO USUÁRIO: "${userQuestion}"
 INSTRUÇÕES FINAIS:
 1. Se o usuário perguntou horários, listas de eventos (terremotos) ou fatos numéricos, entregue esses dados JÁ NO INÍCIO.
 2. Use a estrutura adaptativa do sistema (📊 para dados, 🔬 para conceitos).
-3. Cite TODAS as afirmações factuais com [ID-DA-FONTE].
-4. Mantenha o tom didático e amigável, mas seja direto nos dados.
+3. Cite TODAS as afirmações factuais com o formato exato [ID-DA-FONTE: ID_EXATO].
+4. Nunca use formatos como [FONTE: nome] ou rótulos livres no lugar do ID.
+5. Mantenha o tom didático e amigável, mas seja direto nos dados.
 
 Seja honesto. Não invente. Use as fontes.`;
 
@@ -2189,7 +2341,7 @@ REGRAS CRUCIAIS (RESPEITE 100%):
 3) NÃO inclua títulos, cabeçalhos ou listas de etapas. Apenas texto fluido.
 4) Ao final, inclua SOMENTE a tag de confiança no formato: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
 5) Se não for possível afirmar com certeza, seja honesto e explique por que.
-6) IMPORTANTE: NÃO REMOVA as tags [ID-DA-FONTE] presentes no texto original. Se o texto estiver afirmando informações sem as tags apropriadas originais, ADICIONE as tags [ID-DA-FONTE] ao longo do texto. É vital manter o rastreio das fontes.
+6) IMPORTANTE: NÃO REMOVA as tags [ID-DA-FONTE: ID_EXATO] presentes no texto original. Se o texto estiver afirmando informações sem as tags apropriadas originais, ADICIONE tags no mesmo formato exato [ID-DA-FONTE: ID_EXATO]. Nunca use [FONTE: nome] nem rótulos livres. É vital manter o rastreio das fontes.
 
 RESPOSTA A REVISAR:
 ${response}
@@ -2341,11 +2493,13 @@ async function handler(req, res) {
     visionContext = contextHeader + visionContext;
 
     const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext, userContext });
+    exec.response = normalizeResponseCitations(exec.response, exec.sources || []);
 
     logs.push('👁️ Revisando resposta com Gemini...');
     let response = await reviewResponse(exec.response);
     logs.push('✅ Resposta revisada e validada');
 
+    response = normalizeResponseCitations(response, exec.sources || []);
     response = response.replace(/^Como\s+Revisor[\s\S]*?\n/, '').trim();
     const displayResponse = response.replace(/\s*\[CONFIANÇA:\s*\w+\]\s*$/i, '').trim();
 

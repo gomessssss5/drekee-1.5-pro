@@ -1697,8 +1697,107 @@
 
   function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
+  function normalizeSourceKey(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/^(?:id-da-fonte|fonte|source|src)\s*:\s*/i, '')
+      .replace(/^https?:\/\/(www\.)?/i, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  function getSourceAliases(source) {
+    const aliases = new Set([
+      source?.id,
+      source?.label,
+      source?.type,
+      source?.detail,
+      source?.url,
+    ]);
+
+    if (source?.url) {
+      try {
+        aliases.add(new URL(source.url).hostname.replace(/^www\./i, ''));
+      } catch (error) {}
+    }
+
+    switch ((source?.type || '').toLowerCase()) {
+      case 'iss':
+        aliases.add('iss');
+        aliases.add('dados orbitais da iss');
+        aliases.add('posicao atual da iss');
+        aliases.add('posicao da iss');
+        aliases.add('estacao espacial internacional');
+        aliases.add('open notify');
+        break;
+      case 'open-meteo':
+        aliases.add('open meteo');
+        aliases.add('dados meteorologicos');
+        aliases.add('clima atual');
+        aliases.add('meteorologia');
+        break;
+      case 'sunrise':
+        aliases.add('dados solares');
+        aliases.add('sunrise sunset');
+        aliases.add('nascer do sol');
+        aliases.add('por do sol');
+        break;
+      case 'usgs':
+        aliases.add('dados sismicos');
+        aliases.add('terremotos');
+        break;
+      case 'nasa':
+        aliases.add('dados da nasa');
+        aliases.add('nasa');
+        break;
+    }
+
+    return [...aliases].filter(Boolean);
+  }
+
+  function buildSourceLookup(sources) {
+    const byId = new Map();
+    const byAlias = new Map();
+
+    sources.forEach(source => {
+      if (!source?.id) return;
+      byId.set(source.id, source);
+      getSourceAliases(source).forEach(alias => {
+        const normalizedAlias = normalizeSourceKey(alias);
+        if (normalizedAlias && !byAlias.has(normalizedAlias)) {
+          byAlias.set(normalizedAlias, source);
+        }
+      });
+    });
+
+    return { byId, byAlias };
+  }
+
+  function resolveSourceReference(rawReference, lookup) {
+    const rawValue = String(rawReference || '').trim();
+    if (!rawValue) return null;
+
+    if (lookup.byId.has(rawValue)) {
+      return lookup.byId.get(rawValue);
+    }
+
+    const cleanedValue = rawValue
+      .replace(/^(?:id-da-fonte|fonte|source|src)\s*:\s*/i, '')
+      .replace(/^["'`]+|["'`]+$/g, '')
+      .trim();
+
+    if (lookup.byId.has(cleanedValue)) {
+      return lookup.byId.get(cleanedValue);
+    }
+
+    const normalizedValue = normalizeSourceKey(cleanedValue);
+    return normalizedValue ? (lookup.byAlias.get(normalizedValue) || null) : null;
+  }
+
   function parseResponseWithCitations(response, sources) {
-    const sourcesMap = new Map(sources.map(s => [s.id, s]));
+    const sourceLookup = buildSourceLookup(sources);
     const citations  = new Map();
     let phetSlug = null;
     let pdbId = null;
@@ -1727,14 +1826,13 @@
     let html = simpleMarkdownToHTML(response);
 
     // 5. Citações (Rodar após o markdown para segurança)
-    html = html.replace(/\[(?:ID-DA-FONTE:\s*)?([^\]]+)\]/gi, (match, rawId) => {
-      const id = rawId.trim();
-      const source = sourcesMap.get(id);
+    html = html.replace(/\[([^\]]+)\]/gi, (match, rawReference) => {
+      const source = resolveSourceReference(rawReference, sourceLookup);
       if (!source) return match;
       const index = response.indexOf(match);
-      citations.set(id, [index, index + match.length]);
-      const label = source.label || id;
-      return `<span class="citation-tag" data-source="${id}">${label}</span>`;
+      citations.set(source.id, [index, index + match.length]);
+      const label = escapeHtml(String(source.label || source.id));
+      return `<span class="citation-tag" data-source="${source.id}" title="Abrir fonte">${label}</span>`;
     });
 
     return { html, citations, phetSlug, phetIntro, phetTheory, pdbId };
