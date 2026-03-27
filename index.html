@@ -514,7 +514,8 @@
     max-height: 100px !important;
   }
   .sidebar-card-collapsed .media-grid,
-  .sidebar-card-collapsed .sources-grid {
+  .sidebar-card-collapsed .sources-grid,
+  .sidebar-card-collapsed .embedded-media-card {
     opacity: 0.3;
     filter: blur(2px);
     pointer-events: none;
@@ -2046,6 +2047,32 @@
     return card;
   }
 
+  function getSidebarCollapseLabel(card) {
+    if (card.classList.contains('sources-section')) return 'Mostrar todas as fontes ↓';
+    if (card.classList.contains('media-results')) return 'Mostrar galeria completa ↓';
+    return 'Ver vídeos relacionados ↓';
+  }
+
+  function collapseSidebarCard(card) {
+    if (!card || card.classList.contains('sidebar-card-collapsed')) return false;
+
+    const existingExpandBtn = card.querySelector('.sidebar-expand-btn');
+    if (existingExpandBtn) existingExpandBtn.remove();
+
+    card.classList.add('sidebar-card-collapsed');
+
+    const expandBtn = document.createElement('div');
+    expandBtn.className = 'sidebar-expand-btn';
+    expandBtn.innerHTML = `<span><span class="material-icons-outlined">expand_more</span> ${getSidebarCollapseLabel(card)}</span>`;
+    expandBtn.onclick = (ev) => {
+      ev.stopPropagation();
+      card.classList.remove('sidebar-card-collapsed');
+      if (expandBtn.parentNode) expandBtn.parentNode.removeChild(expandBtn);
+    };
+    card.appendChild(expandBtn);
+    return true;
+  }
+
   function addCitationHoverListeners(container, citations) {
     const sourceMap = new Map(currentSources.map(s => [s.id, s]));
     container.querySelectorAll('.citation-tag').forEach(tag => {
@@ -2438,12 +2465,28 @@
     if (media.length > 0) renderMedia();
 
     // -- LÓGICA DE COLAPSAR SIDEBAR/GALEIRA --
+    const isMobile = window.innerWidth <= 768;
     const leftH = leftCol.offsetHeight;
-    const cards = [embeddedVideosContainer, mediaContainer, sourcesContainer].filter(card =>
-      card && card.parentElement && rightCol.contains(card)
+    const cards = [...rightCol.children].filter(card =>
+      card.classList.contains('sources-section') ||
+      card.classList.contains('embedded-videos-section') ||
+      card.classList.contains('media-results')
     );
     
-    cards.forEach(card => {
+    if (isMobile) {
+      cards.forEach(card => {
+        if (card.classList.contains('media-results') && card.offsetHeight > 450) {
+          collapseSidebarCard(card);
+        }
+      });
+    } else if (leftH > 50 && rightCol.children.length > 0) {
+      const collapseOrder = [...cards].reverse();
+      while (rightCol.offsetHeight > leftH && collapseOrder.length > 0) {
+        collapseSidebarCard(collapseOrder.shift());
+      }
+    }
+
+    if (false) cards.forEach(card => {
       if (!card || card.children.length === 0) return;
       const h = card.offsetHeight;
       const isMobile = window.innerWidth <= 768;
