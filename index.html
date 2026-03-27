@@ -454,6 +454,9 @@
   .embedded-media-card-nasa .embedded-media-card-frame img { border-radius: calc(1rem - 1px); }
   .embedded-media-card-nasa .embedded-media-card-title { color: #e2e8f0; }
   .embedded-media-card-nasa .embedded-media-card-caption { color: rgba(203,213,225,0.78); padding: 0 0.15rem; }
+  .embedded-media-card-caption.is-collapsed { display: none; }
+  .embedded-media-toggle { align-self: flex-start; border: 1px solid rgba(96,165,250,0.28); background: rgba(15,23,42,0.72); color: #93c5fd; padding: 0.42rem 0.72rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease; }
+  .embedded-media-toggle:hover { transform: translateY(-1px); background: rgba(30,41,59,0.9); border-color: rgba(96,165,250,0.45); }
 
   .logs-content { padding: 0.75rem 1rem; max-height: 180px; overflow-y: auto; font-family: 'Space Mono', monospace; font-size: 0.75rem; }
   .log-line { color: #cbd5e1; margin: 0.3rem 0; line-height: 1.4; }
@@ -494,12 +497,11 @@
     min-width: 260px;
   }
   .ai-third-row {
-    width: 100%;
-    margin-top: 1rem;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.25rem;
-    align-items: start;
+    flex: 0.95;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 260px;
   }
   .ai-third-row .media-results,
   .ai-third-row .sources-section,
@@ -576,13 +578,12 @@
 
   @media (max-width: 1200px) {
     .ai-split-container { gap: 1rem; }
-    .ai-third-row { grid-template-columns: 1fr; }
   }
 
   @media (max-width: 768px) {
     .ai-split-container { flex-direction: column; }
     .ai-right-column { min-width: 100%; }
-    .ai-third-row { gap: 1rem; }
+    .ai-third-row { min-width: 100%; gap: 1rem; }
   }
 
   /* ── PhET Simulations ── */
@@ -1976,14 +1977,14 @@
   }
 
   function shouldUseThirdRowLayout(media, videoSources, textSources) {
-    const sectionCount = (media.length > 0 ? 1 : 0) + (videoSources.length > 0 ? 1 : 0) + (textSources.length > 0 ? 1 : 0);
-    if (sectionCount < 2) return false;
+    if (textSources.length === 0) return false;
+    if (media.length === 0 && videoSources.length === 0) return false;
 
-    const weightedLoad = (media.length * 1.35) + (videoSources.length * 2.2) + (textSources.length * 0.95);
-    return weightedLoad >= 7.5 ||
-      (media.length >= 4 && textSources.length >= 4) ||
-      (textSources.length >= 6 && (media.length > 0 || videoSources.length > 0)) ||
-      (videoSources.length >= 2 && (media.length > 0 || textSources.length > 3));
+    const weightedLoad = (media.length * 1.45) + (videoSources.length * 2.35) + (textSources.length * 1.05);
+    return weightedLoad >= 7.2 ||
+      media.length >= 3 ||
+      (videoSources.length > 0 && textSources.length >= 3) ||
+      (textSources.length >= 4 && media.length > 0);
   }
 
   function createMediaCard(item, galleryTheme = 'default') {
@@ -2121,12 +2122,28 @@
     image.loading = 'lazy';
     frame.appendChild(image);
 
-    const caption = document.createElement('div');
-    caption.className = 'embedded-media-card-caption';
-    caption.textContent = source.detail || 'Imagem relacionada mencionada na resposta.';
+    const captionText = String(source.detail || '').trim();
     block.appendChild(title);
     block.appendChild(frame);
-    block.appendChild(caption);
+
+    if (captionText) {
+      const caption = document.createElement('div');
+      caption.className = 'embedded-media-card-caption';
+      caption.textContent = captionText;
+      caption.classList.add('is-collapsed');
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'embedded-media-toggle';
+      toggle.textContent = 'Abrir descrição';
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.addEventListener('click', () => {
+        const isCollapsed = caption.classList.toggle('is-collapsed');
+        toggle.textContent = isCollapsed ? 'Abrir descrição' : 'Fechar descrição';
+        toggle.setAttribute('aria-expanded', String(!isCollapsed));
+      });
+      block.appendChild(toggle);
+      block.appendChild(caption);
+    }
 
     insertNodeAfter(anchorNode, block);
   }
@@ -2227,21 +2244,18 @@
     thirdRow.className = 'ai-third-row';
     const useThirdRow = shouldUseThirdRowLayout(media, videoSources, textSources);
 
-    if (useThirdRow) {
-      if (media.length > 0) {
-        rightCol.appendChild(mediaContainer);
+    if (textSources.length > 0) {
+      rightCol.appendChild(sourcesContainer);
+      if (useThirdRow) {
+        if (media.length > 0) thirdRow.appendChild(mediaContainer);
         if (videoSources.length > 0) thirdRow.appendChild(embeddedVideosContainer);
-        if (textSources.length > 0) thirdRow.appendChild(sourcesContainer);
-      } else if (videoSources.length > 0) {
-        rightCol.appendChild(embeddedVideosContainer);
-        if (textSources.length > 0) thirdRow.appendChild(sourcesContainer);
-      } else if (textSources.length > 0) {
-        rightCol.appendChild(sourcesContainer);
+      } else {
+        if (media.length > 0) rightCol.appendChild(mediaContainer);
+        if (videoSources.length > 0) rightCol.appendChild(embeddedVideosContainer);
       }
     } else {
-      if (videoSources.length > 0) rightCol.appendChild(embeddedVideosContainer);
       if (media.length > 0) rightCol.appendChild(mediaContainer);
-      if (textSources.length > 0) rightCol.appendChild(sourcesContainer);
+      if (videoSources.length > 0) rightCol.appendChild(embeddedVideosContainer);
     }
 
     splitContainer.appendChild(leftCol);
@@ -2251,10 +2265,10 @@
       leftCol.style.flex = "1"; // Ocupa tudo se não houver mídia na direita
     }
 
-    inner.appendChild(splitContainer);
     if (thirdRow.children.length > 0) {
-      inner.appendChild(thirdRow);
+      splitContainer.appendChild(thirdRow);
     }
+    inner.appendChild(splitContainer);
 
     // -- SEÇÕES DE LARGURA TOTAL (Abaixo do Split) --
     if (parsedResponse.phetSlug) {
