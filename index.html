@@ -12,6 +12,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
   :root {
     --bg:        #0d1526;
@@ -1051,19 +1052,21 @@
     position: fixed;
     inset: 0;
     background: rgba(15, 23, 42, 0.52);
-    backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 2rem;
     z-index: 11000;
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
     transition: opacity 0.2s ease;
   }
   .document-modal-backdrop.show {
     opacity: 1;
+    visibility: visible;
     pointer-events: auto;
+    backdrop-filter: blur(8px);
   }
   .document-modal {
     width: min(1120px, 92vw);
@@ -1192,6 +1195,42 @@
   .document-modal-page .doc-body td {
     color: #334155;
   }
+  .doc-status-card .doc-body {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    min-height: 124px;
+  }
+  .doc-status-icon {
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #eff6ff;
+    color: #2563eb;
+    flex-shrink: 0;
+  }
+  .doc-status-card.is-error .doc-status-icon {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+  .doc-status-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+  }
+  .doc-status-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .doc-status-text {
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #64748b;
+  }
   @media (max-width: 900px) {
     .doc-meta-grid,
     .document-modal-meta {
@@ -1246,6 +1285,11 @@
     background: rgba(30,41,59,0.92);
     border-color: rgba(96,165,250,0.32);
     color: #f8fafc;
+  }
+  .msg-action-btn:disabled {
+    cursor: wait;
+    transform: none;
+    opacity: 0.65;
   }
   .msg-action-btn .material-icons-outlined { font-size: 0.95rem; }
 
@@ -2497,7 +2541,17 @@
     ].filter(Boolean).join('\n');
   }
 
-  function buildOfflineDocumentData({ response, sources = [], userQuestion = '', conversationTitle = '' } = {}) {
+  function markdownToPlainText(markdown = '') {
+    return String(markdown || '')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/^\-\s+/gm, '• ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function buildOfflineDocumentData({ response, sources = [], userQuestion = '', conversationTitle = '', title = '' } = {}) {
     const cleanText = stripResponseArtifacts(response, { keepLineBreaks: true }) || 'Resumo indisponivel.';
     const paragraphs = cleanText
       .split(/\n{2,}/)
@@ -2513,10 +2567,10 @@
     }
 
     const detailText = paragraphs.join('\n\n').trim() || executiveSummary;
-    const title = buildOfflineDocumentTitle(userQuestion || conversationTitle, cleanText);
+    const finalTitle = String(title || buildOfflineDocumentTitle(userQuestion || conversationTitle, cleanText)).trim();
     const createdAt = new Date();
     const docData = {
-      title,
+      title: finalTitle,
       question: String(userQuestion || conversationTitle || '').trim(),
       executiveSummary,
       detailText,
@@ -2540,21 +2594,83 @@
     };
 
     docData.markdown = composeOfflineDocumentMarkdown(docData);
+    docData.plainText = markdownToPlainText(docData.markdown);
     docData.previewHtml = simpleMarkdownToHTML(escapeHtml(`### Sumario Executivo\n${docData.executiveSummary}`));
     docData.contentHtml = simpleMarkdownToHTML(escapeHtml(docData.markdown));
     return docData;
   }
 
   function downloadOfflineDocument(docData) {
-    const blob = new Blob([docData.markdown], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${String(docData.title || 'resumo').toLowerCase().replace(/[^a-z0-9]+/gi, '_')}.md`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(url);
+    if (window.jspdf?.jsPDF) {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 54;
+      const usableWidth = pageWidth - margin * 2;
+      let cursorY = margin;
+
+      const ensureSpace = heightNeeded => {
+        if (cursorY + heightNeeded <= pageHeight - margin) return;
+        pdf.addPage();
+        cursorY = margin;
+      };
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(22);
+      const titleLines = pdf.splitTextToSize(docData.title, usableWidth);
+      ensureSpace(titleLines.length * 28);
+      pdf.text(titleLines, margin, cursorY);
+      cursorY += titleLines.length * 28 + 8;
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      const metaLines = [
+        `Data: ${docData.dateLabel}`,
+        `Plataforma: ${docData.platform}`,
+        `Agente: ${docData.author}`,
+      ];
+      metaLines.forEach(line => {
+        ensureSpace(18);
+        pdf.text(line, margin, cursorY);
+        cursorY += 18;
+      });
+
+      cursorY += 10;
+      pdf.setFontSize(12);
+      const bodyLines = pdf.splitTextToSize(docData.plainText, usableWidth);
+      bodyLines.forEach(line => {
+        ensureSpace(18);
+        pdf.text(line, margin, cursorY);
+        cursorY += 18;
+      });
+
+      pdf.save(`${String(docData.title || 'resumo').toLowerCase().replace(/[^a-z0-9]+/gi, '_')}.pdf`);
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=980,height=720');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${escapeHtml(docData.title)}</title>
+          <style>
+            body { font-family: Georgia, serif; margin: 40px; color: #111827; }
+            h1 { font-size: 28px; margin-bottom: 16px; }
+            .meta { margin-bottom: 28px; color: #475569; font-size: 14px; }
+            .content { white-space: pre-wrap; line-height: 1.6; font-size: 15px; }
+          </style>
+        </head>
+        <body>
+          <h1>${escapeHtml(docData.title)}</h1>
+          <div class="meta">Data: ${escapeHtml(docData.dateLabel)}<br/>Plataforma: ${escapeHtml(docData.platform)}<br/>Agente: ${escapeHtml(docData.author)}</div>
+          <div class="content">${escapeHtml(docData.plainText)}</div>
+          <script>window.onload = () => window.print();<\/script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   }
 
   async function copyOfflineDocument(docData, button) {
@@ -2576,6 +2692,92 @@
         return;
       }
     }
+  }
+
+  function buildOfflineSummaryHistoryPayload() {
+    return chatHistory
+      .map(item => {
+        if (item?.type === 'ai-sequence') {
+          const answer = stripResponseArtifacts(item?.payload?.response || '', { keepLineBreaks: true });
+          const sourceNotes = Array.isArray(item?.payload?.sources) && item.payload.sources.length > 0
+            ? `\n\nFontes mencionadas naquela resposta:\n${item.payload.sources.map(source => {
+                const parts = [source.label || source.id];
+                if (source.detail) parts.push(source.detail);
+                return `- ${parts.join(' — ')}`;
+              }).join('\n')}`
+            : '';
+          return answer ? { role: 'assistant', content: `${answer}${sourceNotes}`.trim() } : null;
+        }
+
+        if (item?.role === 'user') {
+          const content = String(item.content || '').trim();
+          return content ? { role: 'user', content } : null;
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+  }
+
+  function createOfflineDocumentStatusCard(title, text, isError = false) {
+    const card = document.createElement('section');
+    card.className = `document-card doc-status-card${isError ? ' is-error' : ''}`;
+    card.innerHTML = `
+      <div class="doc-header">
+        <div class="doc-header-main">
+          <div style="display:flex;align-items:center;gap:1rem;min-width:0;">
+            <div class="doc-icon"><span class="material-icons-outlined">${isError ? 'error' : 'hourglass_top'}</span></div>
+            <div style="min-width:0;">
+              <div class="doc-title">${escapeHtml(title)}</div>
+              <div class="doc-subtitle">${isError ? 'O documento nao ficou pronto nesta tentativa.' : 'A IA esta consolidando a conversa inteira em um documento offline.'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="doc-body">
+        <div class="doc-status-icon"><span class="material-icons-outlined">${isError ? 'warning' : 'auto_awesome'}</span></div>
+        <div class="doc-status-copy">
+          <div class="doc-status-title">${escapeHtml(title)}</div>
+          <div class="doc-status-text">${escapeHtml(text)}</div>
+        </div>
+      </div>
+    `;
+    return card;
+  }
+
+  async function requestOfflineSummaryDocument(summaryTitle = '') {
+    const historyPayload = buildOfflineSummaryHistoryPayload();
+    if (historyPayload.length === 0) {
+      throw new Error('Nao ha historico suficiente para gerar o resumo offline.');
+    }
+
+    const resp = await fetch('./api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: summaryTitle || 'Resumo offline da conversa',
+        offlineSummary: true,
+        summaryTitle,
+        history: historyPayload,
+        userContext: window._userContext || {},
+      }),
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error(data?.error || `Falha ao gerar resumo offline (${resp.status})`);
+    }
+    if (!data?.offlineDocument?.markdown) {
+      throw new Error('Resposta de resumo offline veio incompleta.');
+    }
+
+    return buildOfflineDocumentData({
+      response: data.offlineDocument.markdown,
+      sources: [],
+      userQuestion: summaryTitle,
+      conversationTitle: convTitle.textContent,
+      title: data.offlineDocument.title,
+    });
   }
 
   function ensureOfflineDocumentModal() {
@@ -3440,20 +3642,50 @@
       }
     });
 
-    actionsContainer.querySelector('.btn-summary').addEventListener('click', () => {
-      if (!currentOfflineDocument) {
-        currentOfflineDocument = buildOfflineDocumentData({
-          response: responseText,
-          sources,
-          userQuestion,
-          conversationTitle: convTitle.textContent,
-        });
-        persistOfflineDocumentForResponse(response, currentOfflineDocument);
+    const summaryButton = actionsContainer.querySelector('.btn-summary');
+    summaryButton.addEventListener('click', async () => {
+      if (currentOfflineDocument && currentOfflineDocument.sourceTurnCount === chatHistory.length) {
+        documentHost.innerHTML = '';
+        documentHost.appendChild(createOfflineDocumentCard(currentOfflineDocument));
+        scrollToBottom();
+        openOfflineDocumentModal(currentOfflineDocument);
+        return;
       }
+
+      const oldHtml = summaryButton.innerHTML;
+      summaryButton.disabled = true;
+      summaryButton.style.opacity = '0.68';
+      summaryButton.innerHTML = '<span class="material-icons-outlined">hourglass_top</span> Gerando resumo...';
+      document.getElementById('thinkingIndicator').classList.add('show');
+
       documentHost.innerHTML = '';
-      documentHost.appendChild(createOfflineDocumentCard(currentOfflineDocument));
-      scrollToBottom();
-      openOfflineDocumentModal(currentOfflineDocument);
+      documentHost.appendChild(createOfflineDocumentStatusCard(
+        'Gerando resumo offline',
+        'A IA esta relendo toda a memoria do chat para montar um documento novo, e nao apenas copiar a ultima resposta.'
+      ));
+
+      try {
+        currentOfflineDocument = await requestOfflineSummaryDocument(userQuestion || convTitle.textContent || 'Resumo offline da conversa');
+        currentOfflineDocument.sourceTurnCount = chatHistory.length;
+        persistOfflineDocumentForResponse(response, currentOfflineDocument);
+        documentHost.innerHTML = '';
+        documentHost.appendChild(createOfflineDocumentCard(currentOfflineDocument));
+        scrollToBottom();
+        openOfflineDocumentModal(currentOfflineDocument);
+      } catch (error) {
+        console.error('Offline summary failed', error);
+        documentHost.innerHTML = '';
+        documentHost.appendChild(createOfflineDocumentStatusCard(
+          'Falha ao gerar resumo offline',
+          error?.message || 'Nao foi possivel consolidar a conversa agora.',
+          true
+        ));
+      } finally {
+        summaryButton.disabled = false;
+        summaryButton.style.opacity = '';
+        summaryButton.innerHTML = oldHtml;
+        document.getElementById('thinkingIndicator').classList.remove('show');
+      }
     });
 
     leftCol.appendChild(actionsContainer);

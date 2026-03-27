@@ -2564,6 +2564,85 @@ function createStreamingLogs(onLog) {
   return logs;
 }
 
+function serializeConversationForSummary(history = []) {
+  return history
+    .map((item, index) => {
+      const role = item?.role === 'assistant' ? 'IA' : 'Usuário';
+      const content = String(item?.content || '').trim();
+      if (!content) return null;
+      return `${index + 1}. ${role}:\n${content}`;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+async function generateOfflineSummaryDocument(history = [], requestedTitle = '', logs = []) {
+  const serializedHistory = serializeConversationForSummary(history);
+  if (!serializedHistory) {
+    throw new Error('Histórico insuficiente para gerar resumo offline.');
+  }
+
+  logs.push('🗂️ Consolidando a memória completa da conversa...');
+  logs.push('📝 Gerando documento offline com base em todo o chat...');
+
+  const prompt = `Você é o Drekee AI 1.5 Pro gerando um documento offline premium a partir do histórico completo de uma conversa.
+
+OBJETIVO:
+- Resumir TODA a conversa, não apenas a última resposta.
+- Consolidar as perguntas do usuário, as respostas dadas e as conclusões mais úteis.
+- Produzir um documento limpo, objetivo, bem organizado e pronto para leitura offline.
+
+REGRAS OBRIGATÓRIAS:
+1. Use TODO o histórico abaixo como memória da conversa.
+2. NÃO copie a última resposta como se ela fosse o resumo inteiro.
+3. Faça um resumo executivo curto e direto no início.
+4. Depois organize o conteúdo em seções claras e úteis.
+5. NÃO use as tags [CONFIANÇA], [ID-DA-FONTE], [PHET], [PDB] ou [OFFLINE_DOC].
+6. Se houver fontes citadas ao longo da conversa, transforme isso em texto limpo na seção final "Fontes e referências mencionadas".
+7. Não fale sobre o processo de geração. Entregue apenas o documento.
+8. O documento precisa funcionar bem como PDF.
+
+FORMATO DE SAÍDA OBRIGATÓRIO:
+[TITLE]
+um título curto e profissional
+[/TITLE]
+[MARKDOWN]
+# Título
+
+### Sumário Executivo
+...
+
+### Pontos-Chave da Conversa
+...
+
+### Explicação Consolidada
+...
+
+### Fontes e referências mencionadas
+...
+[/MARKDOWN]
+
+TÍTULO SUGERIDO PELO APP: ${requestedTitle || 'Resumo Offline da Conversa'}
+
+HISTÓRICO COMPLETO:
+${serializedHistory}`;
+
+  const raw = await callGemini(prompt, logs);
+  const titleMatch = raw.match(/\[TITLE\]\s*([\s\S]*?)\s*\[\/TITLE\]/i);
+  const markdownMatch = raw.match(/\[MARKDOWN\]\s*([\s\S]*?)\s*\[\/MARKDOWN\]/i);
+
+  const title = sanitizeFinalResponse(titleMatch?.[1] || requestedTitle || 'Resumo Offline da Conversa')
+    .replace(/^#+\s*/gm, '')
+    .trim();
+  const markdown = sanitizeFinalResponse(markdownMatch?.[1] || raw).trim();
+
+  logs.push('✅ Documento offline consolidado');
+  return {
+    title: title || 'Resumo Offline da Conversa',
+    markdown,
+  };
+}
+
 // ============ MAIN HANDLER ============
 async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -2593,6 +2672,7 @@ async function handler(req, res) {
   const connectors = Array.isArray(body?.connectors) ? body.connectors : [];
   const history = Array.isArray(body?.history) ? body.history : [];
   const wantsStream = body?.stream === true;
+  const wantsOfflineSummary = body?.offlineSummary === true;
 
   // Resolve user context: prefer browser-sent coords, fall back to IP geolocation
   let userContext = body?.userContext || {};
@@ -2621,7 +2701,7 @@ async function handler(req, res) {
     userContext.localTime = now.toLocaleTimeString('pt-BR', { timeZone: userContext.timezone || 'America/Sao_Paulo' });
   }
 
-  if (!userQuestion) {
+  if (!userQuestion && !wantsOfflineSummary) {
     return res.status(400).json({ error: 'Pergunta vazia' });
   }
 
@@ -2639,6 +2719,21 @@ async function handler(req, res) {
   });
 
   try {
+    if (wantsOfflineSummary) {
+      logs.push('📚 Iniciando geração do resumo offline...');
+      const offlineDocument = await generateOfflineSummaryDocument(history, body?.summaryTitle || '', logs);
+      const payload = {
+        offlineDocument,
+        logs,
+      };
+      if (wantsStream) {
+        writeAgentEvent(res, 'final', payload);
+        writeAgentEvent(res, 'done', { ok: true });
+        return res.end();
+      }
+      return res.status(200).json(payload);
+    }
+
     logs.push('🚀 Iniciando Agente Científico...');
 
     const files = Array.isArray(body?.files) ? body.files : [];
