@@ -1360,7 +1360,7 @@ function resolveSourceReference(rawReference, lookup) {
 }
 
 function normalizeResponseCitations(response, sources = []) {
-  if (!response || !sources.length) return response;
+  if (!response) return response;
 
   const lookup = buildSourceLookup(sources);
   return String(response).replace(/\[([^\]]+)\]/g, (match, rawReference) => {
@@ -1378,8 +1378,88 @@ function normalizeResponseCitations(response, sources = []) {
       return '';
     }
 
+    if (
+      /^(?:web|search|source|src|ref|citation|connector|result|tavily|wikipedia|nasa|esa|arxiv|pubmed|scielo)[-_ ]*[a-z0-9-]*\d+$/i.test(token) ||
+      /^[A-Z]{2,}(?:[-_][A-Z0-9]+)+$/i.test(token)
+    ) {
+      return '';
+    }
+
     return match;
   });
+}
+
+function detectPhetSimulation(userQuestion = '', response = '', selectedConnectors = []) {
+  const activeConnectors = Array.isArray(selectedConnectors) ? selectedConnectors : [];
+  if (!activeConnectors.includes('phet')) return null;
+
+  const text = `${userQuestion}\n${response}`.toLowerCase();
+  const catalog = [
+    {
+      pattern: /\b(átomo|atomo|próton|proton|nêutron|neutron|elétron|eletron|camada eletrônica|estrutura atômica|forma um átomo|formaçao do átomo|formacao do atomo)\b/,
+      slug: 'build-an-atom',
+      guide: 'Monte prótons, nêutrons e elétrons e observe como o elemento muda.',
+      theory: 'O átomo é definido pelo número de prótons; nêutrons alteram isótopos e elétrons controlam a carga.',
+    },
+    {
+      pattern: /\b(isótopo|isotopo|massa atômica|massa atomica|número atômico|numero atomico|numero de massa)\b/,
+      slug: 'isotopes-and-atomic-mass',
+      guide: 'Compare prótons e nêutrons para ver como surgem diferentes isótopos.',
+      theory: 'Isótopos têm o mesmo elemento químico, mas mudam no número de nêutrons e na massa total.',
+    },
+    {
+      pattern: /\b(molécula|molecula|ligação química|ligacao quimica|montar molécula|montar molecula)\b/,
+      slug: 'build-a-molecule',
+      guide: 'Combine átomos e veja como a estrutura molecular aparece em tempo real.',
+      theory: 'Moléculas surgem quando átomos compartilham ou reorganizam elétrons em ligações químicas.',
+    },
+    {
+      pattern: /\b(ph|ácido|acido|base|acidez|basicidade)\b/,
+      slug: 'ph-scale',
+      guide: 'Teste soluções diferentes e acompanhe a mudança do pH na escala.',
+      theory: 'O pH mede a concentração relativa de íons ligados à acidez e à basicidade da solução.',
+    },
+    {
+      pattern: /\b(circuito|corrente elétrica|corrente eletrica|voltagem|tensão elétrica|tensao eletrica|resistor)\b/,
+      slug: 'circuit-construction-kit-dc',
+      guide: 'Monte o circuito com bateria, fios e resistores e acompanhe a corrente.',
+      theory: 'A corrente elétrica depende da diferença de potencial e do caminho fechado do circuito.',
+    },
+    {
+      pattern: /\b(ohm|resistência elétrica|resistencia eletrica)\b/,
+      slug: 'ohms-law',
+      guide: 'Ajuste tensão e resistência para observar a corrente variar pela Lei de Ohm.',
+      theory: 'A Lei de Ohm conecta tensão, corrente e resistência em circuitos simples.',
+    },
+    {
+      pattern: /\b(faraday|indução eletromagnética|inducao eletromagnetica|fluxo magnético|fluxo magnetico)\b/,
+      slug: 'faradays-law',
+      guide: 'Mova o ímã e a espira para ver a indução surgir instantaneamente.',
+      theory: 'A variação do fluxo magnético induz corrente elétrica no circuito.',
+    },
+    {
+      pattern: /\b(força|forca|movimento|aceleração|aceleracao|segunda lei de newton)\b/,
+      slug: 'forces-and-motion-basics',
+      guide: 'Aplique forças diferentes e compare como massa e atrito alteram o movimento.',
+      theory: 'A aceleração depende da força resultante e da massa do sistema.',
+    },
+  ];
+
+  return catalog.find(entry => entry.pattern.test(text)) || null;
+}
+
+function ensureInteractiveTags(response, userQuestion, selectedConnectors = []) {
+  let finalResponse = String(response || '').trim();
+  if (!finalResponse) return finalResponse;
+
+  if (!/\[PHET:/i.test(finalResponse)) {
+    const phetMatch = detectPhetSimulation(userQuestion, finalResponse, selectedConnectors);
+    if (phetMatch) {
+      finalResponse = `${finalResponse}\n\n[PHET:${phetMatch.slug}|${phetMatch.guide}|${phetMatch.theory}]`;
+    }
+  }
+
+  return finalResponse;
 }
 
 // ============ STEP 2: Execute Research & Reasoning ============
@@ -1414,7 +1494,7 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(estrela|constelação|céu|stellarium|mapa estelar)\b/.test(normalizedText)) autoDetectedConnectors.push('stellarium');
   if (/\b(onda|gravidade|ligo|virgo|colisão|buraco negro)\b/.test(normalizedText)) autoDetectedConnectors.push('ligo');
   if (/\b(sol|sdo|atividade solar|mancha solar)\b/.test(normalizedText)) autoDetectedConnectors.push('sdo');
-  if (/\b(exoplaneta|planeta|kepler|tess|estrela binária)\b/.test(normalizedText)) autoDetectedConnectors.push('exoplanet', 'kepler');
+  if (/\b(exoplaneta|planeta|kepler|tess|estrela binária)\b/.test(normalizedText)) autoDetectedConnectors.push('exoplanets', 'kepler');
   if (/\b(matemática|álgebra|calculadora|mathjs|matriz|equação complexa)\b/.test(normalizedText)) autoDetectedConnectors.push('mathjs');
   if (/\b(química|composto|molécula|pubchem|farmac|3d)\b/.test(normalizedText)) autoDetectedConnectors.push('pubchem', 'pubchem-bio');
   if (/\b(gene|genoma|dna|rna|ensembl|mygene|mutação)\b/.test(normalizedText)) autoDetectedConnectors.push('ensembl', 'mygene');
@@ -2322,7 +2402,7 @@ Seja honesto. Não invente. Use as fontes.`;
   );
 
   logs.push('✅ Resposta gerada pela IA principal');
-  return { response, media: [...media, ...nasaMedia], sources };
+  return { response, media: [...media, ...nasaMedia], sources, selectedConnectors };
 }
 
 // ============ STEP 3: Review with Gemini ============
@@ -2547,6 +2627,7 @@ async function handler(req, res) {
     let response = await reviewResponse(exec.response);
     logs.push('✅ Resposta revisada e validada');
 
+    response = ensureInteractiveTags(response, userQuestion, exec.selectedConnectors || []);
     response = normalizeResponseCitations(response, exec.sources || []);
     response = response.replace(/^Como\s+Revisor[\s\S]*?\n/, '').trim();
     const displayResponse = response.replace(/\s*\[CONFIANÇA:\s*\w+\]\s*$/i, '').trim();

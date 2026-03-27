@@ -2242,6 +2242,12 @@
     return normalizedValue ? (lookup.byAlias.get(normalizedValue) || null) : null;
   }
 
+  function shouldStripUnresolvedCitationToken(token) {
+    const clean = String(token || '').trim();
+    return /^(?:web|search|source|src|ref|citation|connector|result|tavily|wikipedia|nasa|esa|arxiv|pubmed|scielo)[-_ ]*[a-z0-9-]*\d+$/i.test(clean) ||
+      /^[A-Z]{2,}(?:[-_][A-Z0-9]+)+$/i.test(clean);
+  }
+
   function parseResponseWithCitations(response, sources) {
     const sourceLookup = buildSourceLookup(sources);
     const citations  = new Map();
@@ -2283,6 +2289,10 @@
       citations.set(source.id, [index, index + match.length]);
       const label = escapeHtml(String(source.label || source.id));
       return `<span class="citation-tag" data-source="${source.id}" title="Abrir fonte">${label}</span>`;
+    });
+
+    html = html.replace(/\[([^\]]+)\]/gi, (match, rawReference) => {
+      return shouldStripUnresolvedCitationToken(rawReference) ? '' : match;
     });
 
     return { html, citations, phetSlug, phetIntro, phetTheory, pdbId };
