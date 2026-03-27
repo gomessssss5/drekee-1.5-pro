@@ -424,16 +424,36 @@
 
   .media-results { margin-top: 1rem; background: rgba(15,23,42,0.8); border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); overflow: hidden; }
   .media-header { background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15)); padding: 0.75rem 1rem; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid rgba(99,102,241,0.2); }
-  .media-grid { padding: 0.75rem 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; align-items: start; }
-  .media-item { background: rgba(31,41,55,0.8); border: 1px solid rgba(99,102,241,0.15); border-radius: 0.65rem; padding: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .media-grid { padding: 0.85rem 1rem 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.95rem; align-items: start; }
+  .media-item { background: rgba(31,41,55,0.8); border: 1px solid rgba(99,102,241,0.15); border-radius: 0.85rem; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  .media-frame { position: relative; overflow: hidden; border-radius: 0.8rem; background: rgba(2,6,23,0.82); }
+  .media-frame::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 0 1px rgba(148,163,184,0.14); }
+  .media-meta { display: flex; flex-direction: column; gap: 0.35rem; }
   .media-title { font-size: 0.78rem; font-weight: 700; color: #cbd5e1; }
-  .media-img, .media-video { width: 100%; border-radius: 0.5rem; }
+  .media-img, .media-video { width: 100%; border-radius: 0.5rem; display: block; }
   .media-desc { font-size: 0.72rem; color: #94a3b8; line-height: 1.3; max-height: 4.6rem; overflow: hidden; }
+  .media-results-nasa .media-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+  .media-results-nasa .media-item { background: transparent; border: none; padding: 0.15rem; gap: 0.6rem; }
+  .media-results-nasa .media-frame { padding: 1px; border-radius: 1.15rem; background: linear-gradient(135deg, rgba(125,211,252,0.95), rgba(59,130,246,0.18) 34%, rgba(15,23,42,0.05) 58%, rgba(56,189,248,0.82)); box-shadow: 0 16px 40px rgba(15,23,42,0.34), 0 0 0 1px rgba(125,211,252,0.05); }
+  .media-results-nasa .media-frame::after { inset: -26%; border-radius: inherit; background: radial-gradient(circle, rgba(125,211,252,0.26), transparent 62%); filter: blur(28px); box-shadow: none; opacity: 0.72; mix-blend-mode: screen; }
+  .media-results-nasa .media-img,
+  .media-results-nasa .media-video { border-radius: calc(1.15rem - 1px); background: #020617; }
+  .media-results-nasa .media-meta { padding: 0 0.2rem; }
+  .media-results-nasa .media-title { color: #e2e8f0; }
+  .media-results-nasa .media-desc { color: rgba(203,213,225,0.76); }
 
   .embedded-media-card { margin: 0.75rem 0 0.75rem 0; background: rgba(28, 45, 69, 0.8); border: 1px solid rgba(99,102,241,0.25); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; gap: 0.45rem; }
-  .embedded-media-card img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 6px; }
+  .embedded-media-card img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 6px; display: block; }
   .embedded-media-card-title { font-size: 0.76rem; font-weight: 700; color: #cbd5e1; }
   .embedded-media-card-caption { font-size: 0.72rem; color: #94a3b8; line-height: 1.35; }
+  .embedded-media-card-nasa { background: transparent; border: none; padding: 0.1rem 0; gap: 0.55rem; }
+  .embedded-media-card-frame { position: relative; overflow: hidden; border-radius: 1rem; }
+  .embedded-media-card-frame img { width: 100%; max-height: 320px; object-fit: cover; border-radius: inherit; background: #020617; }
+  .embedded-media-card-nasa .embedded-media-card-frame { padding: 1px; background: linear-gradient(135deg, rgba(125,211,252,0.95), rgba(59,130,246,0.16) 35%, rgba(15,23,42,0.06) 58%, rgba(56,189,248,0.82)); box-shadow: 0 18px 42px rgba(15,23,42,0.28), 0 0 0 1px rgba(125,211,252,0.06); }
+  .embedded-media-card-nasa .embedded-media-card-frame::after { content: ''; position: absolute; inset: -24%; border-radius: inherit; pointer-events: none; background: radial-gradient(circle, rgba(125,211,252,0.24), transparent 62%); filter: blur(24px); opacity: 0.7; mix-blend-mode: screen; }
+  .embedded-media-card-nasa .embedded-media-card-frame img { border-radius: calc(1rem - 1px); }
+  .embedded-media-card-nasa .embedded-media-card-title { color: #e2e8f0; }
+  .embedded-media-card-nasa .embedded-media-card-caption { color: rgba(203,213,225,0.78); padding: 0 0.15rem; }
 
   .logs-content { padding: 0.75rem 1rem; max-height: 180px; overflow-y: auto; font-family: 'Space Mono', monospace; font-size: 0.75rem; }
   .log-line { color: #cbd5e1; margin: 0.3rem 0; line-height: 1.4; }
@@ -472,6 +492,21 @@
     flex-direction: column;
     gap: 1.5rem;
     min-width: 260px;
+  }
+  .ai-third-row {
+    width: 100%;
+    margin-top: 1rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    align-items: start;
+  }
+  .ai-third-row .media-results,
+  .ai-third-row .sources-section,
+  .ai-third-row .embedded-videos-section {
+    margin-top: 0 !important;
+    background: rgba(15,23,42,0.46);
+    border: 1px solid rgba(255,255,255,0.05);
   }
   
   /* Seção de Mídia na Sidebar */
@@ -541,11 +576,13 @@
 
   @media (max-width: 1200px) {
     .ai-split-container { gap: 1rem; }
+    .ai-third-row { grid-template-columns: 1fr; }
   }
 
   @media (max-width: 768px) {
     .ai-split-container { flex-direction: column; }
     .ai-right-column { min-width: 100%; }
+    .ai-third-row { gap: 1rem; }
   }
 
   /* ── PhET Simulations ── */
@@ -1603,8 +1640,8 @@
     const shouldSave = options.save !== false;
     const instant    = options.instant === true;
 
-    if (role === 'ai' && metadata?.thinking && !instant) {
-      renderAgentSequence({ response: content, ...metadata });
+    if (role === 'ai' && metadata?.thinking) {
+      renderAgentSequence({ response: content, ...metadata }, { instant });
       if (shouldSave) {
         chatHistory.push({ type: 'ai-sequence', payload: { response: content, ...metadata } });
         saveHistory();
@@ -1881,6 +1918,126 @@
     `).join('');
   }
 
+  function isNasaLike(entry) {
+    const url = String(entry?.url || '').toLowerCase();
+    const type = String(entry?.type || entry?.media_type || '').toLowerCase();
+    const title = String(entry?.title || entry?.label || '').toLowerCase();
+    return type === 'nasa' || url.includes('nasa.gov') || title.includes('nasa');
+  }
+
+  function getDirectChildWithin(root, node) {
+    let current = node;
+    while (current && current.parentNode && current.parentNode !== root) {
+      current = current.parentNode;
+    }
+    return current && current.parentNode === root ? current : null;
+  }
+
+  function isResponseBoundaryNode(node) {
+    if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+    return ['P', 'DIV', 'UL', 'OL', 'LI', 'TABLE', 'H1', 'H2', 'H3', 'BLOCKQUOTE'].includes(node.tagName) ||
+      node.classList?.contains('table-container') ||
+      node.classList?.contains('embedded-media-card');
+  }
+
+  function insertNodeAfter(referenceNode, newNode) {
+    if (!referenceNode?.parentNode) return;
+    referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
+  }
+
+  function findCitationAnchorNode(tag, responseContainer) {
+    const blockAncestor = tag.closest('p, li, h1, h2, h3, blockquote, .response-paragraph, .table-container');
+    if (blockAncestor && responseContainer.contains(blockAncestor)) {
+      return blockAncestor;
+    }
+
+    const directChild = getDirectChildWithin(responseContainer, tag);
+    if (!directChild) return responseContainer.lastChild;
+
+    const siblings = [...responseContainer.childNodes];
+    const startIndex = siblings.indexOf(directChild);
+    let anchor = directChild;
+    let breakRun = 0;
+
+    for (let i = startIndex + 1; i < siblings.length; i++) {
+      const node = siblings[i];
+      if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+        breakRun += 1;
+        if (breakRun >= 2) break;
+        anchor = node;
+        continue;
+      }
+      if (isResponseBoundaryNode(node)) break;
+      breakRun = 0;
+      anchor = node;
+    }
+
+    return anchor;
+  }
+
+  function shouldUseThirdRowLayout(media, videoSources, textSources) {
+    const sectionCount = (media.length > 0 ? 1 : 0) + (videoSources.length > 0 ? 1 : 0) + (textSources.length > 0 ? 1 : 0);
+    if (sectionCount < 2) return false;
+
+    const weightedLoad = (media.length * 1.35) + (videoSources.length * 2.2) + (textSources.length * 0.95);
+    return weightedLoad >= 7.5 ||
+      (media.length >= 4 && textSources.length >= 4) ||
+      (textSources.length >= 6 && (media.length > 0 || videoSources.length > 0)) ||
+      (videoSources.length >= 2 && (media.length > 0 || textSources.length > 3));
+  }
+
+  function createMediaCard(item, galleryTheme = 'default') {
+    const card = document.createElement('article');
+    card.className = 'media-item';
+
+    const frame = document.createElement('div');
+    frame.className = 'media-frame';
+
+    const isVideo = item.media_type === 'video' || item.url?.endsWith('.mp4');
+    if (isVideo) {
+      const video = document.createElement('video');
+      video.src = item.url;
+      video.controls = true;
+      video.className = 'media-video';
+      frame.appendChild(video);
+    } else {
+      const img = document.createElement('img');
+      img.src = item.url;
+      img.alt = item.title || '';
+      img.className = 'media-img';
+      img.loading = 'lazy';
+      frame.appendChild(img);
+    }
+
+    card.appendChild(frame);
+
+    const title = String(item.title || '').trim();
+    const desc = String(item.description || '').trim();
+    if (title || desc) {
+      const meta = document.createElement('div');
+      meta.className = 'media-meta';
+      if (title) {
+        const titleEl = document.createElement('div');
+        titleEl.className = 'media-title';
+        titleEl.textContent = title;
+        meta.appendChild(titleEl);
+      }
+      if (desc) {
+        const descEl = document.createElement('div');
+        descEl.className = 'media-desc';
+        descEl.textContent = desc;
+        meta.appendChild(descEl);
+      }
+      card.appendChild(meta);
+    }
+
+    if (galleryTheme === 'nasa') {
+      card.classList.add('media-item-seamless');
+    }
+
+    return card;
+  }
+
   function addCitationHoverListeners(container, citations) {
     const sourceMap = new Map(currentSources.map(s => [s.id, s]));
     container.querySelectorAll('.citation-tag').forEach(tag => {
@@ -1936,29 +2093,42 @@
 
   function embedImageAfterTag(tag, source) {
     if (!source || !isImageUrl(source.url)) return;
-    const paragraph = tag.closest('p') || tag.parentNode;
-    if (!paragraph) return;
+    const responseContainer = tag.closest('.ai-response');
+    if (!responseContainer) return;
 
-    // Prevent duplicates
-    if (paragraph.nextElementSibling?.classList.contains('embedded-media-card') && paragraph.nextElementSibling.dataset.sourceId === source.id) return;
+    // Prevent duplicates globally in the same response: first cited paragraph wins.
+    if (responseContainer.querySelector(`.embedded-media-card[data-source-id="${source.id}"]`)) return;
+
+    const anchorNode = findCitationAnchorNode(tag, responseContainer);
+    if (!anchorNode) return;
 
     const block = document.createElement('div');
     block.className = 'embedded-media-card';
     block.dataset.sourceId = source.id;
+    if ((source.type || '').toLowerCase() === 'nasa') {
+      block.classList.add('embedded-media-card-nasa');
+    }
+
     const title = document.createElement('div');
     title.className = 'embedded-media-card-title';
     title.textContent = source.label || source.id;
+
+    const frame = document.createElement('div');
+    frame.className = 'embedded-media-card-frame';
     const image = document.createElement('img');
     image.src = source.url;
     image.alt = source.label || 'Image';
+    image.loading = 'lazy';
+    frame.appendChild(image);
+
     const caption = document.createElement('div');
     caption.className = 'embedded-media-card-caption';
     caption.textContent = source.detail || 'Imagem relacionada mencionada na resposta.';
     block.appendChild(title);
-    block.appendChild(image);
+    block.appendChild(frame);
     block.appendChild(caption);
 
-    paragraph.insertAdjacentElement('afterend', block);
+    insertNodeAfter(anchorNode, block);
   }
 
   function embedImagesInResponse(responseContainer, sources) {
@@ -2036,7 +2206,7 @@
     
     // Título dinâmico da galeria
     let galleryTitle = '📷 Galeria Científica';
-    const hasNasa = media.some(m => m.url?.includes('nasa.gov') || m.title?.toLowerCase().includes('nasa'));
+    const hasNasa = media.some(m => isNasaLike(m));
     const hasDogs = media.some(m => m.url?.includes('dog.ceo'));
     const hasAnts = media.some(m => m.url?.includes('antweb.org'));
     
@@ -2045,14 +2215,34 @@
     else if (hasAnts && !hasNasa) galleryTitle = '🐜 Galeria Entomológica';
 
     mediaContainer.innerHTML = `<div class="media-header">${galleryTitle}</div><div class="media-grid"></div>`;
+    if (hasNasa && !hasDogs && !hasAnts) {
+      mediaContainer.classList.add('media-results-nasa');
+    }
 
     const sourcesContainer = document.createElement('div');
     sourcesContainer.className = 'sources-section';
     sourcesContainer.innerHTML = `<div class="sources-header">📚 Fontes Utilizadas</div><div class="sources-grid">${renderSources(textSources)}</div>`;
 
-    if (videoSources.length > 0) rightCol.appendChild(embeddedVideosContainer);
-    if (media.length > 0) rightCol.appendChild(mediaContainer);
-    if (textSources.length > 0) rightCol.appendChild(sourcesContainer);
+    const thirdRow = document.createElement('div');
+    thirdRow.className = 'ai-third-row';
+    const useThirdRow = shouldUseThirdRowLayout(media, videoSources, textSources);
+
+    if (useThirdRow) {
+      if (media.length > 0) {
+        rightCol.appendChild(mediaContainer);
+        if (videoSources.length > 0) thirdRow.appendChild(embeddedVideosContainer);
+        if (textSources.length > 0) thirdRow.appendChild(sourcesContainer);
+      } else if (videoSources.length > 0) {
+        rightCol.appendChild(embeddedVideosContainer);
+        if (textSources.length > 0) thirdRow.appendChild(sourcesContainer);
+      } else if (textSources.length > 0) {
+        rightCol.appendChild(sourcesContainer);
+      }
+    } else {
+      if (videoSources.length > 0) rightCol.appendChild(embeddedVideosContainer);
+      if (media.length > 0) rightCol.appendChild(mediaContainer);
+      if (textSources.length > 0) rightCol.appendChild(sourcesContainer);
+    }
 
     splitContainer.appendChild(leftCol);
     if (rightCol.children.length > 0) {
@@ -2062,6 +2252,9 @@
     }
 
     inner.appendChild(splitContainer);
+    if (thirdRow.children.length > 0) {
+      inner.appendChild(thirdRow);
+    }
 
     // -- SEÇÕES DE LARGURA TOTAL (Abaixo do Split) --
     if (parsedResponse.phetSlug) {
@@ -2228,33 +2421,26 @@
     const renderMedia = () => {
       const grid = mediaContainer.querySelector('.media-grid');
       media.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'media-item';
-        if (item.media_type === 'video' || item.url?.endsWith('.mp4')) {
-          const video = document.createElement('video');
-          video.src = item.url; video.controls = true; video.className = 'media-video';
-          card.appendChild(video);
-        } else {
-          const img = document.createElement('img');
-          img.src = item.url; img.alt = item.title||''; img.className = 'media-img';
-          card.appendChild(img);
-        }
-        grid.appendChild(card);
+        grid.appendChild(createMediaCard(item, mediaContainer.classList.contains('media-results-nasa') ? 'nasa' : 'default'));
       });
     };
     if (media.length > 0) renderMedia();
 
     // -- LÓGICA DE COLAPSAR SIDEBAR/GALEIRA --
     const leftH = leftCol.offsetHeight;
-    const cards = [embeddedVideosContainer, mediaContainer, sourcesContainer];
+    const cards = [embeddedVideosContainer, mediaContainer, sourcesContainer].filter(card =>
+      card && card.parentElement && (rightCol.contains(card) || thirdRow.contains(card))
+    );
     
     cards.forEach(card => {
       if (!card || card.children.length === 0) return;
       const h = card.offsetHeight;
       const isMobile = window.innerWidth <= 768;
+      const isInThirdRow = thirdRow.contains(card);
       
       // Colapsar se for sidebar muito longa (> leftCol + 100) OU se a galeria de mídia no mobile tiver > 400px
-      const shouldCollapse = (!isMobile && leftH > 50 && (h > 400 || h > leftH)) || 
+      const shouldCollapse = (!isMobile && !isInThirdRow && leftH > 50 && (h > 400 || h > leftH)) || 
+                             (!isMobile && isInThirdRow && h > 540) ||
                              (isMobile && card.classList.contains('media-results') && h > 450);
 
       if (shouldCollapse) {
