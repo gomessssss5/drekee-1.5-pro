@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Drekee Noticias</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0d1526;
+    --bg2: #111d32;
+    --surface: #162038;
+    --surface2: #1c2a45;
+    --surface3: rgba(18, 28, 48, 0.88);
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e2e8f0;
+    --text-soft: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --blue: #3b82f6;
+    --blue-strong: #2563eb;
+    --blue-glow: rgba(59,130,246,0.18);
+    --violet: #818cf8;
+    --success: #34d399;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    min-height: 100%;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  body {
+    overflow-x: hidden;
+    background:
+      radial-gradient(circle at top center, rgba(59,130,246,0.16), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(129,140,248,0.1), transparent 22%),
+      var(--bg);
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .page-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 19rem minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 1.5rem 1rem;
+    background: rgba(13, 20, 38, 0.97);
+    border-right: 1px solid var(--border);
+    backdrop-filter: blur(24px);
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 0.45rem;
+  }
+  .brand-mark {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.7rem;
+    background: linear-gradient(135deg, rgba(59,130,246,0.25), rgba(129,140,248,0.28));
+    border: 1px solid rgba(147,197,253,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 14px 30px rgba(37, 99, 235, 0.2);
+  }
+  .brand-mark span { color: #f8fafc; font-size: 1.2rem; }
+  .brand-title {
+    font-size: 1.02rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #60a5fa, #a5b4fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .brand-subtitle {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-top: 0.1rem;
+  }
+
+  .sidebar-nav {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.72rem;
+    padding: 0.85rem 0.95rem;
+    border-radius: 1rem;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+  }
+  .nav-link:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.05);
+    color: var(--text);
+  }
+  .nav-link.is-active {
+    background: rgba(59,130,246,0.1);
+    border-color: rgba(96,165,250,0.2);
+    color: #dbeafe;
+  }
+  .nav-link .material-icons-outlined { font-size: 1.08rem; }
+  .nav-copy {
+    min-width: 0;
+  }
+  .nav-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+  }
+  .nav-text {
+    margin-top: 0.14rem;
+    font-size: 0.74rem;
+    color: var(--text-dim);
+  }
+
+  .sidebar-panel {
+    margin-top: auto;
+    padding: 1rem;
+    border-radius: 1.2rem;
+    background: linear-gradient(180deg, rgba(18,28,48,0.95), rgba(14,22,38,0.95));
+    border: 1px solid rgba(96,165,250,0.16);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .sidebar-panel-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #93c5fd;
+  }
+  .sidebar-panel h3 {
+    margin-top: 0.65rem;
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+  .sidebar-panel p {
+    margin-top: 0.45rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+  .sidebar-cta {
+    margin-top: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.8rem 1rem;
+    border-radius: 999px;
+    background: rgba(59,130,246,0.12);
+    border: 1px solid rgba(96,165,250,0.16);
+    color: #dbeafe;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .main {
+    min-width: 0;
+    padding: 1.4rem 1.6rem 2.5rem;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-copy h1 {
+    font-size: clamp(1.7rem, 2.4vw, 2.45rem);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+  }
+  .topbar-copy p {
+    margin-top: 0.35rem;
+    max-width: 46rem;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+  .topbar-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.86rem 1.1rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    color: var(--text-soft);
+    font-weight: 700;
+  }
+
+  .hero {
+    margin-top: 1.4rem;
+    padding: 1.6rem;
+    border-radius: 1.6rem;
+    background:
+      radial-gradient(circle at top right, rgba(59,130,246,0.18), transparent 30%),
+      linear-gradient(180deg, rgba(22,32,56,0.98), rgba(16,24,42,0.98));
+    border: 1px solid rgba(96,165,250,0.14);
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+    gap: 1.4rem;
+    overflow: hidden;
+  }
+  .hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(59,130,246,0.12);
+    color: #bfdbfe;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hero h2 {
+    margin-top: 1rem;
+    font-size: clamp(2rem, 3vw, 3.2rem);
+    line-height: 1.02;
+    letter-spacing: -0.05em;
+    max-width: 12ch;
+  }
+  .hero p {
+    margin-top: 1rem;
+    max-width: 52rem;
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+  .hero-meta {
+    margin-top: 1.3rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+  }
+  .hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: var(--text-soft);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .hero-card {
+    align-self: stretch;
+    padding: 1.15rem;
+    border-radius: 1.35rem;
+    background: rgba(9,14,27,0.48);
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 100%;
+  }
+  .hero-card-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #93c5fd;
+    font-weight: 800;
+  }
+  .hero-card h3 {
+    margin-top: 0.7rem;
+    font-size: 1.2rem;
+    line-height: 1.3;
+  }
+  .hero-card ul {
+    list-style: none;
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .hero-card li {
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    color: var(--text-muted);
+    font-size: 0.83rem;
+    line-height: 1.55;
+  }
+  .hero-card strong { color: var(--text); }
+
+  .news-grid {
+    margin-top: 1.4rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.85fr);
+    gap: 1.3rem;
+  }
+  .panel {
+    border-radius: 1.45rem;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 18px 48px rgba(2, 8, 23, 0.16);
+  }
+  .panel-header {
+    padding: 1rem 1.15rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+  }
+  .panel-header h3 {
+    font-size: 0.94rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .panel-header span {
+    font-size: 0.74rem;
+    color: var(--text-dim);
+  }
+
+  .post-card {
+    padding: 1.25rem;
+  }
+  .post-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    align-items: center;
+    color: var(--text-dim);
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .post-title {
+    margin-top: 0.95rem;
+    font-size: clamp(1.7rem, 2.3vw, 2.35rem);
+    line-height: 1.05;
+    letter-spacing: -0.05em;
+    max-width: 18ch;
+  }
+  .post-dek {
+    margin-top: 0.95rem;
+    color: var(--text-muted);
+    font-size: 0.97rem;
+    line-height: 1.75;
+    max-width: 58rem;
+  }
+  .post-visual {
+    margin-top: 1.2rem;
+    padding: 1rem;
+    border-radius: 1.3rem;
+    background:
+      linear-gradient(180deg, rgba(59,130,246,0.14), rgba(59,130,246,0.04)),
+      rgba(8, 13, 26, 0.62);
+    border: 1px solid rgba(96,165,250,0.16);
+  }
+  .post-visual-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .metric-card {
+    padding: 0.9rem;
+    border-radius: 1rem;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .metric-label {
+    color: #93c5fd;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .metric-value {
+    margin-top: 0.45rem;
+    font-size: 1.2rem;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+  .metric-copy {
+    margin-top: 0.4rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .article-body {
+    margin-top: 1.25rem;
+    display: grid;
+    gap: 1.15rem;
+  }
+  .article-section {
+    padding: 1.15rem;
+    border-radius: 1.2rem;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .article-section h4 {
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .article-section p {
+    margin-top: 0.7rem;
+    color: var(--text-soft);
+    font-size: 0.92rem;
+    line-height: 1.75;
+  }
+  .article-section ul {
+    margin-top: 0.85rem;
+    padding-left: 1.1rem;
+    color: var(--text-soft);
+    display: grid;
+    gap: 0.55rem;
+    line-height: 1.6;
+  }
+
+  .stack {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  .brief-card {
+    padding: 1rem;
+    border-radius: 1.1rem;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .brief-card .tag {
+    display: inline-flex;
+    padding: 0.32rem 0.58rem;
+    border-radius: 999px;
+    background: rgba(52,211,153,0.12);
+    color: #a7f3d0;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .brief-card h4 {
+    margin-top: 0.7rem;
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+  .brief-card p {
+    margin-top: 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    line-height: 1.6;
+  }
+  .brief-link {
+    margin-top: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: #93c5fd;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .feed-section {
+    margin-top: 1.5rem;
+  }
+  .feed-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.95rem;
+  }
+  .feed-head h3 {
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+  .feed-head p {
+    color: var(--text-dim);
+    font-size: 0.82rem;
+  }
+  .post-list {
+    display: grid;
+    gap: 0.9rem;
+  }
+  .mini-post {
+    display: grid;
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 1.2rem;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .mini-post-visual {
+    border-radius: 1rem;
+    background:
+      radial-gradient(circle at top left, rgba(59,130,246,0.24), transparent 38%),
+      linear-gradient(180deg, rgba(22,32,56,1), rgba(13,21,38,1));
+    border: 1px solid rgba(96,165,250,0.18);
+    min-height: 100px;
+  }
+  .mini-post h4 {
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+  .mini-post p {
+    margin-top: 0.45rem;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 1100px) {
+    .page-shell {
+      grid-template-columns: 1fr;
+    }
+    .sidebar {
+      position: static;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero,
+    .news-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .main {
+      padding: 1rem 0.9rem 2rem;
+    }
+    .topbar {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .post-visual-grid,
+    .mini-post {
+      grid-template-columns: 1fr;
+    }
+    .post-card,
+    .stack {
+      padding: 0.95rem;
+    }
+    .hero {
+      padding: 1.2rem;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="page-shell">
+    <aside class="sidebar">
+      <div class="brand-row">
+        <div class="brand-mark"><span class="material-icons-outlined">auto_stories</span></div>
+        <div>
+          <div class="brand-title">Drekee Noticias</div>
+          <div class="brand-subtitle">Redacao cientifica em tempo real</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a class="nav-link is-active" href="sobre.html">
+          <span class="material-icons-outlined">newspaper</span>
+          <div class="nav-copy">
+            <div class="nav-title">Capa</div>
+            <div class="nav-text">Destaques e postagens</div>
+          </div>
+        </a>
+        <a class="nav-link" href="index.html">
+          <span class="material-icons-outlined">forum</span>
+          <div class="nav-copy">
+            <div class="nav-title">Voltar para IA</div>
+            <div class="nav-text">Abrir o laboratorio Drekee</div>
+          </div>
+        </a>
+        <a class="nav-link" href="#feed">
+          <span class="material-icons-outlined">view_agenda</span>
+          <div class="nav-copy">
+            <div class="nav-title">Feed editorial</div>
+            <div class="nav-text">Leituras e proximas pautas</div>
+          </div>
+        </a>
+      </nav>
+
+      <div class="sidebar-panel">
+        <div class="sidebar-panel-kicker">
+          <span class="material-icons-outlined" style="font-size:0.95rem;">flare</span>
+          <span>Edicao piloto</span>
+        </div>
+        <h3>Um newsroom com a mesma identidade do Drekee AI.</h3>
+        <p>Esta pagina funciona como a base do blog/editorial: visual familiar, navegacao limpa e espaco para publicar noticias, analises e posts especiais.</p>
+        <a class="sidebar-cta" href="#post-teste">
+          <span class="material-icons-outlined" style="font-size:1rem;">arrow_downward</span>
+          <span>Ler o primeiro post</span>
+        </a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <h1>Noticias, analises e bastidores da ciencia</h1>
+          <p>Uma extensao editorial do Drekee AI: mesma atmosfera visual, mas em formato de portal, com postagens, destaques e leitura mais classica.</p>
+        </div>
+        <a class="topbar-link" href="index.html">
+          <span class="material-icons-outlined" style="font-size:1rem;">west</span>
+          <span>Voltar ao chat</span>
+        </a>
+      </header>
+
+      <section class="hero">
+        <div>
+          <div class="hero-kicker">
+            <span class="material-icons-outlined" style="font-size:0.95rem;">bolt</span>
+            <span>Postagem em destaque</span>
+          </div>
+          <h2>Como transformar um chat cientifico em um produto editorial de verdade</h2>
+          <p>Este primeiro post de teste inaugura a area de noticias do Drekee. A ideia aqui e simples: pegar a identidade visual do app, preservar a linguagem premium e reorganizar tudo em formato de blog, com leitura fluida, materias fixas e espaco para cobertura de novos assuntos.</p>
+          <div class="hero-meta">
+            <div class="hero-chip"><span class="material-icons-outlined" style="font-size:0.95rem;">schedule</span><span>Publicado hoje</span></div>
+            <div class="hero-chip"><span class="material-icons-outlined" style="font-size:0.95rem;">edit</span><span>Redacao Drekee</span></div>
+            <div class="hero-chip"><span class="material-icons-outlined" style="font-size:0.95rem;">visibility</span><span>Pauta teste</span></div>
+          </div>
+        </div>
+
+        <div class="hero-card">
+          <div>
+            <div class="hero-card-label">Radar da edicao</div>
+            <h3>O que essa pagina ja entrega</h3>
+          </div>
+          <ul>
+            <li><strong>Hero editorial:</strong> espaço para a principal manchete do dia, com contexto e hierarquia.</li>
+            <li><strong>Corpo de leitura:</strong> estrutura pronta para texto longo, secoes e listas.</li>
+            <li><strong>Blocos laterais:</strong> cards para radar, notas rapidas, proximas pautas e links internos.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="news-grid" id="post-teste">
+        <article class="panel">
+          <div class="panel-header">
+            <h3>Primeiro post de teste</h3>
+            <span>Leitura de 4 min</span>
+          </div>
+
+          <div class="post-card">
+            <div class="post-meta">
+              <span>Teste editorial</span>
+              <span>•</span>
+              <span>Produto</span>
+              <span>•</span>
+              <span>Layout base</span>
+            </div>
+
+            <h2 class="post-title">Por que uma area de noticias fortalece a experiencia do Drekee</h2>
+            <p class="post-dek">Num chat, tudo acontece em fluxo. Num portal de noticias, o conteudo ganha permanencia, narrativa e memoria visual. Isso permite destacar descobertas, registrar atualizacoes importantes e transformar respostas em materiais que continuam relevantes mesmo fora da conversa.</p>
+
+            <div class="post-visual">
+              <div class="post-visual-grid">
+                <div class="metric-card">
+                  <div class="metric-label">Formato</div>
+                  <div class="metric-value">Blog + newsroom</div>
+                  <div class="metric-copy">Mesmo universo visual do app principal, com ritmo de leitura mais editorial.</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">Primeira entrega</div>
+                  <div class="metric-value">1 post piloto</div>
+                  <div class="metric-copy">Estrutura pronta para receber destaques, categorias e postagens futuras.</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">Tom</div>
+                  <div class="metric-value">Claro e premium</div>
+                  <div class="metric-copy">Texto mais organizado, com hierarquia visual forte e leitura responsiva.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="article-body">
+              <section class="article-section">
+                <h4>O que muda na pratica</h4>
+                <p>Em vez de depender apenas do chat ao vivo, a plataforma passa a ter um espaco para publicar conteudo permanente: noticias, resumos de descobertas, analises tematicas, bastidores de atualizacoes do produto e curadorias especiais. Isso amplia o valor do ecossistema e cria uma identidade editorial propria.</p>
+              </section>
+
+              <section class="article-section">
+                <h4>Por que o formato de blog faz sentido aqui</h4>
+                <p>O Drekee ja tem uma identidade forte: escuro sofisticado, brilho azul controlado, tipografia limpa e componentes com cara de produto premium. Ao traduzir essa base para um formato de portal, a experiencia fica coerente e a leitura se torna mais relaxada para textos longos e materias em destaque.</p>
+                <ul>
+                  <li>melhora a escaneabilidade das informacoes;</li>
+                  <li>permite organizar temas por relevancia e nao apenas por ordem cronologica de chat;</li>
+                  <li>cria espaco para publicacoes especiais com mais contexto e acabamento visual.</li>
+                </ul>
+              </section>
+
+              <section class="article-section">
+                <h4>Proximos passos naturais</h4>
+                <p>Depois desse primeiro post de teste, a pagina pode crescer com categorias editoriais, pagina de artigo individual, busca por postagens, destaque para noticias recentes e cards gerados a partir de resumos cientificos do proprio sistema.</p>
+              </section>
+            </div>
+          </div>
+        </article>
+
+        <aside class="panel">
+          <div class="panel-header">
+            <h3>Radar</h3>
+            <span>Agora no portal</span>
+          </div>
+
+          <div class="stack">
+            <article class="brief-card">
+              <span class="tag">Em observacao</span>
+              <h4>Secao ideal para notas curtas e chamadas laterais</h4>
+              <p>Este card funciona bem para updates de produto, notas de contexto ou pequenos highlights sem roubar o protagonismo do artigo principal.</p>
+              <a class="brief-link" href="#feed">
+                <span>Ver feed editorial</span>
+                <span class="material-icons-outlined" style="font-size:0.95rem;">east</span>
+              </a>
+            </article>
+
+            <article class="brief-card">
+              <span class="tag" style="background:rgba(59,130,246,0.12);color:#bfdbfe;">Design</span>
+              <h4>Mesma linguagem do app, mas com ritmo de leitura diferente</h4>
+              <p>O layout continua escuro, elegante e tecnológico, só que com mais respiro para títulos, resumos e navegação editorial.</p>
+            </article>
+
+            <article class="brief-card">
+              <span class="tag" style="background:rgba(129,140,248,0.14);color:#c7d2fe;">Próxima pauta</span>
+              <h4>Ideia de publicação futura: “O que mudou no Drekee AI 1.5 Pro”</h4>
+              <p>Uma matéria ideal para estrear changelogs editoriais, roadmap visual e cobertura de recursos novos do produto.</p>
+            </article>
+          </div>
+        </aside>
+      </section>
+
+      <section class="feed-section" id="feed">
+        <div class="feed-head">
+          <div>
+            <h3>Mais do feed editorial</h3>
+            <p>Cards de apoio para futuras postagens, especiais e coberturas.</p>
+          </div>
+        </div>
+
+        <div class="post-list">
+          <article class="mini-post">
+            <div class="mini-post-visual"></div>
+            <div>
+              <h4>Especial em preparacao: como transformar respostas cientificas em materias permanentes</h4>
+              <p>Espaco pronto para uma analise mais longa sobre curadoria, selecao de temas e publicacao editorial dentro do ecossistema Drekee.</p>
+            </div>
+          </article>
+
+          <article class="mini-post">
+            <div class="mini-post-visual" style="background:radial-gradient(circle at bottom left, rgba(129,140,248,0.24), transparent 38%), linear-gradient(180deg, rgba(22,32,56,1), rgba(13,21,38,1));"></div>
+            <div>
+              <h4>Template pronto para noticias curtas, notas de produto e bastidores de desenvolvimento</h4>
+              <p>Este segundo bloco ja funciona como base para publicar updates menores, com resumo curto, data e call to action.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
