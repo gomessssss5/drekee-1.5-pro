@@ -1041,6 +1041,57 @@
     line-height: 1.4;
     color: #64748b;
   }
+  .offline-document-launcher {
+    margin-top: 1rem;
+    padding: 1.05rem 1.1rem;
+    border-radius: 20px;
+    border: 1px solid rgba(96,165,250,0.18);
+    background:
+      radial-gradient(circle at top right, rgba(59,130,246,0.14), transparent 36%),
+      linear-gradient(180deg, rgba(17,29,50,0.96), rgba(15,23,42,0.96));
+    box-shadow: 0 14px 40px rgba(2, 8, 23, 0.22);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .offline-document-launcher-copy {
+    min-width: 0;
+  }
+  .offline-document-launcher-title {
+    font-size: 0.96rem;
+    font-weight: 800;
+    color: #f8fafc;
+  }
+  .offline-document-launcher-text {
+    margin-top: 0.2rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #94a3b8;
+  }
+  .offline-document-launcher-btn {
+    min-width: 220px;
+    padding: 0.95rem 1.25rem;
+    border-radius: 16px;
+    border: 1px solid rgba(147,197,253,0.22);
+    background: linear-gradient(135deg, rgba(37,99,235,0.98), rgba(59,130,246,0.96));
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 0.92rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+    font-family: inherit;
+    box-shadow: 0 18px 34px rgba(37, 99, 235, 0.28);
+  }
+  .offline-document-launcher-btn:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+    box-shadow: 0 22px 40px rgba(37, 99, 235, 0.34);
+  }
   .document-card .doc-body h1,
   .document-card .doc-body h2,
   .document-card .doc-body h3 {
@@ -1254,6 +1305,14 @@
     .document-modal-actions {
       width: 100%;
       justify-content: flex-start;
+    }
+    .offline-document-launcher {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .offline-document-launcher-btn {
+      width: 100%;
+      min-width: 0;
     }
   }
 
@@ -2551,29 +2610,15 @@
       .trim();
   }
 
-  function buildOfflineDocumentData({ response, sources = [], userQuestion = '', conversationTitle = '', title = '' } = {}) {
+  function buildOfflineDocumentData({ response, sources = [], userQuestion = '', conversationTitle = '', title = '', preserveMarkdown = false } = {}) {
     const cleanText = stripResponseArtifacts(response, { keepLineBreaks: true }) || 'Resumo indisponivel.';
-    const paragraphs = cleanText
-      .split(/\n{2,}/)
-      .map(chunk => chunk.trim())
-      .filter(Boolean);
-
-    let executiveSummary = paragraphs.shift() || cleanText;
-    if (executiveSummary.length > 360 && paragraphs.length === 0) {
-      const sentences = executiveSummary.match(/[^.!?]+[.!?]?/g) || [executiveSummary];
-      executiveSummary = sentences.slice(0, 2).join(' ').trim() || executiveSummary;
-      const overflow = sentences.slice(2).join(' ').trim();
-      if (overflow) paragraphs.unshift(overflow);
-    }
-
-    const detailText = paragraphs.join('\n\n').trim() || executiveSummary;
     const finalTitle = String(title || buildOfflineDocumentTitle(userQuestion || conversationTitle, cleanText)).trim();
     const createdAt = new Date();
     const docData = {
       title: finalTitle,
       question: String(userQuestion || conversationTitle || '').trim(),
-      executiveSummary,
-      detailText,
+      executiveSummary: '',
+      detailText: '',
       sources: Array.isArray(sources) ? sources.map(source => ({
         id: source.id,
         label: source.label,
@@ -2593,11 +2638,85 @@
       }),
     };
 
+    if (preserveMarkdown) {
+      const normalizedMarkdown = cleanText.trim();
+      const markdownWithoutTitle = normalizedMarkdown.replace(/^#\s+.*$/m, '').trim();
+      const execMatch = markdownWithoutTitle.match(/###\s*Sum[aá]rio Executivo\s*([\s\S]*?)(?=\n###\s|$)/i);
+      const executiveSource = (execMatch?.[1] || markdownWithoutTitle || cleanText).trim();
+      const executiveParagraphs = executiveSource
+        .split(/\n{2,}/)
+        .map(chunk => chunk.trim())
+        .filter(Boolean);
+
+      docData.executiveSummary = executiveParagraphs[0] || executiveSource.split('\n').map(line => line.trim()).find(Boolean) || cleanText;
+      docData.detailText = markdownWithoutTitle;
+      docData.markdown = normalizedMarkdown;
+      docData.plainText = markdownToPlainText(docData.markdown);
+      docData.previewHtml = simpleMarkdownToHTML(escapeHtml(`### Sumario Executivo\n${docData.executiveSummary}`));
+      docData.contentHtml = simpleMarkdownToHTML(escapeHtml(docData.markdown));
+      return docData;
+    }
+
+    const paragraphs = cleanText
+      .split(/\n{2,}/)
+      .map(chunk => chunk.trim())
+      .filter(Boolean);
+
+    let executiveSummary = paragraphs.shift() || cleanText;
+    if (executiveSummary.length > 360 && paragraphs.length === 0) {
+      const sentences = executiveSummary.match(/[^.!?]+[.!?]?/g) || [executiveSummary];
+      executiveSummary = sentences.slice(0, 2).join(' ').trim() || executiveSummary;
+      const overflow = sentences.slice(2).join(' ').trim();
+      if (overflow) paragraphs.unshift(overflow);
+    }
+
+    const detailText = paragraphs.join('\n\n').trim() || executiveSummary;
+    docData.executiveSummary = executiveSummary;
+    docData.detailText = detailText;
+
     docData.markdown = composeOfflineDocumentMarkdown(docData);
     docData.plainText = markdownToPlainText(docData.markdown);
     docData.previewHtml = simpleMarkdownToHTML(escapeHtml(`### Sumario Executivo\n${docData.executiveSummary}`));
     docData.contentHtml = simpleMarkdownToHTML(escapeHtml(docData.markdown));
     return docData;
+  }
+
+  function parseMarkdownBlocks(markdown = '') {
+    const blocks = [];
+    const lines = String(markdown || '').replace(/\r/g, '').split('\n');
+    let paragraphLines = [];
+
+    const flushParagraph = () => {
+      const text = paragraphLines.join(' ').replace(/\s+/g, ' ').trim();
+      if (text) blocks.push({ type: 'paragraph', text });
+      paragraphLines = [];
+    };
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        flushParagraph();
+        return;
+      }
+
+      if (/^#{1,3}\s+/.test(trimmed)) {
+        flushParagraph();
+        const level = (trimmed.match(/^#+/) || ['#'])[0].length;
+        blocks.push({ type: 'heading', level, text: trimmed.replace(/^#{1,3}\s+/, '').trim() });
+        return;
+      }
+
+      if (/^\-\s+/.test(trimmed)) {
+        flushParagraph();
+        blocks.push({ type: 'bullet', text: trimmed.replace(/^\-\s+/, '').trim() });
+        return;
+      }
+
+      paragraphLines.push(trimmed);
+    });
+
+    flushParagraph();
+    return blocks;
   }
 
   function downloadOfflineDocument(docData) {
@@ -2614,6 +2733,22 @@
         if (cursorY + heightNeeded <= pageHeight - margin) return;
         pdf.addPage();
         cursorY = margin;
+      };
+
+      const writeWrapped = (text, x, fontSize, lineHeight, options = {}) => {
+        const maxWidth = options.maxWidth || (pageWidth - x - margin);
+        const lines = pdf.splitTextToSize(String(text || ''), maxWidth);
+        pdf.setFont('helvetica', options.fontStyle || 'normal');
+        pdf.setFontSize(fontSize);
+        pdf.setTextColor(...(options.color || [31, 41, 55]));
+        lines.forEach((line, index) => {
+          ensureSpace(lineHeight);
+          pdf.text(line, x, cursorY);
+          cursorY += lineHeight;
+          if (options.firstLineGap && index === lines.length - 1) {
+            cursorY += options.firstLineGap;
+          }
+        });
       };
 
       pdf.setFont('helvetica', 'bold');
@@ -2637,12 +2772,31 @@
       });
 
       cursorY += 10;
-      pdf.setFontSize(12);
-      const bodyLines = pdf.splitTextToSize(docData.plainText, usableWidth);
-      bodyLines.forEach(line => {
-        ensureSpace(18);
-        pdf.text(line, margin, cursorY);
-        cursorY += 18;
+      parseMarkdownBlocks(docData.markdown).forEach(block => {
+        if (block.type === 'heading') {
+          const fontSize = block.level === 1 ? 18 : 15;
+          cursorY += 6;
+          writeWrapped(block.text, margin, fontSize, fontSize + 6, {
+            fontStyle: 'bold',
+            color: [15, 23, 42],
+            firstLineGap: 4,
+          });
+          return;
+        }
+
+        if (block.type === 'bullet') {
+          writeWrapped(`• ${markdownToPlainText(block.text)}`, margin + 6, 12, 18, {
+            maxWidth: usableWidth - 6,
+            color: [51, 65, 85],
+          });
+          cursorY += 4;
+          return;
+        }
+
+        writeWrapped(markdownToPlainText(block.text), margin, 12, 18, {
+          color: [51, 65, 85],
+          firstLineGap: 8,
+        });
       });
 
       pdf.save(`${String(docData.title || 'resumo').toLowerCase().replace(/[^a-z0-9]+/gi, '_')}.pdf`);
@@ -2665,7 +2819,7 @@
         <body>
           <h1>${escapeHtml(docData.title)}</h1>
           <div class="meta">Data: ${escapeHtml(docData.dateLabel)}<br/>Plataforma: ${escapeHtml(docData.platform)}<br/>Agente: ${escapeHtml(docData.author)}</div>
-          <div class="content">${escapeHtml(docData.plainText)}</div>
+          <div class="content">${docData.contentHtml}</div>
           <script>window.onload = () => window.print();<\/script>
         </body>
       </html>
@@ -2784,6 +2938,7 @@
         userQuestion: summaryTitle,
         conversationTitle: convTitle.textContent,
         title: data.offlineDocument.title,
+        preserveMarkdown: true,
       }),
       logs: data.logs || [],
     };
@@ -2888,90 +3043,23 @@
 
   function createOfflineDocumentCard(docData) {
     const card = document.createElement('section');
-    card.className = 'document-card is-preview agent-pane-reveal';
+    card.className = 'offline-document-launcher agent-pane-reveal';
     card.style.setProperty('--reveal-delay', '0s');
     card.innerHTML = `
-      <div class="doc-header">
-        <div class="doc-header-main">
-          <div style="display:flex;align-items:center;gap:1rem;min-width:0;">
-            <div class="doc-icon"><span class="material-icons-outlined">article</span></div>
-            <div style="min-width:0;">
-              <div class="doc-title">${escapeHtml(docData.title)}</div>
-              <div class="doc-subtitle">Documento offline pronto para leitura e download</div>
-            </div>
-          </div>
-        </div>
-        <button type="button" class="doc-open-pill">Abrir documento</button>
+      <div class="offline-document-launcher-copy">
+        <div class="offline-document-launcher-title">${escapeHtml(docData.title)}</div>
+        <div class="offline-document-launcher-text">Documento offline pronto. Abra em tela cheia, baixe em PDF ou copie quando quiser.</div>
       </div>
-      <div class="doc-meta-grid">
-        <div class="doc-meta-item">
-          <div class="doc-meta-label">Data</div>
-          <div class="doc-meta-value">${escapeHtml(docData.dateLabel)}</div>
-        </div>
-        <div class="doc-meta-item">
-          <div class="doc-meta-label">Plataforma</div>
-          <div class="doc-meta-value">${escapeHtml(docData.platform)}</div>
-        </div>
-        <div class="doc-meta-item">
-          <div class="doc-meta-label">Agente</div>
-          <div class="doc-meta-value">${escapeHtml(docData.author)}</div>
-        </div>
-      </div>
-      <div class="doc-body">${docData.previewHtml}</div>
-      <div class="doc-footer">
-        <div class="doc-preview-mini" role="button" tabindex="0">
-          <div class="doc-preview-sheet" aria-hidden="true">
-            <div class="doc-preview-line is-strong"></div>
-            <div class="doc-preview-line"></div>
-            <div class="doc-preview-line"></div>
-            <div class="doc-preview-line is-short"></div>
-            <div class="doc-preview-line"></div>
-            <div class="doc-preview-line is-short"></div>
-          </div>
-          <div class="doc-preview-copy">
-            <div class="doc-preview-copy-title">Abrir documento completo</div>
-            <div class="doc-preview-copy-subtitle">Visualizacao manus-like, com leitura ampla e a versao inteira do resumo.</div>
-          </div>
-        </div>
-        <div class="doc-actions">
-          <button type="button" class="doc-btn btn-open-doc"><span class="material-icons-outlined">open_in_full</span> Abrir resumo</button>
-          <button type="button" class="doc-btn btn-download"><span class="material-icons-outlined">download</span> Baixar</button>
-          <button type="button" class="doc-btn btn-copy-doc"><span class="material-icons-outlined">content_copy</span> Copiar</button>
-        </div>
-      </div>
+      <button type="button" class="offline-document-launcher-btn">
+        <span class="material-icons-outlined">description</span>
+        <span>Abrir documento</span>
+      </button>
     `;
 
-    const openTargets = [
-      card.querySelector('.doc-open-pill'),
-      card.querySelector('.doc-preview-mini'),
-      card.querySelector('.btn-open-doc'),
-    ].filter(Boolean);
-
-    openTargets.forEach(target => {
-      target.addEventListener('click', event => {
-        event.stopPropagation();
-        openOfflineDocumentModal(docData);
-      });
-    });
-
-    const previewMini = card.querySelector('.doc-preview-mini');
-    if (previewMini) {
-      previewMini.addEventListener('keydown', event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          openOfflineDocumentModal(docData);
-        }
-      });
-    }
-
-    card.querySelector('.btn-download').addEventListener('click', event => {
+    const openButton = card.querySelector('.offline-document-launcher-btn');
+    openButton.addEventListener('click', event => {
       event.stopPropagation();
-      downloadOfflineDocument(docData);
-    });
-
-    card.querySelector('.btn-copy-doc').addEventListener('click', async event => {
-      event.stopPropagation();
-      await copyOfflineDocument(docData, event.currentTarget);
+      openOfflineDocumentModal(docData);
     });
 
     return card;

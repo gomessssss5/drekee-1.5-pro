@@ -2595,17 +2595,22 @@ async function generateOfflineSummaryDocument(history = [], requestedTitle = '',
 OBJETIVO:
 - Resumir TODA a conversa, não apenas a última resposta.
 - Consolidar as perguntas do usuário, as respostas dadas e as conclusões mais úteis.
-- Produzir um documento limpo, objetivo, bem organizado e pronto para leitura offline.
+- Produzir um documento limpo, objetivo, profundamente informativo, profissional e pronto para leitura offline.
 
 REGRAS OBRIGATÓRIAS:
 1. Use TODO o histórico abaixo como memória da conversa.
 2. NÃO copie a última resposta como se ela fosse o resumo inteiro.
 3. Faça um resumo executivo curto e direto no início.
-4. Depois organize o conteúdo em seções claras e úteis.
+4. Depois organize o conteúdo em seções claras, densas e úteis.
 5. NÃO use as tags [CONFIANÇA], [ID-DA-FONTE], [PHET], [PDB] ou [OFFLINE_DOC].
 6. Se houver fontes citadas ao longo da conversa, transforme isso em texto limpo na seção final "Fontes e referências mencionadas".
 7. Não fale sobre o processo de geração. Entregue apenas o documento.
 8. O documento precisa funcionar bem como PDF.
+9. Evite texto genérico. Cada seção deve trazer informação concreta, específica e realmente útil.
+10. Explique os conceitos principais de forma profissional, mas entendível por leigos e estudantes.
+11. Use subtítulos, negrito, bullets e parágrafos curtos quando isso melhorar a leitura.
+12. Se a conversa tratou de fatos científicos, inclua os pontos mais importantes, implicações, contexto e conclusões.
+13. O documento final deve parecer um relatório/apostila curta, não um bloco corrido de texto.
 
 FORMATO DE SAÍDA OBRIGATÓRIO:
 [TITLE]
@@ -2617,10 +2622,13 @@ um título curto e profissional
 ### Sumário Executivo
 ...
 
-### Pontos-Chave da Conversa
+### Visão Geral da Conversa
 ...
 
-### Explicação Consolidada
+### Conceitos e Explicações Principais
+...
+
+### Pontos-Chave e Conclusões
 ...
 
 ### Fontes e referências mencionadas
