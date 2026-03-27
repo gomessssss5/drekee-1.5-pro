@@ -482,14 +482,11 @@
   /* ── Split Layout ── */
   .ai-split-container {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) clamp(240px, 24vw, 320px);
-    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr) clamp(270px, 28vw, 360px);
+    gap: 1.35rem;
     width: 100%;
     margin-bottom: 1rem;
     align-items: flex-start;
-  }
-  .ai-split-container.has-third-column {
-    grid-template-columns: minmax(0, 1fr) clamp(210px, 21vw, 285px) clamp(220px, 23vw, 305px);
   }
   .ai-left-column {
     min-width: 0;
@@ -500,20 +497,6 @@
     gap: 1.25rem;
     min-width: 0;
   }
-  .ai-third-row {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    min-width: 0;
-  }
-  .ai-third-row .media-results,
-  .ai-third-row .sources-section,
-  .ai-third-row .embedded-videos-section {
-    margin-top: 0 !important;
-    background: rgba(15,23,42,0.46);
-    border: 1px solid rgba(255,255,255,0.05);
-  }
-  
   /* Seção de Mídia na Sidebar */
   .ai-right-column .media-results,
   .ai-right-column .sources-section,
@@ -580,15 +563,12 @@
   }
 
   @media (max-width: 1200px) {
-    .ai-split-container { grid-template-columns: minmax(0, 1fr) clamp(220px, 26vw, 285px); gap: 1rem; }
-    .ai-split-container.has-third-column { grid-template-columns: minmax(0, 1fr) clamp(190px, 23vw, 250px) clamp(200px, 24vw, 265px); }
+    .ai-split-container { grid-template-columns: minmax(0, 1fr) clamp(240px, 30vw, 320px); gap: 1rem; }
   }
 
   @media (max-width: 768px) {
-    .ai-split-container,
-    .ai-split-container.has-third-column { grid-template-columns: 1fr; }
+    .ai-split-container { grid-template-columns: 1fr; }
     .ai-right-column { min-width: 100%; }
-    .ai-third-row { min-width: 100%; gap: 1rem; }
   }
 
   /* ── PhET Simulations ── */
@@ -2014,17 +1994,6 @@
     return anchor;
   }
 
-  function shouldUseThirdRowLayout(media, videoSources, textSources) {
-    if (textSources.length === 0) return false;
-    if (media.length === 0 && videoSources.length === 0) return false;
-
-    const weightedLoad = (media.length * 1.45) + (videoSources.length * 2.35) + (textSources.length * 1.05);
-    return weightedLoad >= 7.2 ||
-      media.length >= 3 ||
-      (videoSources.length > 0 && textSources.length >= 3) ||
-      (textSources.length >= 4 && media.length > 0);
-  }
-
   function createMediaCard(item, galleryTheme = 'default') {
     const card = document.createElement('article');
     card.className = 'media-item';
@@ -2278,22 +2247,14 @@
     sourcesContainer.className = 'sources-section';
     sourcesContainer.innerHTML = `<div class="sources-header">📚 Fontes Utilizadas</div><div class="sources-grid">${renderSources(textSources)}</div>`;
 
-    const thirdRow = document.createElement('div');
-    thirdRow.className = 'ai-third-row';
-    const useThirdRow = shouldUseThirdRowLayout(media, videoSources, textSources);
-
     if (textSources.length > 0) {
       rightCol.appendChild(sourcesContainer);
-      if (useThirdRow) {
-        if (media.length > 0) thirdRow.appendChild(mediaContainer);
-        if (videoSources.length > 0) thirdRow.appendChild(embeddedVideosContainer);
-      } else {
-        if (media.length > 0) rightCol.appendChild(mediaContainer);
-        if (videoSources.length > 0) rightCol.appendChild(embeddedVideosContainer);
-      }
-    } else {
-      if (media.length > 0) rightCol.appendChild(mediaContainer);
-      if (videoSources.length > 0) rightCol.appendChild(embeddedVideosContainer);
+    }
+    if (videoSources.length > 0) {
+      rightCol.appendChild(embeddedVideosContainer);
+    }
+    if (media.length > 0) {
+      rightCol.appendChild(mediaContainer);
     }
 
     splitContainer.appendChild(leftCol);
@@ -2304,10 +2265,6 @@
       leftCol.style.flex = "1"; // Ocupa tudo se não houver mídia na direita
     }
 
-    if (thirdRow.children.length > 0) {
-      splitContainer.classList.add('has-third-column');
-      splitContainer.appendChild(thirdRow);
-    }
     inner.appendChild(splitContainer);
 
     // -- SEÇÕES DE LARGURA TOTAL (Abaixo do Split) --
@@ -2483,18 +2440,17 @@
     // -- LÓGICA DE COLAPSAR SIDEBAR/GALEIRA --
     const leftH = leftCol.offsetHeight;
     const cards = [embeddedVideosContainer, mediaContainer, sourcesContainer].filter(card =>
-      card && card.parentElement && (rightCol.contains(card) || thirdRow.contains(card))
+      card && card.parentElement && rightCol.contains(card)
     );
     
     cards.forEach(card => {
       if (!card || card.children.length === 0) return;
       const h = card.offsetHeight;
       const isMobile = window.innerWidth <= 768;
-      const isInThirdRow = thirdRow.contains(card);
+      
       
       // Colapsar se for sidebar muito longa (> leftCol + 100) OU se a galeria de mídia no mobile tiver > 400px
-      const shouldCollapse = (!isMobile && !isInThirdRow && leftH > 50 && (h > 400 || h > leftH)) || 
-                             (!isMobile && isInThirdRow && h > 540) ||
+      const shouldCollapse = (!isMobile && leftH > 50 && (h > 420 || h > leftH)) ||
                              (isMobile && card.classList.contains('media-results') && h > 450);
 
       if (shouldCollapse) {
