@@ -462,6 +462,7 @@
   .log-line { color: #cbd5e1; margin: 0.3rem 0; line-height: 1.4; }
 
   .ai-response { margin-bottom: 1rem; white-space: pre-wrap; word-break: break-word; }
+  .ai-response-dark-table { white-space: normal; margin-bottom: 0.35rem; }
 
   .citation-tag { display: inline-block; background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.4); border-radius: 3px; padding: 0.1rem 0.3rem; font-size: 0.7rem; font-weight: 600; color: #3b82f6; margin: 0 0.2rem; cursor: pointer; transition: background 0.2s ease; vertical-align: baseline; }
   .citation-tag:hover { background: rgba(59,130,246,0.4); }
@@ -738,6 +739,35 @@
   }
   .btn-copy-doc:hover { background: #f1f5f9; color: #1e293b; transform: translateY(-1px); }
 
+  .msg-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 0.45rem;
+    align-items: center;
+  }
+  .msg-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    padding: 0.52rem 0.86rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148,163,184,0.16);
+    background: rgba(15,23,42,0.72);
+    color: #e2e8f0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    font-family: inherit;
+  }
+  .msg-action-btn:hover {
+    transform: translateY(-1px);
+    background: rgba(30,41,59,0.92);
+    border-color: rgba(96,165,250,0.32);
+    color: #f8fafc;
+  }
   .msg-action-btn .material-icons-outlined { font-size: 0.95rem; }
 
   /* ── Markdown Elements ── */
@@ -1862,6 +1892,10 @@
     }
 
     let html = simpleMarkdownToHTML(response);
+    html = html
+      .replace(/(?:<br\s*\/?>\s*){3,}/gi, '<br/><br/>')
+      .replace(/^(?:<br\s*\/?>\s*)+/i, '')
+      .replace(/(?:<br\s*\/?>\s*)+$/i, '');
 
     // 5. Citações (Rodar após o markdown para segurança)
     html = html.replace(/\[([^\]]+)\]/gi, (match, rawReference) => {
