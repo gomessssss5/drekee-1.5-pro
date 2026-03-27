@@ -1363,6 +1363,11 @@ function resolveSourceReference(rawReference, lookup) {
     return lookup.byId.get(cleanedValue);
   }
 
+  const idPrefixMatch = cleanedValue.match(/^([A-Z0-9]+(?:[-_][A-Z0-9]+)+)\s*:/i);
+  if (idPrefixMatch && lookup.byId.has(idPrefixMatch[1])) {
+    return lookup.byId.get(idPrefixMatch[1]);
+  }
+
   const normalizedValue = normalizeSourceToken(cleanedValue);
   return normalizedValue ? (lookup.byAlias.get(normalizedValue) || null) : null;
 }

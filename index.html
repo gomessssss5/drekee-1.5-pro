@@ -2694,6 +2694,12 @@
     }
   }
 
+  function closeOfflineDocumentModal() {
+    const backdrop = document.getElementById('documentModalBackdrop');
+    if (backdrop) backdrop.remove();
+    document.documentElement.style.overflow = '';
+  }
+
   function buildOfflineSummaryHistoryPayload() {
     return chatHistory
       .map(item => {
@@ -2771,13 +2777,16 @@
       throw new Error('Resposta de resumo offline veio incompleta.');
     }
 
-    return buildOfflineDocumentData({
-      response: data.offlineDocument.markdown,
-      sources: [],
-      userQuestion: summaryTitle,
-      conversationTitle: convTitle.textContent,
-      title: data.offlineDocument.title,
-    });
+    return {
+      docData: buildOfflineDocumentData({
+        response: data.offlineDocument.markdown,
+        sources: [],
+        userQuestion: summaryTitle,
+        conversationTitle: convTitle.textContent,
+        title: data.offlineDocument.title,
+      }),
+      logs: data.logs || [],
+    };
   }
 
   function ensureOfflineDocumentModal() {
@@ -2820,8 +2829,7 @@
 
     backdrop.addEventListener('click', event => {
       if (event.target === backdrop) {
-        backdrop.classList.remove('show');
-        document.documentElement.style.overflow = '';
+        closeOfflineDocumentModal();
       }
     });
 
@@ -2832,8 +2840,7 @@
       const docData = backdrop._docData;
       if (!docData) return;
       if (action === 'close') {
-        backdrop.classList.remove('show');
-        document.documentElement.style.overflow = '';
+        closeOfflineDocumentModal();
       } else if (action === 'download') {
         downloadOfflineDocument(docData);
       } else if (action === 'copy') {
@@ -2841,12 +2848,15 @@
       }
     });
 
-    document.addEventListener('keydown', event => {
-      if (event.key === 'Escape' && backdrop.classList.contains('show')) {
-        backdrop.classList.remove('show');
-        document.documentElement.style.overflow = '';
-      }
-    });
+    if (!window._offlineDocumentEscBound) {
+      document.addEventListener('keydown', event => {
+        const activeBackdrop = document.getElementById('documentModalBackdrop');
+        if (event.key === 'Escape' && activeBackdrop?.classList.contains('show')) {
+          closeOfflineDocumentModal();
+        }
+      });
+      window._offlineDocumentEscBound = true;
+    }
 
     document.body.appendChild(backdrop);
     return backdrop;
@@ -3065,6 +3075,11 @@
 
     if (lookup.byId.has(cleanedValue)) {
       return lookup.byId.get(cleanedValue);
+    }
+
+    const idPrefixMatch = cleanedValue.match(/^([A-Z0-9]+(?:[-_][A-Z0-9]+)+)\s*:/i);
+    if (idPrefixMatch && lookup.byId.has(idPrefixMatch[1])) {
+      return lookup.byId.get(idPrefixMatch[1]);
     }
 
     const normalizedValue = normalizeSourceKey(cleanedValue);
@@ -3645,9 +3660,6 @@
     const summaryButton = actionsContainer.querySelector('.btn-summary');
     summaryButton.addEventListener('click', async () => {
       if (currentOfflineDocument && currentOfflineDocument.sourceTurnCount === chatHistory.length) {
-        documentHost.innerHTML = '';
-        documentHost.appendChild(createOfflineDocumentCard(currentOfflineDocument));
-        scrollToBottom();
         openOfflineDocumentModal(currentOfflineDocument);
         return;
       }
@@ -3657,29 +3669,42 @@
       summaryButton.style.opacity = '0.68';
       summaryButton.innerHTML = '<span class="material-icons-outlined">hourglass_top</span> Gerando resumo...';
       document.getElementById('thinkingIndicator').classList.add('show');
-
-      documentHost.innerHTML = '';
-      documentHost.appendChild(createOfflineDocumentStatusCard(
-        'Gerando resumo offline',
-        'A IA esta relendo toda a memoria do chat para montar um documento novo, e nao apenas copiar a ultima resposta.'
-      ));
+      const summaryLiveCard = createAgentLiveCard({ connectorAuto: true, connectors: [] });
+      summaryLiveCard.setSubtitle('Relendo toda a memoria da conversa para gerar um documento novo.');
 
       try {
-        currentOfflineDocument = await requestOfflineSummaryDocument(userQuestion || convTitle.textContent || 'Resumo offline da conversa');
-        currentOfflineDocument.sourceTurnCount = chatHistory.length;
-        persistOfflineDocumentForResponse(response, currentOfflineDocument);
-        documentHost.innerHTML = '';
-        documentHost.appendChild(createOfflineDocumentCard(currentOfflineDocument));
-        scrollToBottom();
+        const summaryResult = await requestOfflineSummaryDocument(userQuestion || convTitle.textContent || 'Resumo offline da conversa');
+        currentOfflineDocument = summaryResult.docData;
+        currentOfflineDocument.sourceTurnCount = chatHistory.length + 1;
+        (summaryResult.logs || []).forEach(log => summaryLiveCard.addLog(log));
+        summaryLiveCard.complete('Resumo offline pronto para leitura.');
+        addMessage(
+          'ai',
+          'Preparei um novo resumo offline com base em toda a memoria desta conversa. O documento pode ser aberto novamente a qualquer momento pelo card abaixo.',
+          {
+            thinking: 'Resumo offline consolidado a partir do historico completo do chat.',
+            logs: summaryResult.logs || [],
+            media: [],
+            sources: [],
+            offlineDocument: currentOfflineDocument,
+            userQuestion: 'Resumo offline da conversa',
+          }
+        );
         openOfflineDocumentModal(currentOfflineDocument);
       } catch (error) {
         console.error('Offline summary failed', error);
-        documentHost.innerHTML = '';
-        documentHost.appendChild(createOfflineDocumentStatusCard(
-          'Falha ao gerar resumo offline',
-          error?.message || 'Nao foi possivel consolidar a conversa agora.',
-          true
-        ));
+        summaryLiveCard.fail(error?.message || 'Nao foi possivel consolidar a conversa agora.');
+        addMessage(
+          'ai',
+          'Nao consegui gerar o resumo offline desta conversa nesta tentativa.',
+          {
+            thinking: 'Falha ao consolidar a memoria do chat para resumo offline.',
+            logs: [error?.message || 'Falha desconhecida ao gerar resumo offline.'],
+            media: [],
+            sources: [],
+            userQuestion: 'Resumo offline da conversa',
+          }
+        );
       } finally {
         summaryButton.disabled = false;
         summaryButton.style.opacity = '';
@@ -3793,6 +3818,18 @@
   const connectorsSearch   = document.getElementById('connectorsSearch');
   const connectorsList     = document.getElementById('connectorsList');
   const connectorAutoChk   = document.getElementById('connectorAutoCheckbox');
+
+  function openConnectorsCard() {
+    connectorsCard.classList.add('show');
+    connectorsOverlay.classList.add('show');
+    renderConnectorsList(connectorsSearch.value);
+    setTimeout(() => connectorsSearch.focus(), 40);
+  }
+
+  function closeConnectorsCard() {
+    connectorsCard.classList.remove('show');
+    connectorsOverlay.classList.remove('show');
+  }
 
   const connectorOptions = [
     { key: 'tavily',     label: 'Busca Geral (Tavily)', img: 'tavily.png', description: 'Pesquisa na web e agrega resultados recentes.' },
