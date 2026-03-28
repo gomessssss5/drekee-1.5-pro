@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Drekee Ideias de Uso</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<link rel="icon" href="data:,"/>
+<style>
+  :root {
+    --bg: #0d1526;
+    --bg2: #111d32;
+    --surface: rgba(18, 28, 48, 0.88);
+    --surface-strong: rgba(15, 23, 42, 0.96);
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(96,165,250,0.18);
+    --text: #e2e8f0;
+    --text-soft: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --blue: #60a5fa;
+    --blue-soft: rgba(96,165,250,0.14);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    min-height: 100%;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background:
+      radial-gradient(circle at top center, rgba(59,130,246,0.14), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(59,130,246,0.08), transparent 24%),
+      var(--bg);
+    color: var(--text);
+  }
+  body { overflow-x: hidden; }
+  a { color: inherit; text-decoration: none; }
+
+  .page-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 19rem minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 1.5rem 1rem;
+    background: rgba(13, 20, 38, 0.97);
+    border-right: 1px solid var(--border);
+    backdrop-filter: blur(24px);
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 0.35rem;
+  }
+  .brand-mark {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.72rem;
+    background: linear-gradient(135deg, rgba(59,130,246,0.25), rgba(129,140,248,0.24));
+    border: 1px solid rgba(147,197,253,0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 14px 30px rgba(37, 99, 235, 0.18);
+  }
+  .brand-mark span { color: #f8fafc; font-size: 1.18rem; }
+  .brand-title {
+    font-size: 1.02rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #60a5fa, #a5b4fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .brand-subtitle {
+    margin-top: 0.1rem;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+  .sidebar-nav {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.72rem;
+    padding: 0.85rem 0.95rem;
+    border-radius: 1rem;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+  }
+  .nav-link:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.05);
+    color: var(--text);
+  }
+  .nav-link.is-active {
+    background: rgba(59,130,246,0.1);
+    border-color: rgba(96,165,250,0.2);
+    color: #dbeafe;
+  }
+  .nav-copy { min-width: 0; }
+  .nav-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+  }
+  .nav-text {
+    margin-top: 0.14rem;
+    font-size: 0.74rem;
+    color: var(--text-dim);
+  }
+  .sidebar-panel {
+    margin-top: auto;
+    padding: 1rem;
+    border-radius: 1.2rem;
+    background: linear-gradient(180deg, rgba(18,28,48,0.95), rgba(14,22,38,0.95));
+    border: 1px solid rgba(96,165,250,0.16);
+  }
+  .sidebar-panel-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #93c5fd;
+  }
+  .sidebar-panel h3 {
+    margin-top: 0.65rem;
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+  .sidebar-panel p {
+    margin-top: 0.45rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+
+  .main {
+    min-width: 0;
+    padding: 1.4rem 1.6rem 2.5rem;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-copy h1 {
+    font-size: clamp(1.8rem, 2.7vw, 2.8rem);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+  }
+  .topbar-copy p {
+    margin-top: 0.4rem;
+    max-width: 58rem;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.65;
+  }
+  .topbar-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.86rem 1.1rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    color: var(--text-soft);
+    font-weight: 700;
+  }
+
+  .hero {
+    margin-top: 1.35rem;
+    padding: 1.55rem;
+    border-radius: 1.55rem;
+    background:
+      radial-gradient(circle at top right, rgba(59,130,246,0.2), transparent 32%),
+      linear-gradient(180deg, rgba(22,32,56,0.98), rgba(16,24,42,0.98));
+    border: 1px solid rgba(96,165,250,0.14);
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.95fr);
+    gap: 1.25rem;
+  }
+  .hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(59,130,246,0.12);
+    color: #bfdbfe;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hero h2 {
+    margin-top: 1rem;
+    font-size: clamp(2rem, 3vw, 3rem);
+    line-height: 1.02;
+    letter-spacing: -0.05em;
+    max-width: 12ch;
+  }
+  .hero p {
+    margin-top: 0.95rem;
+    max-width: 50rem;
+    color: var(--text-muted);
+    font-size: 0.98rem;
+    line-height: 1.7;
+  }
+  .hero-card {
+    padding: 1.15rem;
+    border-radius: 1.3rem;
+    background: rgba(9,14,27,0.48);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .hero-card-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #93c5fd;
+    font-weight: 800;
+  }
+  .hero-card h3 {
+    margin-top: 0.7rem;
+    font-size: 1.14rem;
+    line-height: 1.35;
+  }
+  .hero-card ul {
+    list-style: none;
+    margin-top: 0.95rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .hero-card li {
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    line-height: 1.55;
+  }
+  .hero-card strong { color: var(--text); }
+
+  .prompts-section {
+    margin-top: 1.5rem;
+  }
+  .section-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .section-head h3 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .section-head p {
+    color: var(--text-dim);
+    font-size: 0.84rem;
+  }
+  .prompt-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.95rem;
+  }
+  .prompt-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem 1rem 1rem 1.05rem;
+    border-radius: 1.25rem;
+    background:
+      radial-gradient(circle at top right, rgba(59,130,246,0.08), transparent 35%),
+      var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 16px 40px rgba(2, 8, 23, 0.14);
+  }
+  .prompt-text {
+    color: var(--text-soft);
+    font-size: 0.92rem;
+    line-height: 1.65;
+  }
+  .prompt-use {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.38rem;
+    min-width: 7rem;
+    padding: 0.8rem 1rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(59,130,246,0.22), rgba(37,99,235,0.18));
+    border: 1px solid var(--border-strong);
+    color: #dbeafe;
+    font-size: 0.84rem;
+    font-weight: 800;
+    transition: all 0.18s ease;
+  }
+  .prompt-use:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, rgba(59,130,246,0.28), rgba(37,99,235,0.22));
+  }
+
+  @media (max-width: 1100px) {
+    .page-shell { grid-template-columns: 1fr; }
+    .sidebar {
+      position: static;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero,
+    .prompt-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .main { padding: 1rem 0.9rem 2rem; }
+    .topbar {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .hero { padding: 1.2rem; }
+    .prompt-card {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
+    .prompt-use {
+      width: 100%;
+      min-width: 0;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="page-shell">
+    <aside class="sidebar">
+      <div class="brand-row">
+        <div class="brand-mark"><span class="material-icons-outlined">tips_and_updates</span></div>
+        <div>
+          <div class="brand-title">Ideias de Uso</div>
+          <div class="brand-subtitle">Prompts prontos para testar no Drekee</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a class="nav-link is-active" href="uso.html">
+          <span class="material-icons-outlined">lightbulb</span>
+          <div class="nav-copy">
+            <div class="nav-title">Buscar ideias</div>
+            <div class="nav-text">Casos de uso e prompts prontos</div>
+          </div>
+        </a>
+        <a class="nav-link" href="index.html">
+          <span class="material-icons-outlined">forum</span>
+          <div class="nav-copy">
+            <div class="nav-title">Voltar ao chat</div>
+            <div class="nav-text">Abrir o Drekee para usar agora</div>
+          </div>
+        </a>
+        <a class="nav-link" href="sobre.html">
+          <span class="material-icons-outlined">newspaper</span>
+          <div class="nav-copy">
+            <div class="nav-title">Noticias</div>
+            <div class="nav-text">Contexto do produto e visao geral</div>
+          </div>
+        </a>
+      </nav>
+
+      <div class="sidebar-panel">
+        <div class="sidebar-panel-kicker">
+          <span class="material-icons-outlined" style="font-size:0.95rem;">rocket_launch</span>
+          <span>100 prompts</span>
+        </div>
+        <h3>Escolha uma ideia, clique em Usar e continue no chat.</h3>
+        <p>O botao envia voce para a home com a pergunta ja preenchida na caixa de mensagem. A ideia aqui e reduzir friccao e mostrar amplitude real do Drekee.</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <h1>Casos de uso para quando faltar assunto</h1>
+          <p>Selecione um prompt pronto e abra o Drekee com a pergunta ja escrita. Os exemplos abaixo cobrem ciencia, escola, vestibular, pesquisa, espaco, saude, tecnologia, clima e curiosidades.</p>
+        </div>
+        <a class="topbar-link" href="index.html">
+          <span class="material-icons-outlined" style="font-size:1rem;">west</span>
+          <span>Voltar ao chat</span>
+        </a>
+      </header>
+
+      <section class="hero">
+        <div>
+          <div class="hero-kicker">
+            <span class="material-icons-outlined" style="font-size:0.95rem;">auto_awesome</span>
+            <span>Inspire-se</span>
+          </div>
+          <h2>100 formas de colocar o Drekee para trabalhar</h2>
+          <p>Os prompts foram pensados para mostrar utilidade imediata. Tem pergunta curta, explicacao longa, pesquisa guiada, comparacao de fontes, resolucao de exercicio e aplicacao no mundo real.</p>
+        </div>
+        <div class="hero-card">
+          <div class="hero-card-label">Dica rapida</div>
+          <h3>Comece pelos casos em que voce normalmente travaria no Google.</h3>
+          <ul>
+            <li><strong>Entender:</strong> use para conceitos dificeis explicados em linguagem simples.</li>
+            <li><strong>Pesquisar:</strong> use quando quiser resposta com contexto e fonte.</li>
+            <li><strong>Estudar:</strong> use para listas, resumos, comparacoes e simulados.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="prompts-section">
+        <div class="section-head">
+          <div>
+            <h3>Biblioteca de prompts</h3>
+            <p>100 cards prontos. Cada botao abre <code>index.html</code> com a pergunta preenchida.</p>
+          </div>
+        </div>
+        <div class="prompt-grid" id="promptGrid"></div>
+      </section>
+    </main>
+  </div>
+
+<script>
+  const prompts = [
+    'Explique de forma simples o que e fotossintese.',
+    'Explique o ciclo da agua como se eu tivesse 12 anos.',
+    'Por que o ceu e azul? Explique cientificamente passo a passo.',
+    'O que e DNA e qual a funcao dele no corpo humano?',
+    'Explique como funciona a selecao natural de Darwin.',
+    'Qual a diferenca entre virus, bacteria, fungo e protozoario?',
+    'Explique o que e a tabela periodica e como ler suas informacoes.',
+    'O que acontece no corpo humano durante a febre?',
+    'Como funciona uma vacina e por que ela protege?',
+    'Explique o que e mutacao genetica com exemplos simples.',
+    'Resuma o sistema digestorio humano em topicos claros.',
+    'Explique a diferenca entre celula animal e celula vegetal.',
+    'O que e osmose e onde isso aparece na vida real?',
+    'Explique a respiracao celular sem usar linguagem muito tecnica.',
+    'Como plantas crescem mesmo sem cerebro?',
+    'Explique o que e biodiversidade e por que ela importa.',
+    'O que e efeito estufa e qual a diferenca para aquecimento global?',
+    'Explique por que terremotos acontecem.',
+    'Como funciona um eclipse solar e um eclipse lunar?',
+    'O que sao buracos negros e o que sabemos sobre eles hoje?',
+    'Explique a teoria do Big Bang em linguagem acessivel.',
+    'Como estrelas nascem, vivem e morrem?',
+    'Quais sao as diferencas entre planeta, estrela, lua, asteroide e cometa?',
+    'O que a NASA estuda hoje sobre Marte?',
+    'Explique como foguetes conseguem sair da Terra.',
+    'Como funciona uma estacao espacial como a ISS?',
+    'Quais sao as principais descobertas recentes sobre exoplanetas?',
+    'Explique o que e materia escura e por que ela ainda e um misterio.',
+    'Como funciona a gravidade segundo a fisica moderna?',
+    'Explique o que sao ondas gravitacionais.',
+    'Resolva e explique passo a passo: 2x + 5 = 17.',
+    'Resolva e explique passo a passo: x^2 - 5x + 6 = 0.',
+    'Me ensine regra de tres com 3 exemplos resolvidos.',
+    'Explique porcentagem de um jeito facil e depois proponha 5 exercicios.',
+    'O que e funcao do primeiro grau e como identificar?',
+    'Explique o teorema de Pitagoras com exemplo visual descrito em texto.',
+    'Como fatorar um polinomio? Mostre casos basicos.',
+    'Explique derivada como ideia intuitiva antes da formula.',
+    'Explique integral de forma conceitual e com aplicacoes.',
+    'Mostre a diferenca entre media, mediana e moda com exemplos.',
+    'Monte um mini simulado de matematica nivel ENEM com 5 questoes.',
+    'Corrija meu raciocinio para esta conta: 3(2 + 4) = 6 + 4.',
+    'Explique o que e logaritmo sem complicar demais.',
+    'Como interpretar um grafico de barras, linha e dispersao?',
+    'Me ensine probabilidade usando exemplos de jogos e sorteios.',
+    'Explique as leis de Newton com exemplos do cotidiano.',
+    'Como funciona energia cinetica e energia potencial?',
+    'Explique corrente eletrica, tensao e resistencia com analogias.',
+    'O que e aceleracao e como ela se diferencia de velocidade?',
+    'Explique o que e calor e temperatura e por que nao sao a mesma coisa.',
+    'Como funciona um imã e o que e campo magnetico?',
+    'Por que um aviao consegue voar?',
+    'Explique como funciona uma usina hidreletrica.',
+    'Qual a diferenca entre massa e peso?',
+    'Explique o que e pressao atmosferica e como sentimos seus efeitos.',
+    'Como funciona o som e por que ele nao se propaga no vacuo?',
+    'Explique a formacao do arco-iris.',
+    'Como a ciencia explica o funcionamento de um celular?',
+    'Quais principios de fisica estao presentes em uma bicicleta?',
+    'Explique radioatividade sem sensacionalismo.',
+    'Explique ligacao ionica, covalente e metalica com exemplos.',
+    'O que e pH e como interpretar sua escala?',
+    'Explique a diferenca entre mistura e substancia pura.',
+    'Como funciona a combustao do ponto de vista quimico?',
+    'O que sao acidos, bases e sais?',
+    'Explique o que e mol em quimica sem complicar.',
+    'Como balancear equacoes quimicas? Mostre um exemplo.',
+    'Explique o que e oxidacao e reducao.',
+    'Como sabao remove gordura? Explique com quimica do cotidiano.',
+    'Qual a diferenca entre calor e chama em uma reacao?',
+    'Explique o ciclo do carbono de forma organizada.',
+    'Quais sao os estados fisicos da materia e quando eles mudam?',
+    'Explique isotopos com um exemplo real.',
+    'Mostre como a quimica aparece na cozinha.',
+    'Pesquise fontes confiaveis e me explique o que e CRISPR.',
+    'Quais sao os consensos cientificos atuais sobre mudancas climaticas?',
+    'Resuma as principais ideias da teoria da evolucao com fontes.',
+    'Quais descobertas recentes existem sobre Alzheimer?',
+    'O que a ciencia sabe hoje sobre microbioma intestinal?',
+    'Pesquise e compare o que NASA e ESA publicam sobre o Sol.',
+    'Quais sao as evidencias cientificas sobre o derretimento das geleiras?',
+    'Explique o que e revisao por pares e por que ela importa.',
+    'Como avaliar se uma fonte cientifica e confiavel?',
+    'Qual a diferenca entre artigo cientifico, preprint e reportagem?',
+    'Pesquise e me traga um resumo sobre energia nuclear com vantagens e riscos.',
+    'Quais tecnologias atuais ajudam a prever terremotos e vulcoes?',
+    'Me ajude a entender uma noticia cientifica sem exageros nem hype.',
+    'Explique a diferenca entre correlacao e causalidade com exemplos.',
+    'Como identificar pseudociencia em um video ou post de internet?',
+    'Monte um plano de estudo de ciencias para 30 dias.',
+    'Crie 10 perguntas de ciencias nivel fundamental com gabarito.',
+    'Crie 10 perguntas de fisica nivel medio com gabarito comentado.',
+    'Monte um cronograma de revisao para vestibular focado em biologia.',
+    'Transforme um assunto de ciencias em mapa mental textual.',
+    'Resuma um tema em 5 topicos, depois aprofunde cada um.',
+    'Me ajude a montar uma apresentacao sobre sistema solar.',
+    'Explique uma questao do ENEM com passo a passo e sem pular etapas.',
+    'Compare as areas de biotecnologia, astronomia e climatologia para quem quer carreira cientifica.',
+    'Sugira 5 experimentos cientificos simples e seguros para fazer em casa.',
+    'Me proponha uma trilha de perguntas para explorar o universo do zero ao avancado.'
+  ];
+
+  const promptGrid = document.getElementById('promptGrid');
+
+  function createPromptCard(prompt) {
+    const card = document.createElement('article');
+    card.className = 'prompt-card';
+
+    const text = document.createElement('div');
+    text.className = 'prompt-text';
+    text.textContent = prompt;
+
+    const link = document.createElement('a');
+    link.className = 'prompt-use';
+    link.href = `index.html?prompt=${encodeURIComponent(prompt)}`;
+    link.innerHTML = '<span class="material-icons-outlined" style="font-size:1rem;">arrow_forward</span><span>Usar</span>';
+
+    card.appendChild(text);
+    card.appendChild(link);
+    return card;
+  }
+
+  prompts.forEach(prompt => {
+    promptGrid.appendChild(createPromptCard(prompt));
+  });
+</script>
+</body>
+</html>

@@ -25,6 +25,16 @@ DIRETRIZES DE OURO:
       - **Matemática:** fractions-intro, area-model-multiplication, graphing-quadratics, function-builder, unit-rates
       - **Biologia:** natural-selection, gene-expression-essentials, neuron, beer-game
     - **PDB [PDB:id]:** Para moléculas complexas (PDB real).
+    - **Gráfico LaTeX:** Use APENAS quando um gráfico realmente melhorar a compreensão, como em comparações, rankings, séries, distribuições simples ou dados/categorias explicitamente apresentados na resposta.
+    - **PROIBIDO NO GRÁFICO:** Nunca invente valores, percentuais, eixos ou categorias. Se não houver base clara no contexto, não gere gráfico.
+    - **FORMATO OBRIGATÓRIO DO GRÁFICO:**
+      [LATEX_GRAPH_TITLE: Título curto e específico]
+      [LATEX_GRAPH_CODE]
+      DOCUMENTO LATEX COMPLETO AQUI
+      [/LATEX_GRAPH_CODE]
+    - O código deve ser um documento LaTeX completo, compilável, usando PGFPlots/TikZ.
+    - Não use markdown fences dentro de [LATEX_GRAPH_CODE].
+    - Use rótulos em português e faça o gráfico ficar coerente com o tema da resposta.
 6.  **RESUMOS OFFLINE (TAG [OFFLINE_DOC]):**
     - **CONTEÚDO:** Quando o usuário pedir um resumo, o conteúdo dentro da tag [OFFLINE_DOC: ... ] deve ser um **DOCUMENTO COMPLETO E ESTRUTURADO** (Markdown rico). 
     - **NÃO FAÇA:** Não escreva meta-comentários como "Discussão sobre tal coisa". Escreva a ciência de fato, pronta para virar uma apostila de estudo.
@@ -1375,10 +1385,20 @@ function resolveSourceReference(rawReference, lookup) {
 function normalizeResponseCitations(response, sources = []) {
   if (!response) return response;
 
+  const protectedBlocks = [];
+  const protectedResponse = String(response).replace(
+    /\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi,
+    match => {
+      const token = `__LATEX_GRAPH_BLOCK_${protectedBlocks.length}__`;
+      protectedBlocks.push(match);
+      return token;
+    }
+  );
+
   const lookup = buildSourceLookup(sources);
-  return String(response).replace(/\[([^\]]+)\]/g, (match, rawReference) => {
+  const normalized = protectedResponse.replace(/\[([^\]]+)\]/g, (match, rawReference) => {
     const token = String(rawReference || '').trim();
-    if (/^(?:PHET|PDB|OFFLINE_DOC|CONFIANCA|CONFIANÇA|IMAGEM ENVIADA PELO ALUNO)\b/i.test(token)) {
+    if (/^(?:PHET|PDB|OFFLINE_DOC|LATEX_GRAPH_TITLE|LATEX_GRAPH_CODE|\/LATEX_GRAPH_CODE|CONFIANCA|CONFIANÇA|IMAGEM ENVIADA PELO ALUNO)\b/i.test(token)) {
       return match;
     }
 
@@ -1399,6 +1419,10 @@ function normalizeResponseCitations(response, sources = []) {
     }
 
     return match;
+  });
+
+  return normalized.replace(/__LATEX_GRAPH_BLOCK_(\d+)__/g, (match, index) => {
+    return protectedBlocks[Number(index)] || match;
   });
 }
 
@@ -2469,6 +2493,7 @@ REGRAS CRUCIAIS (RESPEITE 100%):
 4) NÃO inclua títulos artificiais, listas de etapas ou qualquer prefácio sobre revisão. Apenas a resposta final ao usuário.
 5) Se não for possível afirmar com certeza, seja honesto e explique por que.
 6) IMPORTANTE: NÃO REMOVA as tags [ID-DA-FONTE: ID_EXATO] presentes no texto original. Se o texto estiver afirmando informações sem as tags apropriadas originais, ADICIONE tags no mesmo formato exato [ID-DA-FONTE: ID_EXATO]. Nunca use [FONTE: nome] nem rótulos livres. É vital manter o rastreio das fontes.
+7) PRESERVE integralmente, se existirem, os blocos [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE], além de [PHET:...] e [PDB:...]. Você pode melhorar o texto ao redor, mas não corrompa essas tags.
 
 RESPOSTA A REVISAR:
 ${response}
@@ -2602,7 +2627,7 @@ REGRAS OBRIGATÓRIAS:
 2. NÃO copie a última resposta como se ela fosse o resumo inteiro.
 3. Faça um resumo executivo curto e direto no início.
 4. Depois organize o conteúdo em seções claras, densas e úteis.
-5. NÃO use as tags [CONFIANÇA], [ID-DA-FONTE], [PHET], [PDB] ou [OFFLINE_DOC].
+5. NÃO use as tags [CONFIANÇA], [ID-DA-FONTE], [PHET], [PDB], [OFFLINE_DOC] ou blocos [LATEX_GRAPH_TITLE]/[LATEX_GRAPH_CODE].
 6. Se houver fontes citadas ao longo da conversa, transforme isso em texto limpo na seção final "Fontes e referências mencionadas".
 7. Não fale sobre o processo de geração. Entregue apenas o documento.
 8. O documento precisa funcionar bem como PDF.

@@ -163,6 +163,43 @@
     padding-top: 1rem;
     border-top: 1px solid var(--border);
   }
+  .sidebar-ideas-card {
+    margin-bottom: 0.85rem;
+    padding: 0.9rem;
+    border-radius: 0.95rem;
+    background:
+      radial-gradient(circle at top right, rgba(59,130,246,0.16), transparent 42%),
+      linear-gradient(180deg, rgba(15,23,42,0.98), rgba(17,24,39,0.98));
+    border: 1px solid rgba(96,165,250,0.16);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .sidebar-ideas-card p {
+    font-size: 0.84rem;
+    line-height: 1.45;
+    color: #dbeafe;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .sidebar-ideas-link {
+    margin-top: 0.75rem;
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.68rem 0.8rem;
+    border-radius: 0.78rem;
+    background: rgba(59,130,246,0.14);
+    border: 1px solid rgba(96,165,250,0.2);
+    color: #dbeafe;
+    font-size: 0.82rem;
+    font-weight: 700;
+    transition: all 0.18s ease;
+  }
+  .sidebar-ideas-link:hover {
+    background: rgba(59,130,246,0.2);
+    transform: translateY(-1px);
+  }
   .login-btn {
     width: 100%;
     display: flex; align-items: center; justify-content: center; gap: 0.5rem;
@@ -848,6 +885,131 @@
     font-size: 0.75rem; color: #94a3b8; font-weight: 500;
   }
   @keyframes phet-spin { to { transform: rotate(360deg); } }
+  .latex-graph-section {
+    margin-top: 1.15rem;
+    padding: 1rem;
+    border-radius: 1rem;
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(96,165,250,0.18);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .latex-graph-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.85rem;
+    margin-bottom: 0.85rem;
+  }
+  .latex-graph-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #93c5fd;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .latex-graph-title {
+    margin-top: 0.45rem;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #e2e8f0;
+    letter-spacing: -0.02em;
+    line-height: 1.35;
+  }
+  .latex-graph-subtitle {
+    margin-top: 0.4rem;
+    color: rgba(203,213,225,0.76);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    max-width: 48rem;
+  }
+  .latex-graph-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .latex-graph-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    padding: 0.52rem 0.72rem;
+    border-radius: 999px;
+    border: 1px solid rgba(96,165,250,0.24);
+    background: rgba(30,41,59,0.72);
+    color: #bfdbfe;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+  }
+  .latex-graph-btn:hover {
+    transform: translateY(-1px);
+    background: rgba(30,41,59,0.95);
+    border-color: rgba(96,165,250,0.4);
+  }
+  .latex-graph-body {
+    min-height: 20rem;
+    border-radius: 1rem;
+    background:
+      radial-gradient(circle at top right, rgba(59,130,246,0.08), transparent 34%),
+      rgba(2, 6, 23, 0.9);
+    border: 1px solid rgba(148,163,184,0.12);
+    overflow: hidden;
+    position: relative;
+  }
+  .latex-graph-loading,
+  .latex-graph-error {
+    min-height: 20rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1.4rem;
+    text-align: center;
+  }
+  .latex-graph-loading .material-icons-outlined,
+  .latex-graph-error .material-icons-outlined {
+    font-size: 2rem;
+    color: #93c5fd;
+  }
+  .latex-graph-error .material-icons-outlined { color: #fda4af; }
+  .latex-graph-loading p,
+  .latex-graph-error p {
+    color: rgba(203,213,225,0.78);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    max-width: 38rem;
+  }
+  .latex-graph-image-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0.9rem;
+    overflow: auto;
+  }
+  .latex-graph-image {
+    width: 100%;
+    max-width: 1200px;
+    height: auto;
+    display: block;
+    border-radius: 0.85rem;
+    background: #fff;
+    box-shadow: 0 18px 42px rgba(0,0,0,0.32);
+  }
+  .latex-graph-pdf {
+    width: 100%;
+    min-height: 42rem;
+    border: none;
+    border-radius: 0.85rem;
+    background: #fff;
+    box-shadow: 0 18px 42px rgba(0,0,0,0.32);
+  }
   .doc-title {
     flex: 1;
     font-weight: 700;
@@ -1980,6 +2142,13 @@
     </div>
 
     <div class="sidebar-bottom">
+      <div class="sidebar-ideas-card">
+        <p>Nao sabe pra que usar o Drekee?</p>
+        <a class="sidebar-ideas-link" href="uso.html">
+          <span class="material-icons-outlined" style="font-size:1rem;">lightbulb</span>
+          <span>Buscar ideias</span>
+        </a>
+      </div>
       <a class="login-btn" href="sobre.html">
         <span class="material-icons-outlined" style="font-size:1rem;color:#3b82f6">newspaper</span>
         <span>Noticias</span>
@@ -2552,6 +2721,9 @@
 
     cleaned = cleaned
       .replace(/\[OFFLINE_DOC:[\s\S]*?\]/gi, ' ')
+      .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
+      .replace(/\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
+      .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+\]/gi, ' ')
       .replace(/\[PHET:[^\]]+\]/gi, ' ')
       .replace(/\[PDB:[^\]]+\]/gi, ' ')
       .replace(/\[ID-DA-FONTE:\s*[^\]]+\]/gi, ' ')
@@ -3186,6 +3358,9 @@
       .replace(/\[\s*CONFIAN[ÇC]A\s*:\s*[^\]]+\]/gi, ' ')
       .trim();
 
+    const latexGraphParse = parseLatexGraphBlocks(response);
+    response = latexGraphParse.cleanedResponse;
+
     const sourceLookup = buildSourceLookup(sources);
     const citations  = new Map();
     let phetSlug = null;
@@ -3232,7 +3407,7 @@
       return shouldStripUnresolvedCitationToken(rawReference) ? '' : match;
     });
 
-    return { html, citations, phetSlug, phetIntro, phetTheory, pdbId };
+    return { html, citations, phetSlug, phetIntro, phetTheory, pdbId, latexGraphs: latexGraphParse.graphs };
   }
 
   function truncateText(text, length = 120) {
@@ -3290,6 +3465,165 @@
       ignoredClasses: ['no-katex', 'katex'],
       throwOnError: false
     });
+  }
+
+  function parseLatexGraphBlocks(response = '') {
+    const graphs = [];
+    const cleanedResponse = String(response || '').replace(
+      /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi,
+      (match, rawTitle, rawCode) => {
+        const title = String(rawTitle || '').trim() || 'Grafico informativo';
+        const code = String(rawCode || '').trim();
+        if (code) graphs.push({ title, code });
+        return ' ';
+      }
+    );
+    return { cleanedResponse, graphs };
+  }
+
+  async function requestLatexGraphRender(latexCode) {
+    const response = await fetch('./api/render-latex', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: latexCode, format: 'png' }),
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(errorText || `Falha ao renderizar grafico (${response.status})`);
+    }
+
+    if (contentType.startsWith('image/')) {
+      const blob = await response.blob();
+      return { imageUrl: URL.createObjectURL(blob), revokeOnUnload: true };
+    }
+
+    if (contentType.includes('pdf')) {
+      const blob = await response.blob();
+      return { pdfUrl: URL.createObjectURL(blob), revokeOnUnload: true };
+    }
+
+    const data = await response.json().catch(() => null);
+    if (!data) throw new Error('A API de LaTeX retornou uma resposta invalida.');
+
+    const rawImage = data.imageUrl || data.url || data.image || data.png || data.data || data.base64 || '';
+    if (!rawImage) {
+      throw new Error(data.error || 'A API de LaTeX nao retornou a imagem do grafico.');
+    }
+
+    if (/^data:image\//i.test(rawImage) || /^https?:\/\//i.test(rawImage)) {
+      return { imageUrl: rawImage, revokeOnUnload: false };
+    }
+
+    return { imageUrl: `data:image/png;base64,${rawImage}`, revokeOnUnload: false };
+  }
+
+  function createLatexGraphSection(graphSpec) {
+    const section = document.createElement('div');
+    section.className = 'ai-full-width-section latex-graph-section';
+
+    const head = document.createElement('div');
+    head.className = 'latex-graph-head';
+
+    const copy = document.createElement('div');
+    const kicker = document.createElement('div');
+    kicker.className = 'latex-graph-kicker';
+    kicker.innerHTML = '<span class="material-icons-outlined" style="font-size:1rem;">query_stats</span><span>Grafico informativo</span>';
+
+    const title = document.createElement('div');
+    title.className = 'latex-graph-title';
+    title.textContent = graphSpec.title || 'Grafico informativo';
+
+    const subtitle = document.createElement('div');
+    subtitle.className = 'latex-graph-subtitle';
+    subtitle.textContent = 'Renderizado em LaTeX/PGFPlots a partir da propria resposta da IA.';
+
+    copy.appendChild(kicker);
+    copy.appendChild(title);
+    copy.appendChild(subtitle);
+
+    const actions = document.createElement('div');
+    actions.className = 'latex-graph-actions';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'latex-graph-btn';
+    copyBtn.innerHTML = '<span class="material-icons-outlined" style="font-size:0.95rem;">content_copy</span><span>Copiar LaTeX</span>';
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(graphSpec.code);
+        const old = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<span class="material-icons-outlined" style="font-size:0.95rem;">check</span><span>Copiado</span>';
+        setTimeout(() => { copyBtn.innerHTML = old; }, 1800);
+      } catch (error) {
+        console.error('Falha ao copiar LaTeX:', error);
+      }
+    });
+    actions.appendChild(copyBtn);
+
+    head.appendChild(copy);
+    head.appendChild(actions);
+
+    const body = document.createElement('div');
+    body.className = 'latex-graph-body';
+    body.innerHTML = `
+      <div class="latex-graph-loading">
+        <span class="material-icons-outlined">auto_graph</span>
+        <p>Compilando o grafico em LaTeX e preparando a imagem para exibicao...</p>
+      </div>
+    `;
+
+    section.appendChild(head);
+    section.appendChild(body);
+
+    requestLatexGraphRender(graphSpec.code)
+      .then(({ imageUrl, pdfUrl, revokeOnUnload }) => {
+        body.innerHTML = '';
+
+        const wrap = document.createElement('div');
+        wrap.className = 'latex-graph-image-wrap';
+        const assetUrl = imageUrl || pdfUrl;
+
+        if (imageUrl) {
+          const image = document.createElement('img');
+          image.className = 'latex-graph-image';
+          image.src = imageUrl;
+          image.alt = graphSpec.title || 'Grafico informativo';
+          image.loading = 'lazy';
+          wrap.appendChild(image);
+        } else if (pdfUrl) {
+          const iframe = document.createElement('iframe');
+          iframe.className = 'latex-graph-pdf';
+          iframe.src = pdfUrl;
+          iframe.title = graphSpec.title || 'Grafico informativo';
+          wrap.appendChild(iframe);
+        }
+
+        body.appendChild(wrap);
+
+        const openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.className = 'latex-graph-btn';
+        openBtn.innerHTML = '<span class="material-icons-outlined" style="font-size:0.95rem;">open_in_new</span><span>Abrir imagem</span>';
+        openBtn.addEventListener('click', () => window.open(assetUrl, '_blank', 'noopener,noreferrer'));
+        actions.appendChild(openBtn);
+
+        if (revokeOnUnload && assetUrl) {
+          window.addEventListener('beforeunload', () => URL.revokeObjectURL(assetUrl), { once: true });
+        }
+      })
+      .catch(error => {
+        console.error('Falha ao renderizar grafico LaTeX:', error);
+        body.innerHTML = `
+          <div class="latex-graph-error">
+            <span class="material-icons-outlined">warning</span>
+            <p>Nao foi possivel compilar este grafico agora. O codigo LaTeX ainda pode ser copiado para teste manual.</p>
+          </div>
+        `;
+      });
+
+    return section;
   }
 
   function isNasaLike(entry) {
@@ -3709,6 +4043,12 @@
       inner.appendChild(fullSection);
     }
 
+    if (Array.isArray(parsedResponse.latexGraphs) && parsedResponse.latexGraphs.length > 0) {
+      parsedResponse.latexGraphs.forEach(graphSpec => {
+        inner.appendChild(createLatexGraphSection(graphSpec));
+      });
+    }
+
     if (parsedResponse.pdbId) {
       const fullSection = document.createElement('div');
       fullSection.className = 'ai-full-width-section';
@@ -3902,6 +4242,15 @@
     textarea.focus();
   }
   window.fillSuggestion = fillSuggestion;
+
+  function applyPromptFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const prompt = params.get('prompt');
+    if (!prompt) return;
+    fillSuggestion(prompt);
+    const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
 
   // ── Connectors ────────────────────────────────────────────
   const connectorsBtn      = document.getElementById('connectorsBtn');
@@ -4329,6 +4678,8 @@
   if (mobileNewChatBtn) {
     mobileNewChatBtn.addEventListener('click', startNewChat);
   }
+
+  applyPromptFromUrl();
 
 
   // ── Scroll ────────────────────────────────────────────────
