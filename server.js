@@ -24,9 +24,17 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+function sanitizeLatexDocument(rawCode = '') {
+  return String(rawCode || '')
+    .replace(/^```(?:latex)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .replace(/\r/g, '')
+    .trim();
+}
+
 app.post('/api/render-latex', async (req, res) => {
   try {
-    const code = String(req.body?.code || '').trim();
+    const code = sanitizeLatexDocument(req.body?.code || '');
     const format = String(req.body?.format || 'png').trim().toLowerCase() || 'png';
 
     if (!code) {
@@ -55,7 +63,7 @@ app.post('/api/render-latex', async (req, res) => {
 
     if (shouldFallback) {
       const form = new FormData();
-      form.append('engine', 'pdflatex');
+      form.append('engine', 'lualatex');
       form.append('return', 'pdf');
       form.append('filename[]', 'document.tex');
       form.append('filecontents[]', code);
@@ -66,16 +74,18 @@ app.post('/api/render-latex', async (req, res) => {
       contentType = upstream.headers.get('content-type') || 'text/plain; charset=utf-8';
     }
 
-    res.status(upstream.status);
-    res.setHeader('Content-Type', contentType);
-
     if (contentType.startsWith('image/') || contentType.includes('pdf')) {
+      res.status(upstream.status);
+      res.setHeader('Content-Type', contentType);
       const arrayBuffer = await upstream.arrayBuffer();
       return res.send(Buffer.from(arrayBuffer));
     }
 
     const text = await upstream.text();
-    return res.send(text);
+    return res.status(422).json({
+      error: 'Falha ao compilar o grafico LaTeX',
+      details: text.slice(0, 1600),
+    });
   } catch (error) {
     console.error('LaTeX render proxy error:', error);
     return res.status(500).json({ error: 'Failed to render LaTeX graph' });

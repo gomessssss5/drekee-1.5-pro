@@ -3490,7 +3490,15 @@
 
     const contentType = response.headers.get('content-type') || '';
     if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
+      let errorText = '';
+      if (contentType.includes('json')) {
+        const data = await response.json().catch(() => null);
+        errorText = data?.details
+          ? `${data.error || 'Falha ao renderizar grafico LaTeX.'}\n\n${data.details}`
+          : (data?.error || '');
+      } else {
+        errorText = await response.text().catch(() => '');
+      }
       throw new Error(errorText || `Falha ao renderizar grafico (${response.status})`);
     }
 
@@ -3502,6 +3510,11 @@
     if (contentType.includes('pdf')) {
       const blob = await response.blob();
       return { pdfUrl: URL.createObjectURL(blob), revokeOnUnload: true };
+    }
+
+    if (!contentType.includes('json')) {
+      const rawText = await response.text().catch(() => '');
+      throw new Error(rawText || 'A API de LaTeX retornou uma resposta invalida.');
     }
 
     const data = await response.json().catch(() => null);
@@ -3615,10 +3628,14 @@
       })
       .catch(error => {
         console.error('Falha ao renderizar grafico LaTeX:', error);
+        const detail = String(error?.message || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 320);
         body.innerHTML = `
           <div class="latex-graph-error">
             <span class="material-icons-outlined">warning</span>
-            <p>Nao foi possivel compilar este grafico agora. O codigo LaTeX ainda pode ser copiado para teste manual.</p>
+            <p>${escapeHtml(detail || 'Nao foi possivel compilar este grafico agora. O codigo LaTeX ainda pode ser copiado para teste manual.')}</p>
           </div>
         `;
       });
