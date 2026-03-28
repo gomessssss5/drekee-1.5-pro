@@ -35,6 +35,9 @@ DIRETRIZES DE OURO:
     - O código deve ser um documento LaTeX completo, compilável, usando PGFPlots/TikZ.
     - Não use markdown fences dentro de [LATEX_GRAPH_CODE].
     - Use rótulos em português e faça o gráfico ficar coerente com o tema da resposta.
+    - Gere gráficos simples e robustos: prefira standalone + pgfplots, um único tikzpicture, no máximo 1 ou 2 \\addplot, sem bibliotecas exóticas.
+    - Evite macros próprias, comandos avançados, tabelas \\pgfplotstable, arquivos externos, imagens externas e dependências além de pgfplots e xcolor.
+    - Se houver risco de erro de compilação, prefira um gráfico de barras ou linhas simples com categorias curtas e valores explícitos.
 6.  **RESUMOS OFFLINE (TAG [OFFLINE_DOC]):**
     - **CONTEÚDO:** Quando o usuário pedir um resumo, o conteúdo dentro da tag [OFFLINE_DOC: ... ] deve ser um **DOCUMENTO COMPLETO E ESTRUTURADO** (Markdown rico). 
     - **NÃO FAÇA:** Não escreva meta-comentários como "Discussão sobre tal coisa". Escreva a ciência de fato, pronta para virar uma apostila de estudo.

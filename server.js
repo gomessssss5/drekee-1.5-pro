@@ -32,6 +32,114 @@ function sanitizeLatexDocument(rawCode = '') {
     .trim();
 }
 
+function normalizeLatexText(input = '') {
+  return String(input || '')
+    .replace(/[\u2018\u2019]/g, '\'')
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\u00A0/g, ' ')
+    .replace(/\u200B/g, '')
+    .trim();
+}
+
+function wrapLatexDocument(body = '') {
+  const trimmedBody = String(body || '').trim();
+  return [
+    '\\documentclass[border=10pt]{standalone}',
+    '\\usepackage{pgfplots}',
+    '\\usepackage{xcolor}',
+    '\\pgfplotsset{compat=1.18}',
+    '\\begin{document}',
+    trimmedBody,
+    '\\end{document}',
+  ].join('\n');
+}
+
+function buildLatexCandidates(rawCode = '') {
+  const normalized = normalizeLatexText(sanitizeLatexDocument(rawCode));
+  if (!normalized) return [];
+
+  const candidates = [];
+  const seen = new Set();
+  const push = value => {
+    const candidate = String(value || '').trim();
+    if (!candidate || seen.has(candidate)) return;
+    seen.add(candidate);
+    candidates.push(candidate);
+  };
+
+  push(normalized);
+
+  const tikzMatch = normalized.match(/\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\}/);
+  if (tikzMatch) {
+    push(wrapLatexDocument(tikzMatch[0]));
+  }
+
+  const axisMatch = normalized.match(/\\begin\{axis\}[\s\S]*?\\end\{axis\}/);
+  if (axisMatch) {
+    push(wrapLatexDocument(`\\begin{tikzpicture}\n${axisMatch[0]}\n\\end{tikzpicture}`));
+  }
+
+  if (!/\\documentclass\b/.test(normalized)) {
+    push(wrapLatexDocument(normalized));
+  } else {
+    let repaired = normalized;
+    if (!/\\usepackage\{pgfplots\}/.test(repaired)) {
+      repaired = repaired.replace(/\\documentclass(?:\[[^\]]*\])?\{[^}]+\}\s*/, match => `${match}\n\\usepackage{pgfplots}\n`);
+    }
+    if (!/\\usepackage\{xcolor\}/.test(repaired)) {
+      repaired = repaired.replace(/\\usepackage\{pgfplots\}\s*/, match => `${match}\\usepackage{xcolor}\n`);
+    }
+    if (!/\\pgfplotsset\{compat=/.test(repaired)) {
+      repaired = repaired.replace(/\\usepackage\{xcolor\}\s*/, match => `${match}\\pgfplotsset{compat=1.18}\n`);
+      if (!/\\pgfplotsset\{compat=/.test(repaired)) {
+        repaired = repaired.replace(/\\usepackage\{pgfplots\}\s*/, match => `${match}\\pgfplotsset{compat=1.18}\n`);
+      }
+    }
+    if (!/\\begin\{document\}/.test(repaired)) {
+      repaired = repaired.replace(/(\\pgfplotsset\{compat=[^}]+\}\s*)/, '$1\\begin{document}\n');
+      if (!/\\begin\{document\}/.test(repaired)) {
+        repaired += '\n\\begin{document}\n';
+      }
+    }
+    if (!/\\end\{document\}/.test(repaired)) {
+      repaired += '\n\\end{document}';
+    }
+    push(repaired);
+  }
+
+  return candidates;
+}
+
+async function compileWithTexlive(code) {
+  const form = new FormData();
+  form.append('engine', 'lualatex');
+  form.append('return', 'pdf');
+  form.append('filename[]', 'document.tex');
+  form.append('filecontents[]', code);
+  const upstream = await fetch('https://texlive.net/cgi-bin/latexcgi', {
+    method: 'POST',
+    body: form,
+  });
+  const contentType = upstream.headers.get('content-type') || 'text/plain; charset=utf-8';
+
+  if (contentType.startsWith('image/') || contentType.includes('pdf')) {
+    return {
+      ok: true,
+      status: upstream.status,
+      contentType,
+      buffer: Buffer.from(await upstream.arrayBuffer()),
+    };
+  }
+
+  return {
+    ok: false,
+    status: upstream.status,
+    contentType,
+    text: await upstream.text(),
+  };
+}
+
 app.post('/api/render-latex', async (req, res) => {
   try {
     const code = sanitizeLatexDocument(req.body?.code || '');
@@ -62,16 +170,24 @@ app.post('/api/render-latex', async (req, res) => {
       (!contentType.startsWith('image/') && !contentType.includes('json'));
 
     if (shouldFallback) {
-      const form = new FormData();
-      form.append('engine', 'lualatex');
-      form.append('return', 'pdf');
-      form.append('filename[]', 'document.tex');
-      form.append('filecontents[]', code);
-      upstream = await fetch('https://texlive.net/cgi-bin/latexcgi', {
-        method: 'POST',
-        body: form,
+      const candidates = buildLatexCandidates(code);
+      let result = null;
+      let lastFailure = null;
+
+      for (const candidate of candidates) {
+        result = await compileWithTexlive(candidate);
+        if (result.ok) {
+          res.status(result.status);
+          res.setHeader('Content-Type', result.contentType);
+          return res.send(result.buffer);
+        }
+        lastFailure = result;
+      }
+
+      return res.status(422).json({
+        error: 'Falha ao compilar o grafico LaTeX',
+        details: String(lastFailure?.text || 'Compilacao LaTeX falhou sem detalhes.').slice(0, 1600),
       });
-      contentType = upstream.headers.get('content-type') || 'text/plain; charset=utf-8';
     }
 
     if (contentType.startsWith('image/') || contentType.includes('pdf')) {
