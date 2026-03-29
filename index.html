@@ -2796,6 +2796,10 @@
       .replace(/\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+\]/gi, ' ')
       .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
+      .replace(/\[MINDMAP_TITLE:\s*[^\]]+\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ')
+      .replace(/\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ')
+      .replace(/\[MINDMAP_TITLE:\s*[^\]]+\]/gi, ' ')
+      .replace(/\[\/MINDMAP_TITLE\]/gi, ' ')
       .replace(/\[PHET:[^\]]+\]/gi, ' ')
       .replace(/\[PDB:[^\]]+\]/gi, ' ')
       .replace(/\[ID-DA-FONTE:\s*[^\]]+\]/gi, ' ')
@@ -3479,7 +3483,16 @@
       return shouldStripUnresolvedCitationToken(rawReference) ? '' : match;
     });
 
-    return { html, citations, phetSlug, phetIntro, phetTheory, pdbId, latexGraphs: latexGraphParse.graphs };
+    return {
+      html,
+      citations,
+      phetSlug,
+      phetIntro,
+      phetTheory,
+      pdbId,
+      latexGraphs: latexGraphParse.graphs,
+      mindMaps: latexGraphParse.mindMaps || [],
+    };
   }
 
   function truncateText(text, length = 120) {
@@ -3541,6 +3554,7 @@
 
   function parseLatexGraphBlocks(response = '') {
     const graphs = [];
+    const mindMaps = [];
     let working = String(response || '');
 
     const pushGraph = (title, code) => {
@@ -3551,6 +3565,23 @@
         code: safeCode,
       });
     };
+
+    const pushMindMap = (title, code) => {
+      const safeCode = String(code || '').trim();
+      if (!safeCode) return;
+      mindMaps.push({
+        title: String(title || '').trim() || 'Mapa mental',
+        code: safeCode,
+      });
+    };
+
+    working = working.replace(
+      /\[MINDMAP_TITLE:\s*([^\]]+?)\s*\]\s*\[MINDMAP_CODE\]\s*([\s\S]*?)\s*\[\/MINDMAP_CODE\]/gi,
+      (match, rawTitle, rawCode) => {
+        pushMindMap(rawTitle, rawCode);
+        return ' ';
+      }
+    );
 
     working = working.replace(
       /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi,
@@ -3587,6 +3618,8 @@
     const cleanedResponse = working
       .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_CODE\]|\[\/LATEX_GRAPH_CODE\]/gi, ' ')
+      .replace(/\[\/MINDMAP_TITLE\]/gi, ' ')
+      .replace(/\[MINDMAP_CODE\]|\[\/MINDMAP_CODE\]/gi, ' ')
       .replace(/\\documentclass(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
       .replace(/\\usepackage(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
       .replace(/\\begin\{document\}|\\end\{document\}/gi, ' ')
@@ -3595,7 +3628,7 @@
       .replace(/\s{2,}/g, ' ')
       .trim();
 
-    return { cleanedResponse, graphs };
+    return { cleanedResponse, graphs, mindMaps };
   }
 
   async function requestLatexGraphRender(latexCode) {
@@ -3712,7 +3745,10 @@
     return panzoom;
   }
 
-  function createLatexGraphSection(graphSpec) {
+  function createLatexGraphSection(graphSpec, visualKind = 'graph') {
+    const isMindMap = visualKind === 'mindmap';
+    const visualLabel = isMindMap ? 'mapa mental' : 'grafico';
+    const visualTitle = isMindMap ? 'Mapa mental' : 'Grafico informativo';
     const section = document.createElement('div');
     section.className = 'ai-full-width-section latex-graph-section';
 
@@ -3721,7 +3757,7 @@
     body.innerHTML = `
       <div class="latex-graph-loading">
         <div class="latex-graph-spinner" aria-hidden="true"></div>
-        <p>Carregando grafico...</p>
+        <p>Carregando ${visualLabel}...</p>
       </div>
     `;
 
@@ -3747,7 +3783,7 @@
         const image = document.createElement('img');
         image.className = 'latex-graph-image';
         image.src = imageUrl;
-        image.alt = graphSpec.title || 'Grafico informativo';
+        image.alt = graphSpec.title || visualTitle;
         image.loading = 'lazy';
         image.draggable = false;
         surface.appendChild(image);
@@ -3766,8 +3802,8 @@
         const downloadBtn = document.createElement('a');
         downloadBtn.className = 'latex-graph-btn primary';
         downloadBtn.href = assetUrl;
-        downloadBtn.download = downloadName || 'drekee-grafico.png';
-        downloadBtn.innerHTML = '<span class="material-icons-outlined" style="font-size:0.95rem;">download</span><span>Baixar PNG</span>';
+        downloadBtn.download = downloadName || (isMindMap ? 'drekee-mapa-mental.png' : 'drekee-grafico.png');
+        downloadBtn.innerHTML = `<span class="material-icons-outlined" style="font-size:0.95rem;">download</span><span>${isMindMap ? 'Baixar mapa' : 'Baixar PNG'}</span>`;
         footer.appendChild(downloadBtn);
         body.appendChild(footer);
 
@@ -3776,7 +3812,7 @@
         }
       })
       .catch(error => {
-        console.error('Falha ao renderizar grafico LaTeX:', error);
+        console.error(`Falha ao renderizar ${visualLabel} LaTeX:`, error);
         const detail = String(error?.message || '')
           .replace(/\s+/g, ' ')
           .trim()
@@ -3784,12 +3820,16 @@
         body.innerHTML = `
           <div class="latex-graph-error">
             <span class="material-icons-outlined">warning</span>
-            <p>${escapeHtml(detail || 'Nao foi possivel compilar este grafico agora. O codigo LaTeX ainda pode ser copiado para teste manual.')}</p>
+            <p>${escapeHtml(detail || `Nao foi possivel compilar este ${visualLabel} agora. O codigo LaTeX ainda pode ser copiado para teste manual.`)}</p>
           </div>
         `;
       });
 
     return section;
+  }
+
+  function createMindMapSection(graphSpec) {
+    return createLatexGraphSection(graphSpec, 'mindmap');
   }
 
   function isNasaLike(entry) {
@@ -4207,6 +4247,12 @@
       }
 
       inner.appendChild(fullSection);
+    }
+
+    if (Array.isArray(parsedResponse.mindMaps) && parsedResponse.mindMaps.length > 0) {
+      parsedResponse.mindMaps.forEach(mapSpec => {
+        inner.appendChild(createMindMapSection(mapSpec));
+      });
     }
 
     if (Array.isArray(parsedResponse.latexGraphs) && parsedResponse.latexGraphs.length > 0) {

@@ -26,25 +26,36 @@ DIRETRIZES DE OURO:
       - **Biologia:** natural-selection, gene-expression-essentials, neuron, beer-game
     - **PDB [PDB:id]:** Para moléculas complexas (PDB real).
     - **Gráfico LaTeX:** Use APENAS quando um gráfico realmente melhorar a compreensão, como em comparações, rankings, séries, distribuições simples ou dados/categorias explicitamente apresentados na resposta.
+    - **Mapa Mental LaTeX:** Use APENAS quando a pergunta for conceitual, explicativa ou organizacional e a melhor forma de síntese for um mapa mental confiável.
+    - ESCOLHA APENAS UMA OPÇÃO VISUAL POR RESPOSTA: ou nenhum visual, ou gráfico, ou mapa mental. Nunca envie gráfico e mapa mental juntos.
     - **PROIBIDO NO GRÁFICO:** Nunca invente valores, percentuais, eixos ou categorias. Se não houver base clara no contexto, não gere gráfico.
     - **FORMATO OBRIGATÓRIO DO GRÁFICO:**
       [LATEX_GRAPH_TITLE: Título curto e específico]
       [LATEX_GRAPH_CODE]
       DOCUMENTO LATEX COMPLETO AQUI
       [/LATEX_GRAPH_CODE]
+    - **FORMATO OBRIGATÓRIO DO MAPA MENTAL:**
+      [MINDMAP_TITLE: Título curto e específico]
+      [MINDMAP_CODE]
+      DOCUMENTO LATEX COMPLETO AQUI
+      [/MINDMAP_CODE]
     - O código deve ser um documento LaTeX completo, compilável, usando PGFPlots/TikZ.
     - Não use markdown fences dentro de [LATEX_GRAPH_CODE].
+    - Não use markdown fences dentro de [MINDMAP_CODE].
+    - No mapa mental, envie documento LaTeX completo com TikZ e bibliotecas necessárias já declaradas.
     - Use rótulos em português e faça o gráfico ficar coerente com o tema da resposta.
     - Gere gráficos simples e robustos: prefira standalone + pgfplots, um único tikzpicture, no máximo 1 ou 2 \\addplot, sem bibliotecas exóticas.
     - Evite macros próprias, comandos avançados, tabelas \\pgfplotstable, arquivos externos, imagens externas e dependências além de pgfplots e xcolor.
     - Se for gráfico de linhas, use linhas grossas, marcadores visíveis e cores contrastantes.
     - Em séries temporais, use line chart com pontos/anos reais no eixo X e escala proporcional no eixo Y; nunca use cunha, área preenchida ou atalhos visuais que distorçam a diferença entre valores.
     - Em comparações entre países, categorias, fontes ou grupos discretos, prefira gráfico de barras; não use linha para ligar categorias soltas.
+    - Quando houver opção entre valor absoluto e porcentagem, prefira primeiro valores absolutos da base oficial (ex: km², toneladas, GWh, população) e só use porcentagem se ela vier explicitamente da fonte ou puder ser calculada de forma verificável.
     - Se algum ano/categoria não tiver dado localizado na base consultada, NÃO invente 0, NÃO estime e NÃO preencha lacuna. Omita o ponto no gráfico e avise no texto quais anos/categorias ficaram sem dado.
     - Em gráficos de variação percentual, inclua uma linha de base visível em y=0.
     - O eixo Y deve nomear exatamente a grandeza com unidade ou referência técnica correta (ex: "Anomalia de Temperatura Global (°C)").
     - Quando o gráfico resumir dados científicos conhecidos, cite no texto as fontes institucionais que sustentam os valores (ex: NASA, NOAA, Copernicus, IBGE).
     - Se houver risco de erro de compilação, prefira um gráfico de barras ou linhas simples com categorias curtas e valores explícitos.
+    - No mapa mental, organize apenas conceitos, relações e hierarquias realmente sustentados pelo texto/fonte; não invente ramos.
 6.  **RESUMOS OFFLINE (TAG [OFFLINE_DOC]):**
     - **CONTEÚDO:** Quando o usuário pedir um resumo, o conteúdo dentro da tag [OFFLINE_DOC: ... ] deve ser um **DOCUMENTO COMPLETO E ESTRUTURADO** (Markdown rico). 
     - **NÃO FAÇA:** Não escreva meta-comentários como "Discussão sobre tal coisa". Escreva a ciência de fato, pronta para virar uma apostila de estudo.
@@ -1397,9 +1408,9 @@ function normalizeResponseCitations(response, sources = []) {
 
   const protectedBlocks = [];
   const protectedResponse = String(response).replace(
-    /\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi,
+    /\[(?:LATEX_GRAPH_TITLE|MINDMAP_TITLE):\s*[^\]]+?\s*\]\s*\[(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\][\s\S]*?\[\/(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\]/gi,
     match => {
-      const token = `__LATEX_GRAPH_BLOCK_${protectedBlocks.length}__`;
+      const token = `__LATEX_VISUAL_BLOCK_${protectedBlocks.length}__`;
       protectedBlocks.push(match);
       return token;
     }
@@ -1408,7 +1419,7 @@ function normalizeResponseCitations(response, sources = []) {
   const lookup = buildSourceLookup(sources);
   const normalized = protectedResponse.replace(/\[([^\]]+)\]/g, (match, rawReference) => {
     const token = String(rawReference || '').trim();
-    if (/^(?:PHET|PDB|OFFLINE_DOC|LATEX_GRAPH_TITLE|LATEX_GRAPH_CODE|\/LATEX_GRAPH_CODE|CONFIANCA|CONFIANÇA|IMAGEM ENVIADA PELO ALUNO)\b/i.test(token)) {
+    if (/^(?:PHET|PDB|OFFLINE_DOC|LATEX_GRAPH_TITLE|LATEX_GRAPH_CODE|\/LATEX_GRAPH_CODE|MINDMAP_TITLE|MINDMAP_CODE|\/MINDMAP_CODE|CONFIANCA|CONFIANÇA|IMAGEM ENVIADA PELO ALUNO)\b/i.test(token)) {
       return match;
     }
 
@@ -1431,7 +1442,7 @@ function normalizeResponseCitations(response, sources = []) {
     return match;
   });
 
-  return normalized.replace(/__LATEX_GRAPH_BLOCK_(\d+)__/g, (match, index) => {
+  return normalized.replace(/__LATEX_VISUAL_BLOCK_(\d+)__/g, (match, index) => {
     return protectedBlocks[Number(index)] || match;
   });
 }
@@ -1530,6 +1541,8 @@ function sanitizeFinalResponse(response = '') {
       .replace(/^Como\s+Revisor[\s\S]*?\n/i, '')
       .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_CODE\]|\[\/LATEX_GRAPH_CODE\]/gi, ' ')
+      .replace(/\[\/MINDMAP_TITLE\]/gi, ' ')
+      .replace(/\[MINDMAP_CODE\]|\[\/MINDMAP_CODE\]/gi, ' ')
       .replace(/\\documentclass(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
       .replace(/\\usepackage(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
       .replace(/\\begin\{document\}|\\end\{document\}/gi, ' ')
@@ -2492,6 +2505,8 @@ INSTRUÇÕES FINAIS:
 13. Se faltarem dados para algum ano/categoria, diga isso explicitamente. Nunca transforme ausência de dado em 0.
 14. Antes de plotar, monte internamente uma tabela ano/categoria -> valor. Se encontrar três ou mais valores consecutivos idênticos em contexto onde isso pareça improvável, revalide a busca; se não conseguir confirmar, não plote esses pontos.
 15. Em variação percentual, inclua referência visual de y=0 no gráfico.
+16. Quando houver escolha entre valor absoluto e porcentagem, priorize primeiro o valor absoluto da base oficial.
+17. Se o usuário pedir um período completo e você só tiver parte dele, não use linha sugerindo continuidade. Prefira barras apenas para os anos realmente disponíveis e avise no texto quais anos ficaram sem dado.
 
 Seja honesto. Não invente. Use as fontes.`;
 
@@ -2548,10 +2563,26 @@ function extractLatexGraphBlocks(response = '') {
   return matches;
 }
 
+function extractMindMapBlocks(response = '') {
+  const matches = [];
+  const pattern = /\[MINDMAP_TITLE:\s*([^\]]+?)\s*\]\s*\[MINDMAP_CODE\]\s*([\s\S]*?)\s*\[\/MINDMAP_CODE\]/gi;
+  let match;
+  while ((match = pattern.exec(String(response || ''))) !== null) {
+    matches.push({
+      raw: match[0],
+      title: String(match[1] || '').trim(),
+      code: String(match[2] || '').trim(),
+    });
+  }
+  return matches;
+}
+
 function stripLatexGraphBlocks(response = '') {
   return String(response || '')
     .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
+    .replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ')
     .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
+    .replace(/\[\/MINDMAP_TITLE\]/gi, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -2560,6 +2591,13 @@ function replaceFirstLatexGraphBlock(response = '', graphBlock = '') {
   return String(response || '').replace(
     /\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/i,
     String(graphBlock || '').trim()
+  );
+}
+
+function replaceFirstMindMapBlock(response = '', mindMapBlock = '') {
+  return String(response || '').replace(
+    /\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/i,
+    String(mindMapBlock || '').trim()
   );
 }
 
@@ -2575,7 +2613,7 @@ function assessResponseReliability(response = '', sources = []) {
     .split(/\n{2,}/)
     .map(part => part.trim())
     .filter(Boolean)
-    .filter(part => !/\[LATEX_GRAPH_TITLE:|\[LATEX_GRAPH_CODE\]|\[PHET:|\[PDB:/i.test(part))
+    .filter(part => !/\[LATEX_GRAPH_TITLE:|\[LATEX_GRAPH_CODE\]|\[MINDMAP_TITLE:|\[MINDMAP_CODE\]|\[PHET:|\[PDB:/i.test(part))
     .filter(part =>
       !/\[ID-DA-FONTE:\s*[^\]]+\]/i.test(part) &&
       /\b(al[eé]m disso|impacto indireto|pode impactar|pode afetar|tende a|provavel|possivelmente|isso sugere|isso indica|consequ[eê]ncia|economia|setores? como)\b/i.test(part)
@@ -2589,7 +2627,7 @@ function assessResponseReliability(response = '', sources = []) {
 function removeUnsupportedAnalyticalParagraphs(response = '') {
   const protectedBlocks = [];
   let working = String(response || '').replace(
-    /\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi,
+    /\[(?:LATEX_GRAPH_TITLE|MINDMAP_TITLE):\s*[^\]]+?\s*\]\s*\[(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\][\s\S]*?\[\/(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\]/gi,
     match => {
       const token = `__GRAPH_BLOCK_${protectedBlocks.length}__`;
       protectedBlocks.push(match);
@@ -2626,6 +2664,18 @@ function detectCategoryComparisonIntent(userQuestion = '', response = '') {
     !detectTimeSeriesIntent(userQuestion, response);
 }
 
+function enforceSingleVisualChoice(response = '', userQuestion = '') {
+  const graphBlocks = extractLatexGraphBlocks(response);
+  const mindMapBlocks = extractMindMapBlocks(response);
+  if (graphBlocks.length === 0 || mindMapBlocks.length === 0) return String(response || '');
+
+  if (detectTimeSeriesIntent(userQuestion, response) || detectCategoryComparisonIntent(userQuestion, response)) {
+    return String(response || '').replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ').trim();
+  }
+
+  return String(response || '').replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ').trim();
+}
+
 function findLongestRepeatedNumericRun(values = []) {
   let longest = 1;
   let current = 1;
@@ -2638,6 +2688,25 @@ function findLongestRepeatedNumericRun(values = []) {
     }
   }
   return longest;
+}
+
+function detectRequestedYearRange(userQuestion = '') {
+  const text = String(userQuestion || '');
+  const explicitRange = text.match(/\b(20\d{2})\s*(?:a|até|ate|-|–|—)\s*(20\d{2})\b/i);
+  if (explicitRange) {
+    const startYear = Number(explicitRange[1]);
+    const endYear = Number(explicitRange[2]);
+    if (startYear <= endYear) return { startYear, endYear };
+  }
+
+  const allYears = [...text.matchAll(/\b(20\d{2})\b/g)].map(match => Number(match[1]));
+  if (allYears.length >= 2) {
+    const startYear = Math.min(...allYears);
+    const endYear = Math.max(...allYears);
+    if (startYear < endYear) return { startYear, endYear };
+  }
+
+  return null;
 }
 
 function analyzeLatexGraph(code = '', context = {}) {
@@ -2662,11 +2731,15 @@ function analyzeLatexGraph(code = '', context = {}) {
   const numericCoordinateXs = coordinateEntries.filter(value => /^[-+]?\d+(?:\.\d+)?$/.test(value));
   const numericCoordinateYs = coordinateMatches.map(match => Number(match[2]));
   const longestRepeatedRun = findLongestRepeatedNumericRun(numericCoordinateYs);
+  const requestedYearRange = detectRequestedYearRange(context.userQuestion);
   const responseWithoutGraph = stripLatexGraphBlocks(context.response || '');
   const mentionsMissingData = /\b(n[aã]o (?:foram|foi) localizados?|dados? ausentes?|sem dado|lacuna|n[aã]o dispon[ií]vel)\b/i.test(responseWithoutGraph);
   const seemsPercentVariation = /\b(pib|varia[cç][aã]o percentual|crescimento|contra[cç][aã]o|recuo|queda percentual|percentual)\b/i.test(`${context.userQuestion}\n${responseWithoutGraph}`);
   const hasZeroBaseline = /\bextra y ticks\s*=\s*\{[^}]*0[^}]*\}|\bextra y tick labels\s*=|\baxis x line|\\addplot\s*\[[^\]]*\]\s*coordinates\s*\{\s*\([^)]*,\s*0(?:\.0+)?\)\s*\([^)]*,\s*0(?:\.0+)?\)/i.test(normalizedCode) ||
     /\bytick\s*=\s*\{[^}]*0[^}]*\}/i.test(normalizedCode);
+  const plottedYears = numericCoordinateXs
+    .map(value => Number(value))
+    .filter(value => Number.isInteger(value) && value >= 1900 && value <= 2100);
 
   if (!addPlotCount) issues.push('O grafico nao possui \\addplot.');
   if (coordinateCount < 2) issues.push('O grafico nao tem pontos suficientes.');
@@ -2683,6 +2756,16 @@ function analyzeLatexGraph(code = '', context = {}) {
     if (!/thick|line width\s*=|very thick/i.test(normalizedCode)) issues.push('Serie temporal precisa de linha espessa o suficiente para leitura.');
     if (longestRepeatedRun >= 3 && !mentionsMissingData) issues.push('Ha uma sequencia longa de valores identicos; isso pode indicar que dado ausente virou valor artificial.');
     if (seemsPercentVariation && !hasZeroBaseline) issues.push('Grafico de variacao percentual precisa mostrar referencia visual para y=0.');
+    if (requestedYearRange && plottedYears.length > 0) {
+      const expectedYears = requestedYearRange.endYear - requestedYearRange.startYear + 1;
+      const uniqueYears = [...new Set(plottedYears)];
+      if (uniqueYears.length < expectedYears && !mentionsMissingData) {
+        issues.push('O periodo pedido nao esta completo no grafico e a resposta nao explica os anos ausentes.');
+      }
+      if (uniqueYears.length < expectedYears && !/\bybar\b/i.test(normalizedCode)) {
+        issues.push('Periodo incompleto nao deve ser mostrado como linha continua; prefira barras para os anos disponiveis.');
+      }
+    }
   }
 
   if (isCategoryComparison) {
@@ -2703,7 +2786,21 @@ function analyzeLatexGraph(code = '', context = {}) {
 }
 
 async function alignGraphWithResponseReliability(response = '', sources = [], userQuestion = '', logs = []) {
+  response = enforceSingleVisualChoice(response, userQuestion);
   const graphBlocks = extractLatexGraphBlocks(response);
+  const mindMapBlocks = extractMindMapBlocks(response);
+  if (graphBlocks.length === 0 && mindMapBlocks.length > 0) {
+    const confidence = assessResponseReliability(response, sources);
+    if (confidence === 'LOW') {
+      logs.push('🛑 Mapa mental removido: confiabilidade textual insuficiente para sustentar a visualizacao.');
+      return {
+        response: String(response || '').replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ').trim(),
+        confidence,
+      };
+    }
+    logs.push(`🧠 Mapa mental mantido com confiabilidade ${confidence}.`);
+    return { response, confidence };
+  }
   if (graphBlocks.length === 0) {
     return { response, confidence: assessResponseReliability(response, sources) };
   }
@@ -2759,10 +2856,12 @@ REGRAS OBRIGATÓRIAS:
 7. Antes de plotar, monte internamente uma tabela ano/categoria -> valor e confira se os coordinates batem exatamente com ela.
 8. Se encontrar três ou mais valores consecutivos idênticos em contexto improvável, revalide. Se não conseguir confirmar, retorne [NO_GRAPH].
 9. Em gráficos de variação percentual, inclua uma referência visual clara para y=0.
-10. Não use cunha, área preenchida, triângulo visual, distorção de escala ou atalhos artísticos.
-11. Se a pergunta tratar de matriz elétrica vs matriz energética, preserve essa distinção e não troque uma pela outra.
-12. Retorne APENAS um bloco corrigido no formato [LATEX_GRAPH_TITLE] + [LATEX_GRAPH_CODE] ou APENAS [NO_GRAPH].
-13. Não inclua explicações fora do bloco.
+10. Quando houver escolha entre valor absoluto e porcentagem, prefira o valor absoluto oficial.
+11. Se o período pedido estiver incompleto, não desenhe linha contínua entre anos distantes; use barras apenas para os anos confirmados ou retorne [NO_GRAPH].
+12. Não use cunha, área preenchida, triângulo visual, distorção de escala ou atalhos artísticos.
+13. Se a pergunta tratar de matriz elétrica vs matriz energética, preserve essa distinção e não troque uma pela outra.
+14. Retorne APENAS um bloco corrigido no formato [LATEX_GRAPH_TITLE] + [LATEX_GRAPH_CODE] ou APENAS [NO_GRAPH].
+15. Não inclua explicações fora do bloco.
 `;
 
   const repaired = String(await callGemini(graphPrompt, logs) || '').trim();
