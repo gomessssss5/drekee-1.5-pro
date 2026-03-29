@@ -2465,6 +2465,7 @@ INSTRUÇÕES FINAIS:
 5. Cite TODAS as afirmações factuais com o formato exato [ID-DA-FONTE: ID_EXATO].
 6. Nunca use formatos como [FONTE: nome] ou rótulos livres no lugar do ID.
 7. Mantenha o tom didático e amigável, mas seja direto nos dados.
+8. Se houver comparações, percentuais, composição, ranking, escalas ou 3 ou mais itens numéricos comparáveis, prefira incluir um gráfico LaTeX no final.
 
 Seja honesto. Não invente. Use as fontes.`;
 

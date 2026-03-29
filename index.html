@@ -887,6 +887,11 @@
     font-size: 0.75rem; color: #94a3b8; font-weight: 500;
   }
   @keyframes phet-spin { to { transform: rotate(360deg); } }
+  @keyframes graph-fade-up {
+    from { opacity: 0; transform: translateY(10px) scale(0.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes graph-spin { to { transform: rotate(360deg); } }
   .latex-graph-section {
     margin-top: 1.15rem;
     padding: 0.35rem 0 0;
@@ -895,50 +900,11 @@
     border: none;
     box-shadow: none;
   }
-  .latex-graph-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.85rem;
-    margin-bottom: 0.85rem;
-  }
-  .latex-graph-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: #64748b;
-    font-size: 0.72rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .latex-graph-title {
-    margin-top: 0.45rem;
-    font-size: 0.98rem;
-    font-weight: 800;
-    color: #0f172a;
-    letter-spacing: -0.02em;
-    line-height: 1.35;
-  }
-  .latex-graph-subtitle {
-    margin-top: 0.4rem;
-    color: rgba(51,65,85,0.72);
-    font-size: 0.8rem;
-    line-height: 1.45;
-    max-width: 46rem;
-  }
-  .latex-graph-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
   .latex-graph-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.38rem;
-    padding: 0.52rem 0.72rem;
+    padding: 0.45rem 0.68rem;
     border-radius: 999px;
     border: 1px solid rgba(203,213,225,0.9);
     background: #fff;
@@ -994,6 +960,14 @@
     line-height: 1.6;
     max-width: 38rem;
   }
+  .latex-graph-spinner {
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 999px;
+    border: 2px solid rgba(37,99,235,0.16);
+    border-top-color: #2563eb;
+    animation: graph-spin 0.8s linear infinite;
+  }
   .latex-graph-image-wrap {
     width: 100%;
     padding: 0.3rem 0 0;
@@ -1008,6 +982,8 @@
     background: #fff;
     border: 1px solid rgba(203,213,225,0.95);
     box-shadow: 0 10px 26px rgba(15,23,42,0.08);
+    opacity: 0;
+    animation: graph-fade-up 0.42s cubic-bezier(.21,.89,.32,1) forwards;
   }
   .latex-graph-viewport {
     position: relative;
@@ -1037,6 +1013,11 @@
     user-select: none;
     -webkit-user-drag: none;
     filter: none;
+  }
+  .latex-graph-footer {
+    display: flex;
+    justify-content: flex-start;
+    padding-top: 0.65rem;
   }
   @media (max-width: 780px) {
     .latex-graph-image {
@@ -3633,42 +3614,15 @@
     const section = document.createElement('div');
     section.className = 'ai-full-width-section latex-graph-section';
 
-    const head = document.createElement('div');
-    head.className = 'latex-graph-head';
-
-    const copy = document.createElement('div');
-    const kicker = document.createElement('div');
-    kicker.className = 'latex-graph-kicker';
-    kicker.innerHTML = '<span class="material-icons-outlined" style="font-size:1rem;">query_stats</span><span>Grafico informativo</span>';
-
-    const title = document.createElement('div');
-    title.className = 'latex-graph-title';
-    title.textContent = graphSpec.title || 'Grafico informativo';
-
-    const subtitle = document.createElement('div');
-    subtitle.className = 'latex-graph-subtitle';
-    subtitle.textContent = 'Renderizado em LaTeX/PGFPlots a partir da propria resposta da IA.';
-
-    copy.appendChild(kicker);
-    copy.appendChild(title);
-    copy.appendChild(subtitle);
-
-    const actions = document.createElement('div');
-    actions.className = 'latex-graph-actions';
-
-    head.appendChild(copy);
-    head.appendChild(actions);
-
     const body = document.createElement('div');
     body.className = 'latex-graph-body';
     body.innerHTML = `
       <div class="latex-graph-loading">
-        <span class="material-icons-outlined">auto_graph</span>
-        <p>Compilando o grafico em LaTeX e preparando a imagem para exibicao...</p>
+        <div class="latex-graph-spinner" aria-hidden="true"></div>
+        <p>Carregando grafico...</p>
       </div>
     `;
 
-    section.appendChild(head);
     section.appendChild(body);
 
     requestLatexGraphRender(graphSpec.code)
@@ -3704,12 +3658,16 @@
 
         setupLatexGraphPanzoom(surface, viewport);
 
+        const footer = document.createElement('div');
+        footer.className = 'latex-graph-footer';
+
         const downloadBtn = document.createElement('a');
         downloadBtn.className = 'latex-graph-btn primary';
         downloadBtn.href = assetUrl;
         downloadBtn.download = downloadName || 'drekee-grafico.png';
         downloadBtn.innerHTML = '<span class="material-icons-outlined" style="font-size:0.95rem;">download</span><span>Baixar PNG</span>';
-        actions.appendChild(downloadBtn);
+        footer.appendChild(downloadBtn);
+        body.appendChild(footer);
 
         if (revokeOnUnload && assetUrl) {
           window.addEventListener('beforeunload', () => URL.revokeObjectURL(assetUrl), { once: true });
