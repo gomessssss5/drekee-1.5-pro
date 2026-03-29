@@ -528,6 +528,9 @@
     grid-template-columns: 1.45rem minmax(0, 1fr);
     gap: 0.85rem;
     align-items: start;
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+    animation: agentStepReveal 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
   .agent-live-step::before {
     content: '';
@@ -592,6 +595,16 @@
     font-size: 0.72rem;
     color: #64748b;
     line-height: 1.35;
+  }
+  @keyframes agentStepReveal {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
   .agent-pane-reveal {
     opacity: 0;
@@ -2572,6 +2585,10 @@
     steps.className = 'agent-live-steps';
 
     const seenLogs = new Set();
+    const pendingLogs = [];
+    const MIN_STEP_VISIBILITY_MS = 1500;
+    let queueRunning = false;
+    let activeStepStartedAt = Date.now();
     let activeStep = createAgentLiveStep('Preparando o agente e abrindo o fluxo de pesquisa.', 'active', 'Aguardando os primeiros eventos do backend');
     steps.appendChild(activeStep);
 
@@ -2582,31 +2599,68 @@
     messagesContainer.appendChild(wrapper);
     scrollToBottom();
 
-    return {
-      addLog(message) {
-        const clean = String(message || '').trim();
-        if (!clean || seenLogs.has(clean)) return;
-        seenLogs.add(clean);
+    async function flushLogQueue() {
+      if (queueRunning) return;
+      queueRunning = true;
+
+      while (pendingLogs.length > 0) {
+        const nextMessage = pendingLogs.shift();
+        const elapsed = Date.now() - activeStepStartedAt;
+        if (elapsed < MIN_STEP_VISIBILITY_MS) {
+          await delay(MIN_STEP_VISIBILITY_MS - elapsed);
+        }
+
         if (activeStep) setAgentLiveStepState(activeStep, 'done');
-        const nextStep = createAgentLiveStep(clean, 'active', `Passo ${seenLogs.size}`);
+        const nextStep = createAgentLiveStep(nextMessage, 'active', `Passo ${seenLogs.size}`);
         steps.appendChild(nextStep);
         activeStep = nextStep;
-        subtitle.textContent = clean;
+        activeStepStartedAt = Date.now();
+        subtitle.textContent = nextMessage;
         steps.scrollTop = steps.scrollHeight;
         scrollToBottom();
+      }
+
+      queueRunning = false;
+    }
+
+    function enqueueLog(message) {
+      const clean = String(message || '').trim();
+      if (!clean || seenLogs.has(clean)) return;
+      seenLogs.add(clean);
+      pendingLogs.push(clean);
+      flushLogQueue();
+    }
+
+    return {
+      addLog(message) {
+        enqueueLog(message);
       },
       setSubtitle(text) {
         const clean = String(text || '').trim();
         if (clean) subtitle.textContent = clean;
       },
-      complete(text) {
+      async complete(text) {
+        while (queueRunning || pendingLogs.length > 0) {
+          await delay(80);
+        }
+        const elapsed = Date.now() - activeStepStartedAt;
+        if (elapsed < MIN_STEP_VISIBILITY_MS) {
+          await delay(MIN_STEP_VISIBILITY_MS - elapsed);
+        }
         if (activeStep) setAgentLiveStepState(activeStep, 'done');
         card.classList.remove('is-error');
         card.classList.add('is-complete');
         badge.textContent = 'Concluído';
         subtitle.textContent = text || 'Resposta pronta para leitura.';
       },
-      fail(text) {
+      async fail(text) {
+        while (queueRunning || pendingLogs.length > 0) {
+          await delay(80);
+        }
+        const elapsed = Date.now() - activeStepStartedAt;
+        if (elapsed < MIN_STEP_VISIBILITY_MS) {
+          await delay(MIN_STEP_VISIBILITY_MS - elapsed);
+        }
         if (activeStep) setAgentLiveStepState(activeStep, 'error');
         card.classList.remove('is-complete');
         card.classList.add('is-error');
@@ -2739,6 +2793,7 @@
       .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+\]/gi, ' ')
+      .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
       .replace(/\[PHET:[^\]]+\]/gi, ' ')
       .replace(/\[PDB:[^\]]+\]/gi, ' ')
       .replace(/\[ID-DA-FONTE:\s*[^\]]+\]/gi, ' ')

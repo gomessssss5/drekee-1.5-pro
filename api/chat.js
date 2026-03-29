@@ -37,6 +37,7 @@ DIRETRIZES DE OURO:
     - Use rótulos em português e faça o gráfico ficar coerente com o tema da resposta.
     - Gere gráficos simples e robustos: prefira standalone + pgfplots, um único tikzpicture, no máximo 1 ou 2 \\addplot, sem bibliotecas exóticas.
     - Evite macros próprias, comandos avançados, tabelas \\pgfplotstable, arquivos externos, imagens externas e dependências além de pgfplots e xcolor.
+    - Se for gráfico de linhas, use linhas grossas, marcadores visíveis e cores contrastantes.
     - Se houver risco de erro de compilação, prefira um gráfico de barras ou linhas simples com categorias curtas e valores explícitos.
 6.  **RESUMOS OFFLINE (TAG [OFFLINE_DOC]):**
     - **CONTEÚDO:** Quando o usuário pedir um resumo, o conteúdo dentro da tag [OFFLINE_DOC: ... ] deve ser um **DOCUMENTO COMPLETO E ESTRUTURADO** (Markdown rico). 
@@ -1433,7 +1434,7 @@ function detectPhetSimulation(userQuestion = '', response = '', selectedConnecto
   const activeConnectors = Array.isArray(selectedConnectors) ? selectedConnectors : [];
   if (!activeConnectors.includes('phet')) return null;
 
-  const text = `${userQuestion}\n${response}`.toLowerCase();
+  const text = String(userQuestion || '').toLowerCase();
   const catalog = [
     {
       pattern: /\b(átomo|atomo|próton|proton|nêutron|neutron|elétron|eletron|camada eletrônica|estrutura atômica|forma um átomo|formaçao do átomo|formacao do atomo)\b/,
@@ -1454,7 +1455,7 @@ function detectPhetSimulation(userQuestion = '', response = '', selectedConnecto
       theory: 'Moléculas surgem quando átomos compartilham ou reorganizam elétrons em ligações químicas.',
     },
     {
-      pattern: /\b(ph|ácido|acido|base|acidez|basicidade)\b/,
+      pattern: /\b(ph|escala de ph|acid-base|acido-base|acidez|basicidade)\b/,
       slug: 'ph-scale',
       guide: 'Teste soluções diferentes e acompanhe a mudança do pH na escala.',
       theory: 'O pH mede a concentração relativa de íons ligados à acidez e à basicidade da solução.',
@@ -1530,8 +1531,12 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const connectorAuto = options.connectorAuto !== false;
   const userConnectors = Array.isArray(options.connectors) ? options.connectors : [];
 
-  const autoDetectedConnectors = ['phet', 'wikidata', 'pubmed', 'rcsb'];
+  const autoDetectedConnectors = [];
   const normalizedText = (userQuestion || '').toLowerCase();
+
+  if (/\b(Ã¡tomo|atomo|prÃ³ton|proton|nÃªutron|neutron|elÃ©tron|eletron|isÃ³topo|isotopo|molÃ©cula|molecula|ligaÃ§Ã£o quÃ­mica|ligacao quimica|ph|acidez|basicidade|circuito|corrente elÃ©trica|corrente eletrica|voltagem|tensÃ£o elÃ©trica|tensao eletrica|resistor|ohm|faraday|induÃ§Ã£o eletromagnÃ©tica|inducao eletromagnetica|forÃ§a|forca|segunda lei de newton)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('phet');
+  }
   
   if (/\b(formiga|ant|ants|himenóptero|genus|inseto|antweb)\b/i.test(normalizedText)) autoDetectedConnectors.push('antweb');
   if (/\b(peixe|oceano|fishwatch|sustentabilidade|pesca|marinho)\b/.test(normalizedText)) autoDetectedConnectors.push('fishwatch');
@@ -1698,7 +1703,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   }
 
 
-  logs.push(`🔌 Conectores selecionados: ${selectedConnectors.join(', ') || 'nenhum'}`);
+  logs.push(`🔌 Conectores habilitados para esta pergunta: ${selectedConnectors.join(', ') || 'nenhum'}`);
 
   // Data de cada conector
   
@@ -2509,50 +2514,21 @@ ${response}
 // ============ CONVERT LOGS TO COHERENT THINKING PARAGRAPH ============
 function convertLogsToThinking(logs) {
   if (!logs || logs.length === 0) {
-    return 'Iniciando análise científica...';
+    return 'Analise cientifica em andamento.';
   }
 
-  // Extract meaningful actions from logs
-  const thinking = [];
+  const normalized = logs
+    .map(log => String(log || '').trim())
+    .filter(Boolean)
+    .map(log => log.replace(/^[^\p{L}\p{N}]+/u, '').trim())
+    .filter(log => !/^Conectores habilitados para esta pergunta:/i.test(log));
 
-  for (const log of logs) {
-    if (log.includes('Iniciando Agente')) {
-      thinking.push('O agente científico foi inicializado');
-    } else if (log.includes('busca web') || log.includes('Tavily')) {
-      thinking.push('consultando fontes web em tempo real');
-    } else if (log.includes('Dados da web')) {
-      thinking.push('dados web foram integrados ao contexto');
-    } else if (log.includes('Otimizando busca NASA')) {
-      thinking.push('otimizando a busca por imagens ciêntíficas');
-    } else if (log.includes('Query otimizada')) {
-      thinking.push(`personalizando a busca de imagens NASA`);
-    } else if (log.includes('Filtrando resultados')) {
-      thinking.push('filtrando resultados por relevância');
-    } else if (log.includes('Selecionados')) {
-      const match = log.match(/(\\d+)/);
-      if (match) thinking.push(`selecionados ${match[1]} resultados mais relevantes`);
-    } else if (log.includes('Analisando imagens')) {
-      thinking.push('analisando imagens científicas com modelos de IA');
-    } else if (log.includes('Imagens analisadas')) {
-      thinking.push('imagens foram contextualizadas');
-    } else if (log.includes('Processando e raciocínio')) {
-      thinking.push('processando informações e gerando resposta');
-    } else if (log.includes('Resposta gerada')) {
-      thinking.push('resposta científica foi gerada');
-    } else if (log.includes('Revisando')) {
-      thinking.push('validando precisão e clareza da resposta');
-    } else if (log.includes('Resposta revisada')) {
-      thinking.push('resposta foi revisada e validada');
-    }
+  const uniqueThinking = [...new Set(normalized)].slice(0, 4);
+  if (uniqueThinking.length === 0) {
+    return 'Processando sua pergunta cientifica.';
   }
 
-  if (thinking.length === 0) {
-    return 'Processando sua pergunta científica...';
-  }
-
-  // Create natural paragraph
-  const uniqueThinking = [...new Set(thinking)]; // Remove duplicates
-  return uniqueThinking.join(', ') + '.';
+  return uniqueThinking.join(' -> ');
 }
 
 // ============ EXTRACT CONFIDENCE ============
