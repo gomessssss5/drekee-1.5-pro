@@ -1526,6 +1526,8 @@ function sanitizeFinalResponse(response = '') {
   return stripConfidenceTags(
     String(response || '')
       .replace(/^Como\s+Revisor[\s\S]*?\n/i, '')
+      .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
+      .replace(/\[LATEX_GRAPH_CODE\]|\[\/LATEX_GRAPH_CODE\]/gi, ' ')
       .trim()
   );
 }

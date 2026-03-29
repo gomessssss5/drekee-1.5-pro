@@ -3541,17 +3541,47 @@
 
   function parseLatexGraphBlocks(response = '') {
     const graphs = [];
-    const cleanedResponse = String(response || '')
-      .replace(
-        /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi,
-        (match, rawTitle, rawCode) => {
-          const title = String(rawTitle || '').trim() || 'Grafico informativo';
-          const code = String(rawCode || '').trim();
-          if (code) graphs.push({ title, code });
-          return ' ';
-        }
-      )
-      .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ');
+    let working = String(response || '');
+
+    const pushGraph = (title, code) => {
+      const safeCode = String(code || '').trim();
+      if (!safeCode) return;
+      graphs.push({
+        title: String(title || '').trim() || 'Grafico informativo',
+        code: safeCode,
+      });
+    };
+
+    working = working.replace(
+      /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi,
+      (match, rawTitle, rawCode) => {
+        pushGraph(rawTitle, rawCode);
+        return ' ';
+      }
+    );
+
+    working = working.replace(
+      /\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi,
+      (match, rawCode) => {
+        pushGraph('Grafico informativo', rawCode);
+        return ' ';
+      }
+    );
+
+    working = working.replace(
+      /(\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\})/gi,
+      (match, rawCode) => {
+        pushGraph('Grafico informativo', rawCode);
+        return ' ';
+      }
+    );
+
+    const cleanedResponse = working
+      .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
+      .replace(/\[LATEX_GRAPH_CODE\]|\[\/LATEX_GRAPH_CODE\]/gi, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
     return { cleanedResponse, graphs };
   }
 
