@@ -16,6 +16,18 @@ function normalizeLatexText(input = '') {
     .trim();
 }
 
+function toAsciiLatexText(input = '') {
+  return String(input || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ç/g, 'c')
+    .replace(/Ç/g, 'C');
+}
+
+function escapeLoosePercentSigns(input = '') {
+  return String(input || '').replace(/(^|[^\\])%/g, '$1\\%');
+}
+
 const DREKEE_LATEX_THEME = [
   '\\definecolor{chatgpt_color}{RGB}{124,169,153}',
   '\\definecolor{gemini_color}{RGB}{66,133,244}',
@@ -52,6 +64,12 @@ function injectLatexTheme(documentCode = '') {
   let themed = String(documentCode || '').trim();
   if (!themed || /\\definecolor\{chatgpt_color\}/.test(themed)) return themed;
 
+  if (!/\\usepackage\[utf8\]\{inputenc\}/.test(themed)) {
+    themed = themed.replace(/\\documentclass(?:\[[^\]]*\])?\{[^}]+\}\s*/, match => `${match}\n\\usepackage[utf8]{inputenc}\n`);
+  }
+  if (!/\\usepackage\[T1\]\{fontenc\}/.test(themed)) {
+    themed = themed.replace(/\\usepackage\[utf8\]\{inputenc\}\s*/, match => `${match}\\usepackage[T1]{fontenc}\n`);
+  }
   if (!/\\usepackage\{xcolor\}/.test(themed)) {
     themed = themed.replace(/\\usepackage\{pgfplots\}\s*/, match => `${match}\\usepackage{xcolor}\n`);
   }
@@ -80,8 +98,9 @@ function wrapLatexDocument(body = '') {
 }
 
 function buildLatexCandidates(rawCode = '') {
-  const normalized = normalizeLatexText(sanitizeLatexDocument(rawCode));
+  const normalized = escapeLoosePercentSigns(normalizeLatexText(sanitizeLatexDocument(rawCode)));
   if (!normalized) return [];
+  const asciiNormalized = toAsciiLatexText(normalized);
 
   const candidates = [];
   const seen = new Set();
@@ -93,6 +112,9 @@ function buildLatexCandidates(rawCode = '') {
   };
 
   push(injectLatexTheme(normalized));
+  if (asciiNormalized !== normalized) {
+    push(injectLatexTheme(asciiNormalized));
+  }
 
   const tikzMatch = normalized.match(/\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\}/);
   if (tikzMatch) {
@@ -106,6 +128,9 @@ function buildLatexCandidates(rawCode = '') {
 
   if (!/\\documentclass\b/.test(normalized)) {
     push(wrapLatexDocument(normalized));
+    if (asciiNormalized !== normalized) {
+      push(wrapLatexDocument(asciiNormalized));
+    }
   } else {
     let repaired = normalized;
     if (!/\\usepackage\{pgfplots\}/.test(repaired)) {
@@ -130,6 +155,31 @@ function buildLatexCandidates(rawCode = '') {
       repaired += '\n\\end{document}';
     }
     push(injectLatexTheme(repaired));
+    if (asciiNormalized !== normalized) {
+      let asciiRepaired = asciiNormalized;
+      if (!/\\usepackage\{pgfplots\}/.test(asciiRepaired)) {
+        asciiRepaired = asciiRepaired.replace(/\\documentclass(?:\[[^\]]*\])?\{[^}]+\}\s*/, match => `${match}\n\\usepackage{pgfplots}\n`);
+      }
+      if (!/\\usepackage\{xcolor\}/.test(asciiRepaired)) {
+        asciiRepaired = asciiRepaired.replace(/\\usepackage\{pgfplots\}\s*/, match => `${match}\\usepackage{xcolor}\n`);
+      }
+      if (!/\\pgfplotsset\{compat=/.test(asciiRepaired)) {
+        asciiRepaired = asciiRepaired.replace(/\\usepackage\{xcolor\}\s*/, match => `${match}\\pgfplotsset{compat=1.18}\n`);
+        if (!/\\pgfplotsset\{compat=/.test(asciiRepaired)) {
+          asciiRepaired = asciiRepaired.replace(/\\usepackage\{pgfplots\}\s*/, match => `${match}\\pgfplotsset{compat=1.18}\n`);
+        }
+      }
+      if (!/\\begin\{document\}/.test(asciiRepaired)) {
+        asciiRepaired = asciiRepaired.replace(/(\\pgfplotsset\{compat=[^}]+\}\s*)/, '$1\\begin{document}\n');
+        if (!/\\begin\{document\}/.test(asciiRepaired)) {
+          asciiRepaired += '\n\\begin{document}\n';
+        }
+      }
+      if (!/\\end\{document\}/.test(asciiRepaired)) {
+        asciiRepaired += '\n\\end{document}';
+      }
+      push(injectLatexTheme(asciiRepaired));
+    }
   }
 
   return candidates;
