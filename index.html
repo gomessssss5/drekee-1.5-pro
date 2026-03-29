@@ -3561,6 +3561,14 @@
     );
 
     working = working.replace(
+      /(\\documentclass[\s\S]*?\\end\{document\})/gi,
+      (match, rawCode) => {
+        pushGraph('Grafico informativo', rawCode);
+        return ' ';
+      }
+    );
+
+    working = working.replace(
       /\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi,
       (match, rawCode) => {
         pushGraph('Grafico informativo', rawCode);
@@ -3579,7 +3587,12 @@
     const cleanedResponse = working
       .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_CODE\]|\[\/LATEX_GRAPH_CODE\]/gi, ' ')
+      .replace(/\\documentclass(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
+      .replace(/\\usepackage(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
+      .replace(/\\begin\{document\}|\\end\{document\}/gi, ' ')
+      .replace(/\\pgfplotsset\{[^}]+\}/gi, ' ')
       .replace(/\n{3,}/g, '\n\n')
+      .replace(/\s{2,}/g, ' ')
       .trim();
 
     return { cleanedResponse, graphs };

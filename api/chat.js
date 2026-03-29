@@ -40,6 +40,8 @@ DIRETRIZES DE OURO:
     - Se for gráfico de linhas, use linhas grossas, marcadores visíveis e cores contrastantes.
     - Em séries temporais, use line chart com pontos/anos reais no eixo X e escala proporcional no eixo Y; nunca use cunha, área preenchida ou atalhos visuais que distorçam a diferença entre valores.
     - Em comparações entre países, categorias, fontes ou grupos discretos, prefira gráfico de barras; não use linha para ligar categorias soltas.
+    - Se algum ano/categoria não tiver dado localizado na base consultada, NÃO invente 0, NÃO estime e NÃO preencha lacuna. Omita o ponto no gráfico e avise no texto quais anos/categorias ficaram sem dado.
+    - Em gráficos de variação percentual, inclua uma linha de base visível em y=0.
     - O eixo Y deve nomear exatamente a grandeza com unidade ou referência técnica correta (ex: "Anomalia de Temperatura Global (°C)").
     - Quando o gráfico resumir dados científicos conhecidos, cite no texto as fontes institucionais que sustentam os valores (ex: NASA, NOAA, Copernicus, IBGE).
     - Se houver risco de erro de compilação, prefira um gráfico de barras ou linhas simples com categorias curtas e valores explícitos.
@@ -1528,6 +1530,12 @@ function sanitizeFinalResponse(response = '') {
       .replace(/^Como\s+Revisor[\s\S]*?\n/i, '')
       .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_CODE\]|\[\/LATEX_GRAPH_CODE\]/gi, ' ')
+      .replace(/\\documentclass(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
+      .replace(/\\usepackage(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
+      .replace(/\\begin\{document\}|\\end\{document\}/gi, ' ')
+      .replace(/\\pgfplotsset\{[^}]+\}/gi, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]{2,}/g, ' ')
       .trim()
   );
 }
@@ -2481,6 +2489,9 @@ INSTRUÇÕES FINAIS:
 10. Se o gráfico for uma série temporal, use apenas line chart com escala proporcional real; não use área, cunha ou números hipotéticos fora da ordem de grandeza real.
 11. Se a pergunta comparar categorias discretas (ex: Brasil vs média mundial, fontes de energia, estados, países), use barras e alinhe cada valor exatamente ao seu rótulo no eixo X.
 12. Nunca confunda "matriz elétrica" com "matriz energética". Se o tema for Brasil/energia, diferencie explicitamente eletricidade de energia total e priorize fontes institucionais como a EPE quando disponíveis.
+13. Se faltarem dados para algum ano/categoria, diga isso explicitamente. Nunca transforme ausência de dado em 0.
+14. Antes de plotar, monte internamente uma tabela ano/categoria -> valor. Se encontrar três ou mais valores consecutivos idênticos em contexto onde isso pareça improvável, revalide a busca; se não conseguir confirmar, não plote esses pontos.
+15. Em variação percentual, inclua referência visual de y=0 no gráfico.
 
 Seja honesto. Não invente. Use as fontes.`;
 
@@ -2615,6 +2626,20 @@ function detectCategoryComparisonIntent(userQuestion = '', response = '') {
     !detectTimeSeriesIntent(userQuestion, response);
 }
 
+function findLongestRepeatedNumericRun(values = []) {
+  let longest = 1;
+  let current = 1;
+  for (let index = 1; index < values.length; index += 1) {
+    if (values[index] === values[index - 1]) {
+      current += 1;
+      if (current > longest) longest = current;
+    } else {
+      current = 1;
+    }
+  }
+  return longest;
+}
+
 function analyzeLatexGraph(code = '', context = {}) {
   const issues = [];
   const normalizedCode = String(code || '');
@@ -2632,8 +2657,16 @@ function analyzeLatexGraph(code = '', context = {}) {
   const xticklabels = xticklabelsMatch
     ? xticklabelsMatch[1].split(',').map(item => item.trim()).filter(Boolean)
     : [];
-  const coordinateEntries = [...normalizedCode.matchAll(/\(([^()]+?),\s*([-+]?\d+(?:\.\d+)?)\)/g)].map(match => match[1].trim());
+  const coordinateMatches = [...normalizedCode.matchAll(/\(([^()]+?),\s*([-+]?\d+(?:\.\d+)?)\)/g)];
+  const coordinateEntries = coordinateMatches.map(match => match[1].trim());
   const numericCoordinateXs = coordinateEntries.filter(value => /^[-+]?\d+(?:\.\d+)?$/.test(value));
+  const numericCoordinateYs = coordinateMatches.map(match => Number(match[2]));
+  const longestRepeatedRun = findLongestRepeatedNumericRun(numericCoordinateYs);
+  const responseWithoutGraph = stripLatexGraphBlocks(context.response || '');
+  const mentionsMissingData = /\b(n[aã]o (?:foram|foi) localizados?|dados? ausentes?|sem dado|lacuna|n[aã]o dispon[ií]vel)\b/i.test(responseWithoutGraph);
+  const seemsPercentVariation = /\b(pib|varia[cç][aã]o percentual|crescimento|contra[cç][aã]o|recuo|queda percentual|percentual)\b/i.test(`${context.userQuestion}\n${responseWithoutGraph}`);
+  const hasZeroBaseline = /\bextra y ticks\s*=\s*\{[^}]*0[^}]*\}|\bextra y tick labels\s*=|\baxis x line|\\addplot\s*\[[^\]]*\]\s*coordinates\s*\{\s*\([^)]*,\s*0(?:\.0+)?\)\s*\([^)]*,\s*0(?:\.0+)?\)/i.test(normalizedCode) ||
+    /\bytick\s*=\s*\{[^}]*0[^}]*\}/i.test(normalizedCode);
 
   if (!addPlotCount) issues.push('O grafico nao possui \\addplot.');
   if (coordinateCount < 2) issues.push('O grafico nao tem pontos suficientes.');
@@ -2648,6 +2681,8 @@ function analyzeLatexGraph(code = '', context = {}) {
     if (/fill\s*=|fill between|closedcycle|area legend/i.test(normalizedCode)) issues.push('Serie temporal nao deve usar area/cunha preenchida.');
     if (!/mark\s*=|\bevery mark\b/i.test(normalizedCode)) issues.push('Serie temporal precisa de marcadores visiveis.');
     if (!/thick|line width\s*=|very thick/i.test(normalizedCode)) issues.push('Serie temporal precisa de linha espessa o suficiente para leitura.');
+    if (longestRepeatedRun >= 3 && !mentionsMissingData) issues.push('Ha uma sequencia longa de valores identicos; isso pode indicar que dado ausente virou valor artificial.');
+    if (seemsPercentVariation && !hasZeroBaseline) issues.push('Grafico de variacao percentual precisa mostrar referencia visual para y=0.');
   }
 
   if (isCategoryComparison) {
@@ -2720,10 +2755,14 @@ REGRAS OBRIGATÓRIAS:
 3. Em série temporal, use gráfico de linha com escala proporcional real no eixo Y e rótulo técnico com unidade/referência.
 4. Em comparação entre categorias discretas, países ou grupos, use gráfico de barras e alinhe cada valor exatamente ao respectivo rótulo no eixo X.
 5. Se houver symbolic x coords, os pontos devem usar esses mesmos rótulos; não misture rótulos simbólicos com coordenadas numéricas soltas.
-6. Não use cunha, área preenchida, triângulo visual, distorção de escala ou atalhos artísticos.
-7. Se a pergunta tratar de matriz elétrica vs matriz energética, preserve essa distinção e não troque uma pela outra.
-8. Retorne APENAS um bloco corrigido no formato [LATEX_GRAPH_TITLE] + [LATEX_GRAPH_CODE] ou APENAS [NO_GRAPH].
-9. Não inclua explicações fora do bloco.
+6. Se faltar dado para algum ano/categoria, omita esse ponto e não substitua por 0. A resposta textual deve mencionar quais anos/categorias ficaram sem dado localizado.
+7. Antes de plotar, monte internamente uma tabela ano/categoria -> valor e confira se os coordinates batem exatamente com ela.
+8. Se encontrar três ou mais valores consecutivos idênticos em contexto improvável, revalide. Se não conseguir confirmar, retorne [NO_GRAPH].
+9. Em gráficos de variação percentual, inclua uma referência visual clara para y=0.
+10. Não use cunha, área preenchida, triângulo visual, distorção de escala ou atalhos artísticos.
+11. Se a pergunta tratar de matriz elétrica vs matriz energética, preserve essa distinção e não troque uma pela outra.
+12. Retorne APENAS um bloco corrigido no formato [LATEX_GRAPH_TITLE] + [LATEX_GRAPH_CODE] ou APENAS [NO_GRAPH].
+13. Não inclua explicações fora do bloco.
 `;
 
   const repaired = String(await callGemini(graphPrompt, logs) || '').trim();
