@@ -38,6 +38,9 @@ DIRETRIZES DE OURO:
     - Gere gráficos simples e robustos: prefira standalone + pgfplots, um único tikzpicture, no máximo 1 ou 2 \\addplot, sem bibliotecas exóticas.
     - Evite macros próprias, comandos avançados, tabelas \\pgfplotstable, arquivos externos, imagens externas e dependências além de pgfplots e xcolor.
     - Se for gráfico de linhas, use linhas grossas, marcadores visíveis e cores contrastantes.
+    - Em séries temporais, use line chart com pontos/anos reais no eixo X e escala proporcional no eixo Y; nunca use cunha, área preenchida ou atalhos visuais que distorçam a diferença entre valores.
+    - O eixo Y deve nomear exatamente a grandeza com unidade ou referência técnica correta (ex: "Anomalia de Temperatura Global (°C)").
+    - Quando o gráfico resumir dados científicos conhecidos, cite no texto as fontes institucionais que sustentam os valores (ex: NASA, NOAA, Copernicus, IBGE).
     - Se houver risco de erro de compilação, prefira um gráfico de barras ou linhas simples com categorias curtas e valores explícitos.
 6.  **RESUMOS OFFLINE (TAG [OFFLINE_DOC]):**
     - **CONTEÚDO:** Quando o usuário pedir um resumo, o conteúdo dentro da tag [OFFLINE_DOC: ... ] deve ser um **DOCUMENTO COMPLETO E ESTRUTURADO** (Markdown rico). 

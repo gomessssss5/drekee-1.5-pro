@@ -2587,6 +2587,7 @@
     const seenLogs = new Set();
     const pendingLogs = [];
     const MIN_STEP_VISIBILITY_MS = 1500;
+    let displayedStepCount = 1;
     let queueRunning = false;
     let activeStepStartedAt = Date.now();
     let activeStep = createAgentLiveStep('Preparando o agente e abrindo o fluxo de pesquisa.', 'active', 'Aguardando os primeiros eventos do backend');
@@ -2611,7 +2612,8 @@
         }
 
         if (activeStep) setAgentLiveStepState(activeStep, 'done');
-        const nextStep = createAgentLiveStep(nextMessage, 'active', `Passo ${seenLogs.size}`);
+        displayedStepCount += 1;
+        const nextStep = createAgentLiveStep(nextMessage, 'active', `Passo ${displayedStepCount}`);
         steps.appendChild(nextStep);
         activeStep = nextStep;
         activeStepStartedAt = Date.now();
@@ -3539,15 +3541,17 @@
 
   function parseLatexGraphBlocks(response = '') {
     const graphs = [];
-    const cleanedResponse = String(response || '').replace(
-      /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi,
-      (match, rawTitle, rawCode) => {
-        const title = String(rawTitle || '').trim() || 'Grafico informativo';
-        const code = String(rawCode || '').trim();
-        if (code) graphs.push({ title, code });
-        return ' ';
-      }
-    );
+    const cleanedResponse = String(response || '')
+      .replace(
+        /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi,
+        (match, rawTitle, rawCode) => {
+          const title = String(rawTitle || '').trim() || 'Grafico informativo';
+          const code = String(rawCode || '').trim();
+          if (code) graphs.push({ title, code });
+          return ' ';
+        }
+      )
+      .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ');
     return { cleanedResponse, graphs };
   }
 
