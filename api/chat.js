@@ -43,6 +43,8 @@ DIRETRIZES DE OURO:
     - Não use markdown fences dentro de [LATEX_GRAPH_CODE].
     - Não use markdown fences dentro de [MINDMAP_CODE].
     - No mapa mental, envie documento LaTeX completo com TikZ e bibliotecas necessárias já declaradas.
+    - O mapa mental deve ter nó central e ramos distribuídos em múltiplas direções; não faça fluxograma vertical.
+    - Prefira 3 a 5 ramos principais com subtópicos curtos, visual compacto e legível.
     - Use rótulos em português e faça o gráfico ficar coerente com o tema da resposta.
     - Gere gráficos simples e robustos: prefira standalone + pgfplots, um único tikzpicture, no máximo 1 ou 2 \\addplot, sem bibliotecas exóticas.
     - Evite macros próprias, comandos avançados, tabelas \\pgfplotstable, arquivos externos, imagens externas e dependências além de pgfplots e xcolor.
@@ -2540,7 +2542,7 @@ REGRAS CRUCIAIS (RESPEITE 100%):
 4) NÃO inclua títulos artificiais, listas de etapas ou qualquer prefácio sobre revisão. Apenas a resposta final ao usuário.
 5) Se não for possível afirmar com certeza, seja honesto e explique por que.
 6) IMPORTANTE: NÃO REMOVA as tags [ID-DA-FONTE: ID_EXATO] presentes no texto original. Se o texto estiver afirmando informações sem as tags apropriadas originais, ADICIONE tags no mesmo formato exato [ID-DA-FONTE: ID_EXATO]. Nunca use [FONTE: nome] nem rótulos livres. É vital manter o rastreio das fontes.
-7) PRESERVE integralmente, se existirem, os blocos [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE], além de [PHET:...] e [PDB:...]. Você pode melhorar o texto ao redor, mas não corrompa essas tags.
+7) PRESERVE integralmente, se existirem, os blocos [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE] e [MINDMAP_TITLE: ...][MINDMAP_CODE]...[/MINDMAP_CODE], além de [PHET:...] e [PDB:...]. Você pode melhorar o texto ao redor, mas não corrompa essas tags.
 
 RESPOSTA A REVISAR:
 ${response}
@@ -2599,6 +2601,23 @@ function replaceFirstMindMapBlock(response = '', mindMapBlock = '') {
     /\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/i,
     String(mindMapBlock || '').trim()
   );
+}
+
+function analyzeMindMapCode(code = '') {
+  const normalizedCode = String(code || '');
+  const nodeCount = (normalizedCode.match(/\\node\b/g) || []).length;
+  const drawCount = (normalizedCode.match(/\\draw\b/g) || []).length;
+  const hasLeftRightLayout = /\bleft=|\bright=|\babove left=|\babove right=|\bbelow left=|\bbelow right=|\bleft of\b|\bright of\b/i.test(normalizedCode);
+  const onlyVerticalFlow = !hasLeftRightLayout && (/\babove=|\bbelow=|\babove of\b|\bbelow of\b/i.test(normalizedCode));
+  const branchHints = (normalizedCode.match(/\b(?:left|right|north|south|east|west)\b/gi) || []).length;
+  const issues = [];
+
+  if (nodeCount < 5) issues.push('Mapa mental com poucos nos para sintetizar o tema.');
+  if (drawCount < 4) issues.push('Mapa mental com conexoes insuficientes.');
+  if (onlyVerticalFlow) issues.push('O codigo parece um fluxograma vertical, nao um mapa mental radial.');
+  if (branchHints < 4) issues.push('O mapa mental nao distribui ramos em multiplas direcoes.');
+
+  return { issues, nodeCount, drawCount };
 }
 
 function countCitationTags(text = '') {
@@ -2791,15 +2810,88 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
   const mindMapBlocks = extractMindMapBlocks(response);
   if (graphBlocks.length === 0 && mindMapBlocks.length > 0) {
     const confidence = assessResponseReliability(response, sources);
+    const stripMindMap = () => String(response || '').replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ').trim();
     if (confidence === 'LOW') {
       logs.push('🛑 Mapa mental removido: confiabilidade textual insuficiente para sustentar a visualizacao.');
       return {
-        response: String(response || '').replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ').trim(),
+        response: stripMindMap(),
         confidence,
       };
     }
-    logs.push(`🧠 Mapa mental mantido com confiabilidade ${confidence}.`);
-    return { response, confidence };
+
+    const mindMap = mindMapBlocks[0];
+    const mindMapAudit = analyzeMindMapCode(mindMap.code);
+    if (mindMapAudit.issues.length === 0) {
+      logs.push(`🧠 Mapa mental mantido com confiabilidade ${confidence}.`);
+      return { response, confidence };
+    }
+
+    logs.push(`🧠 Revisando mapa mental para evitar fluxograma e melhorar a sintese (${confidence})...`);
+
+    const sourceDigest = (sources || [])
+      .slice(0, 8)
+      .map(source => `${source.id}: ${source.label} - ${source.detail}`)
+      .join('\n');
+
+    const mindMapPrompt = `Você é um revisor de mapas mentais científicos em LaTeX/TikZ.
+
+Sua tarefa é corrigir o mapa mental abaixo para que ele tenha o MESMO nível de confiabilidade da resposta textual e aparência real de mapa mental.
+
+PERGUNTA DO USUÁRIO:
+${userQuestion}
+
+RESPOSTA TEXTUAL JÁ REVISADA:
+${stripLatexGraphBlocks(response)}
+
+FONTES DISPONÍVEIS:
+${sourceDigest}
+
+PROBLEMAS DETECTADOS NO MAPA MENTAL ATUAL:
+${mindMapAudit.issues.map((issue, index) => `${index + 1}. ${issue}`).join('\n')}
+
+MAPA MENTAL ATUAL:
+[MINDMAP_TITLE: ${mindMap.title || 'Mapa mental'}]
+[MINDMAP_CODE]
+${mindMap.code}
+[/MINDMAP_CODE]
+
+REGRAS OBRIGATÓRIAS:
+1. Nunca invente conceitos, relações, causas, exemplos ou subtópicos que não estejam sustentados pela resposta/fonte.
+2. O resultado deve parecer um mapa mental real, não um fluxograma vertical.
+3. Use um nó central claro e 3 a 5 ramos principais distribuídos em múltiplas direções.
+4. Cada ramo principal pode ter 1 a 3 subtópicos curtos.
+5. Prefira layout radial ou simétrico, com nós compactos e legíveis.
+6. Evite texto longo dentro dos nós. Use rótulos curtos.
+7. Gere um documento LaTeX completo, compilável, com TikZ e bibliotecas necessárias já declaradas.
+8. Não use markdown fences.
+9. Se não for possível montar um mapa mental confiável e claro, retorne apenas [NO_MINDMAP].
+10. Retorne APENAS um bloco corrigido no formato [MINDMAP_TITLE] + [MINDMAP_CODE] ou APENAS [NO_MINDMAP].
+11. Não inclua explicações fora do bloco.
+`;
+
+    const repaired = String(await callGemini(mindMapPrompt, logs) || '').trim();
+    if (/^\[NO_MINDMAP\]$/i.test(repaired) || !/\[MINDMAP_TITLE:/i.test(repaired)) {
+      logs.push('🛑 Mapa mental removido: nao foi possivel garantir uma estrutura realmente clara e confiavel.');
+      return { response: stripMindMap(), confidence };
+    }
+
+    const repairedBlock = extractMindMapBlocks(repaired)[0];
+    if (!repairedBlock) {
+      logs.push('🛑 Mapa mental removido: bloco corrigido invalido.');
+      return { response: stripMindMap(), confidence };
+    }
+
+    const repairedAudit = analyzeMindMapCode(repairedBlock.code);
+    if (repairedAudit.issues.length > 0) {
+      logs.push('🛑 Mapa mental removido: a revisao automatica ainda detectou estrutura ruim.');
+      return { response: stripMindMap(), confidence };
+    }
+
+    logs.push('✅ Mapa mental revisado e alinhado ao nivel de confiabilidade da resposta.');
+    return {
+      response: replaceFirstMindMapBlock(response, repairedBlock.raw),
+      confidence,
+    };
   }
   if (graphBlocks.length === 0) {
     return { response, confidence: assessResponseReliability(response, sources) };
