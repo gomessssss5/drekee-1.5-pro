@@ -17,43 +17,45 @@ function normalizeLatexText(input = '') {
 }
 
 const DREKEE_LATEX_THEME = [
-  '\\definecolor{drekeeBlue}{RGB}{66,133,244}',
-  '\\definecolor{drekeeMint}{RGB}{124,169,153}',
-  '\\definecolor{drekeeSun}{RGB}{255,153,0}',
-  '\\definecolor{drekeeRose}{RGB}{214,92,122}',
-  '\\definecolor{drekeeSlate}{RGB}{56,68,87}',
+  '\\definecolor{chatgpt_color}{RGB}{124,169,153}',
+  '\\definecolor{gemini_color}{RGB}{66,133,244}',
+  '\\definecolor{drekee_color}{RGB}{255,153,0}',
+  '\\definecolor{graph_grid}{RGB}{214,220,230}',
   '\\pgfplotsset{',
-  '  drekee axis/.style={',
+  '  drekee premium/.style={',
   '    width=16cm,',
   '    height=9cm,',
-  '    enlarge x limits=0.16,',
+  '    enlarge x limits=0.15,',
   '    ymajorgrids=true,',
-  '    grid style={dashed, draw=drekeeSlate!24},',
-  '    axis line style={draw=drekeeSlate!58},',
-  '    tick style={draw=drekeeSlate!58},',
-  '    tick label style={font=\\small, text=black!80},',
-  '    label style={font=\\bfseries\\small, text=black!82},',
-  '    title style={font=\\bfseries\\large, text=black!94, align=center},',
-  '    legend style={at={(0.5,-0.17)}, anchor=north, legend columns=-1, draw=none, font=\\small, /tikz/every even column/.append style={column sep=12pt}},',
-  '    every axis plot/.append style={line width=1.35pt},',
-  '    cycle list={',
-  '      {fill=drekeeMint, draw=drekeeMint!70!black, color=drekeeMint!70!black, mark=*},',
-  '      {fill=drekeeBlue, draw=drekeeBlue!70!black, color=drekeeBlue!74!black, mark=square*},',
-  '      {fill=drekeeSun, draw=drekeeSun!70!black, color=drekeeSun!78!black, mark=triangle*},',
-  '      {fill=drekeeRose, draw=drekeeRose!70!black, color=drekeeRose!78!black, mark=diamond*}',
-  '    }',
+  '    grid style={dashed, draw=graph_grid},',
+  '    axis line style={draw=black!68},',
+  '    tick style={draw=black!68},',
+  '    tick label style={font=\\small},',
+  '    label style={font=\\bfseries\\small},',
+  '    title style={font=\\bfseries\\normalsize, align=center},',
+  '    nodes near coords,',
+  '    nodes near coords align={vertical},',
+  '    every node near coord/.append style={font=\\footnotesize, /pgf/number format/fixed},',
+  '    bar width=18pt,',
+  '    legend style={at={(0.5,-0.15)}, anchor=north, legend columns=-1, draw=none, /tikz/every even column/.append style={column sep=15pt}}',
   '  },',
-  '  every axis/.append style={drekee axis}',
+  '  every axis/.append style={drekee premium},',
+  '  cycle list={',
+  '    {fill=chatgpt_color, draw=chatgpt_color!70!black},',
+  '    {fill=gemini_color, draw=gemini_color!70!black},',
+  '    {fill=drekee_color, draw=drekee_color!70!black}',
+  '  }',
   '}',
 ].join('\n');
 
 function injectLatexTheme(documentCode = '') {
   let themed = String(documentCode || '').trim();
-  if (!themed || /\\definecolor\{drekeeBlue\}/.test(themed)) return themed;
+  if (!themed || /\\definecolor\{chatgpt_color\}/.test(themed)) return themed;
 
   if (!/\\usepackage\{xcolor\}/.test(themed)) {
     themed = themed.replace(/\\usepackage\{pgfplots\}\s*/, match => `${match}\\usepackage{xcolor}\n`);
   }
+
   if (!/\\pgfplotsset\{compat=/.test(themed)) {
     themed = themed.replace(/\\usepackage\{xcolor\}\s*/, match => `${match}\\pgfplotsset{compat=1.18}\n`);
     if (!/\\pgfplotsset\{compat=/.test(themed)) {

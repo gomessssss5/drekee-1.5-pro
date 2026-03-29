@@ -1,4951 +1,2853 @@
 // Drekee AI 1.5 Pro - Cientific Agent
-
 // Fluxo: GeneratePlan -> Research/Reasoning -> Review -> Retornar logs + resposta + mídia
-
-
 
 const SCIENCE_SYSTEM_PROMPT = `Você é o Drekee AI 1.5 Pro, um agente de elite em pesquisa e educação científica de nível mundial. Sua missão é democratizar a ciência de alta performance para estudantes brasileiros.
 
-
-
 DIRETRIZES DE OURO:
-
-1.  **PROFUNDIDADE CIENTÍFICA (Nível Gemini/Acadêmico):**
-
-    - Nunca dê respostas superficiais. Se o tema for "Leis de Faraday", mergulhe na física (indução, fluxo) e na química (eletrólise).
-
-    - Use obrigatoriamente **Headers (###)** para organizar seções.
-
-    - Use **Tabelas Markdown** para comparações e resumos de dados.
-
-    - Use parágrafos densos e informativos, intercalados com bullet points técnicos.
-
-2.  **FOCO TEMÁTICO E RELEVÂNCIA:**
-
+1.  **RESPOSTA DIRETA PRIMEIRO:**
+    - Abra SEMPRE com 1 parágrafo curto, objetivo e sem rodeios, respondendo exatamente o que o usuário pediu.
+    - Se houver dado numérico, horário, lista factual ou resposta binária, entregue isso logo na primeira frase.
+    - Só expanda depois da resposta direta, e apenas se isso realmente ajudar a entender melhor.
+2.  **PROFUNDIDADE CIENTÍFICA QUANDO NECESSÁRIO:**
+    - Nunca dê respostas superficiais quando o tema exigir mais contexto. Se o tema for "Leis de Faraday", mergulhe na física (indução, fluxo) e na química (eletrólise).
+    - Use **Headers (###)**, tabelas e bullets apenas quando melhorarem a compreensão. Não force estruturas longas em respostas curtas.
+    - Prefira clareza, precisão e boa progressão lógica.
+3.  **FOCO TEMÁTICO E RELEVÂNCIA:**
     - Se a pergunta é sobre um tema específico (ex: Física, Biologia), **NÃO mencione dados climáticos ou de localização** a menos que sejam o centro da pergunta. O aluno quer ciência, não a previsão do tempo.
-
-3.  **CITAÇÕES REAIS E RÍGIDAS:**
-
-    - Use APENAS os IDs (ex: [TAV-1], [NAS-1]) que aparecerem explicitamente nas ferramentas ou contexto.
-
+4.  **CITAÇÕES REAIS E RÍGIDAS:**
+    - Use APENAS os IDs que aparecerem explicitamente nas ferramentas ou contexto, sempre no formato [ID-DA-FONTE: ID_EXATO] (ex: [ID-DA-FONTE: TAV-1], [ID-DA-FONTE: NAS-1]).
     - **PROIBIDO:** Inventar IDs ou repetir IDs de turnos anteriores que não estejam no contexto atual. Se não há fonte direta para um dado, não use colchetes de citação.
-
-4.  **REGRAS DE TAGS INTERATIVAS:**
-
+5.  **REGRAS DE TAGS INTERATIVAS:**
     - **PhET [PHET:slug|Guia|Teoria]:** SÓ ative se for o tema CENTRAL e se você tiver certeza absoluta do slug.
-
     - **Slugs Válidos (SÓ USE ESTES):** 
-
       - **Física:** circuit-construction-kit-dc, ohms-law, charges-and-fields, resistance-in-a-wire, faradays-law, circuit-construction-kit-ac, forces-and-motion-basics, projectile-motion, energy-skate-park, pendulum-lab, balancing-act, hookes-law, bending-light, wave-on-a-string, color-vision, wave-interference, geometric-optics, states-of-matter, gas-properties, energy-forms-and-changes
-
       - **Química:** build-an-atom, isotopes-and-atomic-mass, build-a-molecule, molecule-shapes, ph-scale, molarity, concentration, beers-law-lab, acid-base-solutions, solubility-02
-
       - **Matemática:** fractions-intro, area-model-multiplication, graphing-quadratics, function-builder, unit-rates
-
       - **Biologia:** natural-selection, gene-expression-essentials, neuron, beer-game
-
     - **PDB [PDB:id]:** Para moléculas complexas (PDB real).
-
-    - **GrÃ¡fico LaTeX:** Use APENAS quando um grÃ¡fico realmente melhorar a compreensÃ£o, como em comparaÃ§Ãµes, rankings, sÃ©ries ou distribuiÃ§Ãµes simples.
-
-    - **PROIBIDO NO GRÃFICO:** Nunca invente valores, percentuais, eixos ou categorias. Se nÃ£o houver base clara no contexto, nÃ£o gere grÃ¡fico.
-
-    - **FORMATO OBRIGATÃ“RIO DO GRÃFICO:**
-      [LATEX_GRAPH_TITLE: TÃ­tulo curto e especÃ­fico]
+    - **Gráfico LaTeX:** Use APENAS quando um gráfico realmente melhorar a compreensão, como em comparações, rankings, séries, distribuições simples ou dados/categorias explicitamente apresentados na resposta.
+    - **PROIBIDO NO GRÁFICO:** Nunca invente valores, percentuais, eixos ou categorias. Se não houver base clara no contexto, não gere gráfico.
+    - **FORMATO OBRIGATÓRIO DO GRÁFICO:**
+      [LATEX_GRAPH_TITLE: Título curto e específico]
       [LATEX_GRAPH_CODE]
       DOCUMENTO LATEX COMPLETO AQUI
       [/LATEX_GRAPH_CODE]
-
-    - O cÃ³digo deve ser um documento LaTeX completo, compilÃ¡vel, usando PGFPlots/TikZ.
-
-    - NÃ£o use markdown fences dentro de [LATEX_GRAPH_CODE].
-
-    - Gere um visual premium: width perto de 16cm, height perto de 9cm, cores modernas, grid sutil, tÃ­tulo forte, legenda horizontal embaixo e boa legibilidade.
-
-    - Para comparaÃ§Ãµes por categoria, prefira ybar com nodes near coords, bar width robusta e no mÃ¡ximo 2 ou 3 sÃ©ries.
-
-    - Evite macros prÃ³prias, comandos avanÃ§ados, tabelas pgfplotstable, arquivos externos, imagens externas e dependÃªncias alÃ©m de pgfplots e xcolor.
-
-5.  **RESUMOS OFFLINE (TAG [OFFLINE_DOC]):**
-
+    - O código deve ser um documento LaTeX completo, compilável, usando PGFPlots/TikZ.
+    - Não use markdown fences dentro de [LATEX_GRAPH_CODE].
+    - Use rótulos em português e faça o gráfico ficar coerente com o tema da resposta.
+    - Gere gráficos simples e robustos: prefira standalone + pgfplots, um único tikzpicture, no máximo 1 ou 2 \\addplot, sem bibliotecas exóticas.
+    - Evite macros próprias, comandos avançados, tabelas \\pgfplotstable, arquivos externos, imagens externas e dependências além de pgfplots e xcolor.
+    - Se houver risco de erro de compilação, prefira um gráfico de barras ou linhas simples com categorias curtas e valores explícitos.
+6.  **RESUMOS OFFLINE (TAG [OFFLINE_DOC]):**
     - **CONTEÚDO:** Quando o usuário pedir um resumo, o conteúdo dentro da tag [OFFLINE_DOC: ... ] deve ser um **DOCUMENTO COMPLETO E ESTRUTURADO** (Markdown rico). 
-
     - **NÃO FAÇA:** Não escreva meta-comentários como "Discussão sobre tal coisa". Escreva a ciência de fato, pronta para virar uma apostila de estudo.
-
     - Estrutura interna da tag: Título | Conteúdo (Markdown denso) | Lista de Fontes e Links.
-
 `;
 
-
-
 // ============ TAVILY API (Web Search) ============
-
 async function searchTavily(query) {
-
   const apiKey = process.env.TAVILY_API_KEY;
-
   if (!apiKey) return null;
 
-
-
   try {
-
     const res = await fetch('https://api.tavily.com/search', {
-
       method: 'POST',
-
       headers: { 'Content-Type': 'application/json' },
-
       body: JSON.stringify({
-
         api_key: apiKey,
-
         query,
-
         max_results: 5,
-
         include_answer: true,
-
       }),
-
     });
-
-
 
     if (!res.ok) return null;
-
     const data = await res.json();
-
     return {
-
       query,
-
       answer: data.answer,
-
       results: data.results?.slice(0, 3).map(r => ({
-
         title: r.title,
-
         url: r.url,
-
         snippet: r.snippet,
-
       })) || [],
-
     };
-
   } catch (err) {
-
     console.error('Tavily search error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ OPTIMIZE QUERY WITH AI (for better NASA search) ============
-
 async function optimizeNasaQuery(userQuestion) {
-
   const prompt = `Você é um especialista em otimizar buscas científicas para APIs.\n\nTransforme a pergunta do usuário em palavras-chave específicas para buscar imagens científicas na NASA.\n\nPergunta: "${userQuestion}"\n\nRetorne APENAS palavras-chave separadas por espaço (máximo 5 palavras).\nExemplos:\n- "Quais são as estruturas de Marte?" → "mars surface structures"\n- "Me mostre fotos de buracos negros" → "black hole galaxy"\n- "Imagens de auroras" → "aurora northern lights"\n\nRetorne apenas as palavras-chave, nada mais.`;
 
-
-
   try {
-
     const result = await callGroq(
-
       [{ role: 'user', content: prompt }],
-
       'GROQ_API_KEY_1',
-
       { maxTokens: 50, temperature: 0.3 }
-
     );
-
     return result.trim();
-
   } catch (err) {
-
     console.error('Query optimization error:', err);
-
     return userQuestion;
-
   }
-
 }
-
-
 
 // ============ FILTER NASA RESULTS BY RELEVANCE ============
-
 function filterNasaResultsByRelevance(results, originalQuery) {
-
   if (!results || results.length === 0) return [];
-
-
 
   const lowerQuery = originalQuery.toLowerCase();
-
   const keywords = lowerQuery.split(/\s+/).filter(w => w.length > 3);
 
-
-
   const scored = results.map(item => {
-
     let score = 0;
-
     const titleLower = (item.title || '').toLowerCase();
-
     const descLower = (item.description || '').toLowerCase();
 
-
-
     if (titleLower.includes(lowerQuery)) score += 10;
-
     if (descLower.includes(lowerQuery)) score += 5;
 
-
-
     keywords.forEach(keyword => {
-
       if (titleLower.includes(keyword)) score += 3;
-
       if (descLower.includes(keyword)) score += 1;
-
     });
 
-
-
     if (titleLower.includes('video') || titleLower.includes('b-roll')) score -= 2;
-
     if (titleLower.includes('animation') || titleLower.includes('3d')) score -= 1;
-
     if (item.description && item.description.length > 50) score += 2;
 
-
-
     return { ...item, relevanceScore: score };
-
   });
 
-
-
   return scored
-
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
-
     .filter(item => item.relevanceScore > 0)
-
     .map(({ relevanceScore, ...item }) => item)
-
     .slice(0, 12);
-
 }
 
-
-
 // ============ SELECT BEST RESULTS WITH AI ============
-
 async function selectBestNasaResults(results, userQuestion) {
-
   if (!results || results.length === 0) return [];
-
   if (results.length <= 3) return results;
 
-
-
   const topResults = results.slice(0, 8);
-
   const resultsList = topResults
-
     .map((r, i) => `${i + 1}. ${r.title}\n   Descrição: ${r.description || 'N/A'}`)
-
     .join('\n\n');
-
-
 
   const prompt = `Você é um assistente especializado em seleção de conteúdo científico.\n\nPergunta: "${userQuestion}"\n\nOPÇÕES:\n${resultsList}\n\nSelecione os 3-4 resultados MAIS relevantes.\nRetorne APENAS os números separados por vírgula (ex: 1,3,5).`;
 
-
-
   try {
-
     const selection = await callGroq(
-
       [{ role: 'user', content: prompt }],
-
       'GROQ_API_KEY_1',
-
       { maxTokens: 20, temperature: 0.1 }
-
     );
 
-
-
     const numbers = selection
-
       .split(/[,;]|\s+/)
-
       .map(n => parseInt(n.trim()))
-
       .filter(n => n > 0 && n <= topResults.length);
 
-
-
     if (numbers.length > 0) {
-
       return numbers.map(idx => topResults[idx - 1]);
-
     }
 
-
-
     return topResults.slice(0, 3);
-
   } catch (err) {
-
     console.error('Result selection error:', err);
-
     return topResults.slice(0, 3);
-
   }
-
 }
-
-
 
 // ============ TRANSLATE PORTUGUESE TO ENGLISH (Science Terms) ============
-
 function translateNasaQuery(query) {
-
   const translations = {
-
     'moon': 'moon', 'mars': 'mars', 'sun': 'sun', 'galaxy': 'galaxy',
-
     'lua': 'moon', 'marte': 'mars', 'sol': 'sun', 'galáxia': 'galaxy',
-
     'imagem': 'image', 'telescópio': 'telescope', 'satélite': 'satellite',
-
     'planeta': 'planet', 'estrela': 'star', 'buraco negro': 'black hole',
-
     'nebulosa': 'nebula', 'cometa': 'comet', 'asteroide': 'asteroid',
-
     'eclipse': 'eclipse', 'aurora': 'aurora', 'vulcão': 'volcano',
-
     'cratera': 'crater', 'superfície': 'surface', 'atmosfera': 'atmosphere',
-
     'espaço': 'space', 'universo': 'universe', 'cosmologia': 'cosmology',
-
     'astrofísica': 'astrophysics', 'astrologia': 'astronomy',
-
     'estrutura': 'structure', 'fenômeno': 'phenomenon',
-
   };
 
-
-
   const lowerQuery = query.toLowerCase();
-
   let translated = query;
 
-
-
   for (const [pt, en] of Object.entries(translations)) {
-
     if (lowerQuery.includes(pt)) {
-
       translated = translated.replace(new RegExp(pt, 'gi'), en);
-
     }
-
   }
 
-
-
   return translated;
-
 }
 
-
-
 // ============ NASA Image/Video Library (search) ============
-
 async function searchNasaMedia(query) {
-
   if (!query) return null;
 
-
-
   try {
-
     // Translate query to English if needed
-
     const translatedQuery = translateNasaQuery(query);
 
-
-
     // Build NASA API URL with better parameters
-
     let searchUrl = `https://images-api.nasa.gov/search?` +
-
       `q=${encodeURIComponent(translatedQuery)}&` +
-
       `media_type=image,video&` +
-
       `page_size=50`; // Request 50 results (API limit friendly)
 
-
-
     const res = await fetch(searchUrl);
-
     if (!res.ok) return null;
-
     const json = await res.json();
-
     const items = json?.collection?.items || [];
-
-
 
     if (items.length === 0) return null;
 
-
-
     // Process and deduplicate by URL
-
     const seenUrls = new Set();
-
     const media = [];
 
-
-
     for (const item of items) {
-
       if (media.length >= 12) break; // Limit to 12 results max
 
-
-
       const data = item.data?.[0] || {};
-
       const links = item.links || [];
 
-
-
       const firstLink = links.find(l => l.href);
-
       const imageLink = links.find(l =>
-
         (l.render && l.render.toLowerCase().includes('image')) ||
-
         (l.rel && l.rel.toLowerCase().includes('preview')) ||
-
         (l.href && l.href.match(/\.(jpe?g|png|gif|webp)$/i))
-
       )?.href;
-
       const videoLink = links.find(l =>
-
         (l.render && l.render.toLowerCase().includes('video')) ||
-
         (l.rel && l.rel.toLowerCase().includes('enclosure')) ||
-
         (l.href && l.href.match(/\.mp4($|\?)/i))
-
       )?.href;
-
-
 
       const url = imageLink || videoLink || firstLink?.href || item.href;
-
       if (!url || seenUrls.has(url)) continue; // Skip duplicates
 
-
-
       seenUrls.add(url);
-
       const mediaType = (videoLink || (url && url.match(/\.mp4($|\?)/i))) ? 'video' : 'image';
 
-
-
       media.push({
-
         title: data.title || 'NASA Image',
-
         description: data.description || data.photographer || `Related to: ${translatedQuery}`,
-
         date: data.date_created,
-
         url,
-
         media_type: mediaType,
-
       });
-
     }
 
-
-
     return media.length > 0 ? media : null;
-
   } catch (err) {
-
     console.error('NASA media search error:', err);
-
     return null;
-
   }
-
 }
-
-
-
 
 
 // ============ arXiv Integration ============
-
 async function buscarArxiv(query) {
-
   if (!query) return [];
-
-
 
   const apiUrl = `http://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=3`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return [];
-
     const xml = await res.text();
 
-
-
     const entries = [];
-
     const entryMatches = Array.from(xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g));
-
     for (const m of entryMatches.slice(0, 3)) {
-
       const entryText = m[1];
-
       const titleMatch = entryText.match(/<title>([\s\S]*?)<\/title>/i);
-
       const summaryMatch = entryText.match(/<summary>([\s\S]*?)<\/summary>/i);
-
       const idMatch = entryText.match(/<id>([\s\S]*?)<\/id>/i);
 
-
-
       const title = titleMatch ? titleMatch[1].trim().replace(/\s+/g, ' ') : null;
-
       const summary = summaryMatch ? summaryMatch[1].trim().replace(/\s+/g, ' ') : null;
-
       const link = idMatch ? idMatch[1].trim() : null;
 
-
-
       if (title || summary || link) {
-
         entries.push({ title, summary, link });
-
       }
-
     }
-
-
 
     return entries.slice(0, 3);
-
   } catch (err) {
-
     console.error('arXiv fetch error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ SciELO Integration ============
-
 async function buscarSciELO(query) {
-
   if (!query) return [];
-
   // Europe PMC API supports searching SciELO via SRC:SCIELO
-
   const apiUrl = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=SRC:SCIELO%20AND%20(${encodeURIComponent(query)})&format=json&resultType=lite`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return [];
-
     const data = await res.json();
-
     const results = data.resultList?.result || [];
-
     
-
     return results.slice(0, 3).map(item => ({
-
       title: item.title,
-
       summary: item.abstractText || "Artigo científico (resumo indisponível - deduza pelo título).",
-
       link: item.url || (item.doi ? `https://doi.org/${item.doi}` : null),
-
       authors: item.authorString,
-
       journal: item.journalTitle
-
     }));
-
   } catch (err) {
-
     console.error('SciELO fetch error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ Open Library Integration ============
-
 async function buscarOpenLibrary(query) {
-
   if (!query) return [];
-
   const apiUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=5`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return [];
-
     const data = await res.json();
-
     return (data.docs || []).slice(0, 5).map(book => ({
-
       title: book.title,
-
       author: book.author_name ? book.author_name.join(', ') : 'Desconhecido',
-
       year: book.first_publish_year || 'N/A',
-
       subject: book.subject ? book.subject.slice(0, 3).join(', ') : 'N/A',
-
       link: book.key ? `https://openlibrary.org${book.key}` : null
-
     }));
-
   } catch (err) {
-
     console.error('Open Library fetch error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ GBIF (Biodiversity) Integration ============
-
 async function buscarGBIF(query) {
-
   if (!query) return [];
-
   const apiUrl = `https://api.gbif.org/v1/species/search?q=${encodeURIComponent(query)}&limit=5`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return [];
-
     const data = await res.json();
-
     return (data.results || []).slice(0, 5).map(item => ({
-
       scientificName: item.scientificName,
-
       canonicalName: item.canonicalName,
-
       kingdom: item.kingdom,
-
       phylum: item.phylum,
-
       family: item.family,
-
       genus: item.genus,
-
       status: item.taxonomicStatus
-
     }));
-
   } catch (err) {
-
     console.error('GBIF fetch error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ USGS Earthquake Integration ============
-
 async function buscarUSGS() {
-
   const now = new Date();
-
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
   const endtime = now.toISOString().split('.')[0];
-
   const starttime = yesterday.toISOString().split('.')[0];
-
   const apiUrl = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&orderby=magnitude&limit=10&starttime=${starttime}&endtime=${endtime}&minmagnitude=3.5`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return [];
-
     const data = await res.json();
-
     const features = data.features || [];
-
     if (features.length === 0) {
-
       // If no quakes above 3.5, fallback without magnitude filter
-
       const fallback = await fetch(`https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&orderby=magnitude&limit=5&starttime=${starttime}&endtime=${endtime}`);
-
       if (!fallback.ok) return [];
-
       const fallData = await fallback.json();
-
       return (fallData.features || []).map(f => ({
-
         mag: f.properties.mag,
-
         place: f.properties.place,
-
         time: new Date(f.properties.time).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
-
         depth: f.geometry?.coordinates?.[2],
-
         url: f.properties.url,
-
         status: f.properties.status
-
       }));
-
     }
-
     return features.map(f => ({
-
       mag: f.properties.mag,
-
       place: f.properties.place,
-
       time: new Date(f.properties.time).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
-
       depth: f.geometry?.coordinates?.[2],
-
       url: f.properties.url,
-
       status: f.properties.status
-
     }));
-
   } catch (err) {
-
     console.error('USGS fetch error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ Wikipedia Integration ============
-
 async function buscarWikipedia(termo) {
-
   if (!termo) return null;
-
   const apiUrl = `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(termo)}`;
 
-
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     return {
-
       title: data.title || null,
-
       extract: data.extract || null,
-
       url: data.content_urls?.desktop?.page || data.content_urls?.mobile?.page || null,
-
     };
-
   } catch (err) {
-
     console.error('Wikipedia fetch error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ Newton API Integration (Calculus engine) ============
-
 // Operations: simplify, factor, derive, integrate, zeroes, tangent, area
-
 async function calcularNewton(operation, expression) {
-
   if (!operation || !expression) return null;
-
   const apiUrl = `https://newton.now.sh/api/v2/${encodeURIComponent(operation)}/${encodeURIComponent(expression)}`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     return { operation: data.operation, input: data.expression, result: data.result };
-
   } catch (err) {
-
     console.error('Newton API error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // Detect math operation from user question and call Newton
-
 async function calcular(userQuestion) {
-
   if (!userQuestion) return null;
-
   const q = userQuestion.toLowerCase();
-
   let operation = 'simplify';
-
   let expression = userQuestion;
-
   
-
   // Try to extract operation from user question
-
   if (q.includes('deriva') || q.includes('derivada') || q.includes('d/dx') || q.includes('diferenci')) {
-
     operation = 'derive';
-
   } else if (q.includes('integr') || q.includes('integral') || q.includes('antideriv')) {
-
     operation = 'integrate';
-
   } else if (q.includes('fator') || q.includes('fatorar') || q.includes('fatoriza')) {
-
     operation = 'factor';
-
   } else if (q.includes('zer') || q.includes('raiz') || q.includes('raízes') || q.includes('roots')) {
-
     operation = 'zeroes';
-
   } else if (q.includes('simplif')) {
-
     operation = 'simplify';
-
   }
-
-
 
   // Extract the math expression (try to find something after "de" or after the operation keyword)
-
   const exprMatch = userQuestion.match(/(?:de|of|para|from|:)?\s*([x0-9\^\+\-\*\/\(\)\s\=]+)/i);
-
   if (exprMatch) {
-
     expression = exprMatch[1].trim();
-
   }
-
-
 
   // Also try to call mathjs as fallback for simpler arithmetic
-
   const result = await calcularNewton(operation, expression);
-
   if (result) return result;
-
   
-
   // Fallback: mathjs arithmetic
-
   try {
-
     const mathRes = await fetch(`https://api.mathjs.org/v4/?expr=${encodeURIComponent(expression)}`);
-
     if (mathRes.ok) {
-
       const text = await mathRes.text();
-
       if (text && !text.includes('Error')) return { operation: 'arithmetic', input: expression, result: text };
-
     }
-
   } catch {}
-
   return null;
-
 }
-
-
 
 // ============ SpaceX API Integration ============
-
 async function buscarSpaceX() {
-
   try {
-
     const res = await fetch('https://api.spacexdata.com/v4/launches/latest');
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     return {
-
       name: data.name || null,
-
       date_utc: data.date_utc || null,
-
       details: data.details || null,
-
       link: data.links?.webcast || data.links?.wikipedia || null,
-
     };
-
   } catch (err) {
-
     console.error('SpaceX fetch error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ Open-Meteo API Integration ============
-
 async function buscarOpenMeteo(lat = -23.55, lon = -46.63) {
-
   try {
-
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&hourly=temperature_2m,relativehumidity_2m`);
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     return { location: { lat, lon }, weather: data };
-
   } catch (err) {
-
     console.error('Open-Meteo fetch error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ IBGE Integration ============
-
 async function buscarIBGE(query) {
-
   if (!query) return [];
-
   const apiUrl = `https://servicodados.ibge.gov.br/api/v3/noticias/?busca=${encodeURIComponent(query)}&qtd=3`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return [];
-
     const data = await res.json();
-
     const items = data.items || [];
-
     
-
     return items.map(item => ({
-
       title: item.titulo,
-
       summary: item.introducao,
-
       link: item.link,
-
       date: item.data_publicacao
-
     }));
-
   } catch (err) {
-
     console.error('IBGE fetch error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ BrasilAPI Integration ============
-
 async function buscarBrasilAPI(query) {
-
   if (!query) return null;
-
   // Search for national holidays by year as a rich fallback
-
   const year = new Date().getFullYear();
-
   try {
-
     const res = await fetch(`https://brasilapi.com.br/api/feriados/v1/${year}`);
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     return { feriados: data, ano: year };
-
   } catch (err) {
-
     console.error('BrasilAPI fetch error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ Câmara dos Deputados Integration ============
-
 async function buscarCamara(query) {
-
   if (!query) return [];
-
   const apiUrl = `https://dadosabertos.camara.leg.br/api/v2/proposicoes?keywords=${encodeURIComponent(query)}&itens=5&ordem=DESC&ordenarPor=dataApresentacao`;
-
   try {
-
     const res = await fetch(apiUrl, { headers: { 'Accept': 'application/json' } });
-
     if (!res.ok) return [];
-
     const data = await res.json();
-
     return (data.dados || []).slice(0, 5).map(p => ({
-
       sigle: p.siglaTipo,
-
       number: p.numero,
-
       year: p.ano,
-
       summary: p.ementa,
-
       date: p.dataApresentacao,
-
       url: p.uri
-
     }));
-
   } catch (err) {
-
     console.error('Câmara fetch error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ ISS Location (Open Notify) ============
-
 async function buscarISS() {
-
   try {
-
     const res = await fetch('http://api.open-notify.org/iss-now.json');
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     return {
-
       lat: parseFloat(data.iss_position?.latitude),
-
       lon: parseFloat(data.iss_position?.longitude),
-
       timestamp: new Date(data.timestamp * 1000).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
-
     };
-
   } catch (err) {
-
     console.error('ISS fetch error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ Sunrise Sunset API ============
-
 async function buscarSunriseSunset(lat = -23.55, lon = -46.63) {
-
   try {
-
     const today = new Date().toISOString().split('T')[0];
-
     const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${today}&formatted=0`;
-
     const res = await fetch(url);
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     const r = data.results;
-
     return {
-
       sunrise: new Date(r.sunrise).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
-
       sunset: new Date(r.sunset).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
-
       solar_noon: new Date(r.solar_noon).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
-
       day_length: r.day_length
-
     };
-
   } catch (err) {
-
     console.error('Sunrise-Sunset fetch error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ Mega Expansão: Mapa de APIs Genéricas (no-key) ============
-
 const GENERIC_API_MAP = {
-
   'quotes-free': { url: 'https://type.fit/api/quotes', processor: 'array' },
-
-  'openfoodfacts': { url: 'https://world.openfoodfacts.org/api/v2/search?categories_tags_en=${query}&fields=product_name,brands,nutriments&json=1', processor: 'json' },
-
+  'openfoodfacts': { url: 'https://world.openfoodfacts.org/api/v2/search?search_terms=${query}&fields=product_name,brands,nutriments&json=1', processor: 'json' },
   'picsum': { url: 'https://picsum.photos/v2/list?limit=5', processor: 'json' },
-
   'esa': { url: 'https://images-api.nasa.gov/search?q=${query}&center=ESA', processor: 'nasa' },
-
   'mathjs': { url: 'https://api.mathjs.org/v4/?expr=${query}', processor: 'text' },
-
   'pubchem': { url: 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${query}/JSON', processor: 'json' },
-
   'uniprot': { url: 'https://rest.uniprot.org/uniprotkb/search?query=${query}&format=json', processor: 'json' },
-
   'mygene': { url: 'https://mygene.info/v3/query?q=${query}', processor: 'json' },
-
   'ensembl': { url: 'https://rest.ensembl.org/lookup/symbol/homo_sapiens/${query}?content-type=application/json', processor: 'json' },
-
   'openfda': { url: 'https://api.fda.gov/drug/label.json?search=adverse_reactions:${query}&limit=1', processor: 'json' },
-
   'covid-jhu': { url: 'https://disease.sh/v3/covid-19/historical/all?lastdays=30', processor: 'json' },
-
   'noaa-climate': { url: 'https://www.ncei.noaa.gov/access/services/data/v1?dataset=global-summary-of-the-month&stations=GHCND:USW00094728&startDate=2023-01-01&endDate=2023-12-31&format=json', processor: 'json' },
-
   'worldbank-climate': { url: 'https://api.worldbank.org/v2/country/${query}/indicator/EN.ATM.CO2E.PC?format=json', processor: 'json' },
-
   'usgs-water': { url: 'https://waterservices.usgs.gov/nwis/iv/?format=json&sites=01646500&parameterCd=00060,00065', processor: 'json' },
-
   'firms': { url: 'https://firms.modaps.eosdis.nasa.gov/api/area/csv/MODIS_Standard/world/1', processor: 'text' },
-
-  'datasus': { url: 'https://dados.saude.gov.br/api/3/action/package_search?q=${query}', processor: 'json' },
-
-  'seade': { url: 'https://repositorio.seade.gov.br/api/3/action/package_search?q=${query}', processor: 'json' },
-
+  'datasus': { url: 'https://dados.saude.gov.br/api/v1/package/search?q=${query}', processor: 'json' },
+  'seade': { url: 'https://repositorio.seade.gov.br/api/v1/package/search?q=${query}', processor: 'json' },
   'metmuseum': { url: 'https://collectionapi.metmuseum.org/public/collection/v1/search?q=${query}', processor: 'json' },
-
-  'getty': { url: 'https://data.getty.edu/museum/api/open/v1/search?q=${query}', processor: 'json' },
-
+  'getty': { url: 'https://api.getty.edu/museum/api/open/v1/search?q=${query}', processor: 'json' },
   'sketchfab': { url: 'https://api.sketchfab.com/v3/search?type=models&q=${query}', processor: 'json' },
-
   'celestrak': { url: 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json', processor: 'json' },
-
   'openuniverse': { url: 'https://api.astrocatalogs.com/catalog/${query}?format=json', processor: 'json' },
-
   'stellarium': { url: 'https://api.noctuasky.com/api/v1/skysources/name/${query}', processor: 'json' },
-
   'ligo': { url: 'https://gracedb.ligo.org/api/superevents/?query=${query}&format=json', processor: 'json' },
-
-  'noaa-space': { url: 'https://services.swpc.noaa.gov/json/indices.json', processor: 'json' },
-
+  'noaa-space': { url: 'https://services.swpc.noaa.gov/json/solar-wind.json', processor: 'json' },
   'exoplanets': { url: 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+*+from+ps+where+pl_name+like+%27%25${query}%25%27&format=json', processor: 'json' },
-
   'reactome': { url: 'https://reactome.org/ContentService/search/query?query=${query}&species=Homo+sapiens', processor: 'json' },
-
   'string-db': { url: 'https://string-db.org/api/json/network?identifiers=${query}', processor: 'json' },
-
   'edx': { url: 'https://www.edx.org/api/v1/catalog/search?q=${query}', processor: 'json' },
-
   'mit-ocw': { url: 'https://ocw.mit.edu/search/api/v1/search?q=${query}', processor: 'json' },
-
   'tcu': { url: 'https://contas.tcu.gov.br/arquivosInternos/pesquisa?termo=${query}', processor: 'json' },
-
   'osf': { url: 'https://api.osf.io/v2/nodes/?filter[title]=${query}', processor: 'json' },
-
   'generic': { url: 'https://api.publicapis.org/entries?title=${query}', processor: 'json' }
-
 };
 
-
-
 async function buscarGeneric(key, query) {
-
   const config = GENERIC_API_MAP[key];
-
   if (!config) return null;
 
-
-
   let url = config.url.replace('${query}', encodeURIComponent(query));
-
   try {
-
     const res = await fetch(url, { headers: { 'User-Agent': 'DrekeeAI/1.5 (PocketLab; contact@drekee.edu)' } });
-
     if (!res.ok) return { error: `HTTP ${res.status}`, source: key };
 
-
-
     if (config.processor === 'json') return await res.json();
-
     if (config.processor === 'text') return await res.text();
-
     if (config.processor === 'array') return (await res.json());
-
     if (config.processor === 'nasa') {
-
       const data = await res.json();
-
       return (data.collection?.items || []).slice(0, 3).map(i => ({
-
         title: i.data?.[0]?.title,
-
         url: i.links?.[0]?.href,
-
         description: i.data?.[0]?.description
-
       }));
-
     }
-
     return await res.json();
-
   } catch (err) {
-
     console.error(`Error fetching ${key}:`, err);
-
     return { error: 'Fetch failed', source: key };
-
   }
-
 }
-
-
 
 // ============ Wikidata SPARQL Integration ============
-
 async function buscarWikidata(query) {
-
   if (!query) return null;
-
   const sparql = `
-
     SELECT ?itemLabel ?itemDescription WHERE {
-
       SERVICE wikibase:mwapi {
-
         bd:serviceParam wikibase:api "EntitySearch" .
-
         bd:serviceParam wikibase:endpoint "www.wikidata.org" .
-
         bd:serviceParam mwapi:search "${query}" .
-
         bd:serviceParam mwapi:language "pt" .
-
         ?item wikibase:apiOutputItem mwapi:item .
-
       }
-
       SERVICE wikibase:label { bd:serviceParam wikibase:language "pt,en". }
-
     } LIMIT 3
-
   `;
-
   const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
-
   try {
-
     const res = await fetch(url, { headers: { 'User-Agent': 'DrekeeAI/1.5 (contact: drekee.ai)' } });
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     return data.results?.bindings.map(b => ({
-
       label: b.itemLabel?.value,
-
       description: b.itemDescription?.value,
-
     }));
-
   } catch (err) {
-
     console.error('Wikidata SPARQL error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ PubMed Central Integration ============
-
 async function buscarPubMed(query) {
-
   if (!query) return [];
-
   try {
-
     const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmode=json&retmax=3`;
-
     const searchRes = await fetch(searchUrl);
-
     const searchData = await searchRes.json();
-
     const ids = searchData.esearchresult?.idlist || [];
-
     if (ids.length === 0) return [];
 
-
-
     const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`;
-
     const summaryRes = await fetch(summaryUrl);
-
     const summaryData = await summaryRes.json();
-
     
-
     return ids.map(id => {
-
       const doc = summaryData.result?.[id];
-
       return {
-
         title: doc?.title || 'Artigo sem título',
-
         authors: doc?.authors?.map(a => (typeof a === 'object' ? a.name : a)).join(', ') || 'Vários autores',
-
         source: doc?.source || 'PubMed',
-
         pubdate: doc?.pubdate || 'N/A',
-
         link: `https://pubmed.ncbi.nlm.nih.gov/${id}/`
-
       };
-
     });
-
   } catch (err) {
-
     console.error('PubMed error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ RCSB Protein Data Bank Integration ============
-
 async function buscarRCSB(query) {
-
   if (!query) return [];
-
   const searchBody = {
-
     query: {
-
       type: "terminal",
-
       service: "text",
-
       parameters: { value: query }
-
     },
-
     return_type: "entry"
-
   };
-
   try {
-
     const res = await fetch('https://search.rcsb.org/rcsbsearch/v2/query', {
-
       method: 'POST',
-
       headers: { 'Content-Type': 'application/json' },
-
       body: JSON.stringify(searchBody)
-
     });
-
     const data = await res.json();
-
     const ids = (data.result_set || []).slice(0, 3).map(r => r.identifier);
-
     return ids; // Retorna lista de PDB IDs (ex: 1U19)
-
   } catch (err) {
-
     console.error('RCSB PDB error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ Free Dictionary (Inglês) ============
-
 async function buscarDicionarioIngles(word) {
-
   if (!word) return null;
-
   try {
-
     const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     const entry = data[0];
-
     if (!entry) return null;
-
     const meanings = entry.meanings?.slice(0, 2).map(m => ({
-
       partOfSpeech: m.partOfSpeech,
-
       definition: m.definitions?.[0]?.definition,
-
       example: m.definitions?.[0]?.example
-
     })) || [];
-
     return { word: entry.word, phonetic: entry.phonetic, meanings };
-
   } catch (err) {
-
     console.error('Free Dictionary fetch error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ Universidades (world universities by name) ============
-
 async function buscarUniversidades(query) {
-
   if (!query) return [];
-
   try {
-
     const res = await fetch(`http://universities.hipolabs.com/search?name=${encodeURIComponent(query)}`);
-
     if (!res.ok) return [];
-
     const data = await res.json();
-
     return (data || []).slice(0, 6).map(u => ({
-
       name: u.name,
-
       country: u.country,
-
       web: u.web_pages?.[0]
-
     }));
-
   } catch (err) {
-
     console.error('Universities fetch error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ PoetryDB ============
-
 async function buscarPoesia(query) {
-
   if (!query) return [];
-
   try {
-
     // Try searching by author first, then by title
-
     let res = await fetch(`https://poetrydb.org/author/${encodeURIComponent(query)}/title,author,lines:3`);
-
     if (!res.ok || res.status === 200) {
-
       const data = await res.json();
-
       if (Array.isArray(data) && data.length > 0) {
-
         return data.slice(0, 3).map(p => ({
-
           title: p.title,
-
           author: p.author,
-
           excerpt: (p.lines || []).join(' / ')
-
         }));
-
       }
-
     }
-
     // Fallback: search by title
-
     res = await fetch(`https://poetrydb.org/title/${encodeURIComponent(query)}/title,author,lines:3`);
-
     if (!res.ok) return [];
-
     const titleData = await res.json();
-
     if (!Array.isArray(titleData)) return [];
-
     return titleData.slice(0, 3).map(p => ({
-
       title: p.title,
-
       author: p.author,
-
       excerpt: (p.lines || []).join(' / ')
-
     }));
-
   } catch (err) {
-
     console.error('PoetryDB fetch error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ AntWeb Integration (Ants Imaging) ============
-
 async function buscarAntWeb(query) {
-
   if (!query) return [];
-
   const apiUrl = `https://www.antweb.org/api/v3/species?genus=${encodeURIComponent(query)}`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return [];
-
     const data = await res.json();
-
     const speciesList = data.specimens || [];
-
     return speciesList.slice(0, 4).map(s => ({
-
       scientific_name: s.scientific_name,
-
       genus: s.genus,
-
       family: s.family,
-
       image: s.images?.find(img => img.type === 'p')?.url || (s.images?.[0]?.url)
-
     })).filter(s => s.image);
-
   } catch (err) {
-
     console.error('AntWeb error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ Periodic Table API ============
-
 async function buscarTabelaPeriodica(query) {
-
   if (!query) return null;
-
   // Try by symbol, then name
-
   const tryFetch = async (param, val) => {
-
     const res = await fetch(`https://neelpatel05.pythonanywhere.com/element/api/v1?${param}=${encodeURIComponent(val)}`);
-
     return res.ok ? res.json() : null;
-
   };
-
   try {
-
     let data = await tryFetch('symbol', query);
-
     if (!data) data = await tryFetch('name', query);
-
     return data;
-
   } catch (err) {
-
     console.error('Periodic Table error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ OpenAQ (Air Quality) ============
-
 async function buscarQualidadeAr(city) {
-
   if (!city) return null;
-
   const apiUrl = `https://api.openaq.org/v2/latest?city=${encodeURIComponent(city)}&limit=1`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     return data.results?.[0] || null;
-
   } catch (err) {
-
     console.error('OpenAQ error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ Project Gutenberg (Books) ============
-
 async function buscarGutenberg(query) {
-
   if (!query) return [];
-
   const apiUrl = `https://gutendex.com/books/?search=${encodeURIComponent(query)}`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return [];
-
     const data = await res.json();
-
     return (data.results || []).slice(0, 3).map(b => ({
-
       title: b.title,
-
       authors: b.authors?.map(a => a.name).join(', '),
-
       link: b.formats?.['text/html'] || b.formats?.['text/plain'] || `https://www.gutenberg.org/ebooks/${b.id}`
-
     }));
-
   } catch (err) {
-
     console.error('Gutenberg error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ CODATA Constants (Physical Constants) ============
-
 async function buscarCODATA(query) {
-
   try {
-
     const res = await fetch('https://physics.nist.gov/cuu/Constants/Table/allascii.txt');
-
     if (!res.ok) return null;
-
     const text = await res.text();
-
     const lines = text.split('\n');
-
     const matches = lines.filter(l => l.toLowerCase().includes(query.toLowerCase()));
-
     return matches.slice(0, 5).map(l => {
-
       const parts = l.split(/\s{2,}/);
-
       return { quantity: parts[0], value: parts[1], uncertainty: parts[2], unit: parts[3] };
-
     });
-
   } catch (err) {
-
     console.error('CODATA fetch error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ SDO (Solar Dynamics Observatory) ============
-
 async function buscarSDO() {
-
   try {
-
     const res = await fetch('https://sdo.gsfc.nasa.gov/cgi-bin/api/get_latest.php?type=all');
-
     if (!res.ok) return null;
-
     return await res.json();
-
   } catch (err) {
-
     console.error('SDO fetch error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ OMIM (Genetics) ============
-
 async function buscarOMIM(query) {
-
   if (!query) return null;
-
   const apiKey = process.env.OMIM_API_KEY; // Requer chave
-
   if (!apiKey) return null;
-
   try {
-
     const res = await fetch(`https://api.omim.org/api/entry/search?search=${encodeURIComponent(query)}&apiKey=${apiKey}&format=json`);
-
     if (!res.ok) return null;
-
     return await res.json();
-
   } catch (err) {
-
     console.error('OMIM fetch error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ VLibras (Tradução para Libras) ============
-
 async function buscarLibras(text) {
-
   if (!text) return null;
-
   try {
-
     // VLibras usa um widget, mas podemos simular a busca de sinais ou links educacionais
-
     return {
-
       text,
-
       widget_url: "https://vlibras.gov.br/",
-
       info: "Integração via Widget VLibras disponível no frontend."
-
     };
-
   } catch (err) {
-
     console.error('Libras error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ Google Earth Timelapse ============
-
 async function buscarTimelapse(query) {
-
   // Google Earth Engine Timelapse é visual, retornamos a URL baseada na busca
-
   return {
-
     title: `Timelapse: ${query}`,
-
     url: `https://earthengine.google.com/timelapse#v=${encodeURIComponent(query)}`,
-
     media_type: 'video'
-
   };
-
 }
-
-
 
 // ============ Bible API ============
-
 async function buscarBiblia(query) {
-
   if (!query) return null;
-
   const apiUrl = `https://bible-api.com/${encodeURIComponent(query)}`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return null;
-
     return await res.json();
-
   } catch (err) {
-
     console.error('Bible API error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ FishWatch API ============
-
 async function buscarFishWatch(query) {
-
   if (!query) return [];
-
   try {
-
     const res = await fetch('https://www.fishwatch.gov/api/species');
-
     if (!res.ok) return [];
-
     const data = await res.json();
-
     const filtered = data.filter(f => 
-
       f['Species Name']?.toLowerCase().includes(query.toLowerCase()) ||
-
       f['Scientific Name']?.toLowerCase().includes(query.toLowerCase())
-
     );
-
     return filtered.slice(0, 3).map(f => ({
-
       name: f['Species Name'],
-
       scientific: f['Scientific Name'],
-
       habitat: f['Habitat'],
-
       image: f['Image Gallery']?.[0]?.src || f['Species Image Gallery']?.[0]?.src
-
     }));
-
   } catch (err) {
-
     console.error('FishWatch error:', err);
-
     return [];
-
   }
-
 }
-
-
 
 // ============ Dog API ============
-
 async function buscarDog() {
-
   try {
-
     const res = await fetch('https://dog.ceo/api/breeds/image/random');
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     return data.message;
-
   } catch (err) {
-
     console.error('Dog API error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ Quotable (Quotes) ============
-
 async function buscarFrase() {
-
   try {
-
     const res = await fetch('https://api.quotable.io/random');
-
     if (!res.ok) return null;
-
     return await res.json();
-
   } catch (err) {
-
     console.error('Quotable error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ The Space Devs (Launches) ============
-
 async function buscarLancamentos() {
-
   try {
-
     const res = await fetch('https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=3');
-
     if (!res.ok) return null;
-
     const data = await res.json();
-
     return data.results || [];
-
   } catch (err) {
-
     console.error('Space Devs error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ Solar System Data ============
-
 async function buscarSistemaSolar(query) {
-
   if (!query) return null;
-
   const apiUrl = `https://api.le-systeme-solaire.net/rest/bodies/${encodeURIComponent(query)}`;
-
   try {
-
     const res = await fetch(apiUrl);
-
     if (!res.ok) return null;
-
     return await res.json();
-
   } catch (err) {
-
     console.error('Solar System API error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ GROQ Call (flexible with fallback) ============
-
 async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
-
   const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
-
   const primaryKey = process.env[apiKeyVar] || process.env.GROQ_API_KEY;
-
   const secondaryKey = process.env.GROQ_API_KEY_2;
 
-
-
   const tryRequest = async (key) => {
-
     if (!key) return null;
-
     const model = options.model || 'llama-3.3-70b-versatile';
-
     const maxTokens = options.maxTokens || 4096;
-
     const temperature = options.temperature !== undefined ? options.temperature : 0.25;
 
-
-
     const res = await fetch(endpoint, {
-
       method: 'POST',
-
       headers: {
-
         'Content-Type': 'application/json',
-
         Authorization: `Bearer ${key}`,
-
       },
-
       body: JSON.stringify({
-
         model,
-
         messages,
-
         max_tokens: maxTokens,
-
         temperature,
-
       }),
-
     });
 
-
-
     const json = await res.json();
-
     if (!res.ok) {
-
         throw new Error(`GROQ error ${res.status}: ${JSON.stringify(json)}`);
-
     }
-
     return json.choices?.[0]?.message?.content || null;
-
   };
 
-
-
   try {
-
     return await tryRequest(primaryKey);
-
   } catch (err) {
-
     if (secondaryKey && secondaryKey !== primaryKey) {
-
       console.warn('⚠️ GROQ Primary failed, trying fallback...');
-
       try {
-
         return await tryRequest(secondaryKey);
-
       } catch (err2) {
-
         throw new Error(`Both GROQ keys failed. Last error: ${err2.message}`);
-
       }
-
     }
-
     throw err;
-
   }
-
 }
-
-
 
 // ============ GEMINI Helper (with multiple keys) ============
-
 async function tryGeminiWithFallback(preparePayload, logs = []) {
-
   const keys = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2].filter(Boolean);
-
   
-
   for (let i = 0; i < keys.length; i++) {
-
     try {
-
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keys[i]}`;
-
       const res = await fetch(endpoint, {
-
         method: 'POST',
-
         headers: { 'Content-Type': 'application/json' },
-
         body: JSON.stringify(preparePayload()),
-
       });
-
       
-
       const json = await res.json();
-
       if (!res.ok) throw new Error(`Gemini error ${res.status}: ${JSON.stringify(json)}`);
-
       return json.candidates?.[0]?.content?.parts?.[0]?.text || null;
-
     } catch (err) {
-
       console.warn(`⚠️ Gemini Key ${i+1} failed:`, err.message);
-
       if (logs) logs.push(`⚠️ Limite Gemini ${i+1} atingido, tentando alternativa...`);
-
     }
-
   }
-
   return null;
-
 }
-
-
 
 // ============ GEMINI Call (Review with dual-key fallback + Groq emergency) ============
-
 async function callGemini(prompt, logs = []) {
-
   const preparePayload = () => ({
-
     contents: [{ parts: [{ text: prompt }] }],
-
     generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
-
   });
 
-
-
   const geminiResult = await tryGeminiWithFallback(preparePayload, logs);
-
   if (geminiResult !== null) {
-
     return geminiResult;
-
   }
 
-
-
   // Final Emergency Fallback to Groq for text tasks
-
   console.warn('🚨 Both Gemini keys failed, falling back to emergency GROQ...');
-
   if (logs) logs.push('🚨 Gemini indisponível, usando motor de emergência Groq...');
-
   return await callGroq([{ role: 'user', content: prompt }], 'GROQ_API_KEY_2', { maxTokens: 4096 });
-
 }
-
-
-
-
 
 
 
 // ============ ANALYZE USER UPLOADS (Vision with Gemini) ============
-
 async function analyzeUserFilesWithGemini(files, userQuestion, logs = []) {
-
   if (!files || files.length === 0) return null;
 
-
-
   const preparePayload = () => {
-
     const parts = [
-
       { text: `Você é um agente educacional científico analisando uma imagem enviada por um aluno. Descreva detalhadamente o conteúdo das imagens. Foque nos aspectos científicos que possam responder à pergunta do aluno: "${userQuestion}". Retorne APENAS a descrição detalhada do visual das imagens.` }
-
     ];
-
     for (const file of files) {
-
       if (file.type && file.type.startsWith('image/') && file.data) {
-
         parts.push({ inlineData: { mimeType: file.type, data: file.data } });
-
       }
-
     }
-
     return { contents: [{ parts }], generationConfig: { temperature: 0.2, maxOutputTokens: 2000 } };
-
   };
 
-
-
   return await tryGeminiWithFallback(preparePayload, logs);
-
 }
 
-
-
 // ============ ANALYZE NASA IMAGES (First 4 with GROQ_API_KEY_2) ============
-
 async function analyzeNasaImagesWithGroq(nasaMedia) {
-
   if (!nasaMedia || nasaMedia.length === 0) return null;
 
-
-
   // Selecionar as 4 PRIMEIRAS imagens
-
   const firstFourImages = nasaMedia.slice(0, 4);
-
   const validImages = firstFourImages.filter(m => m.media_type === 'image' && m.url);
-
-
 
   if (validImages.length === 0) return null;
 
-
-
   const imageList = validImages
-
     .map((img, i) => `${i + 1}. ${img.title}\n   Descrição: ${img.description}\n   URL: ${img.url}`)
-
     .join('\n\n');
-
-
 
   const prompt = `Você é um especialista em análise de imagens científicas.
 
-
-
 IMAGENS FORNECIDAS:
-
 ${imageList}
-
-
 
 TASK: Analise APENAS o conteúdo visual dessas imagens. Descreva o que cada imagem mostra e o contexto científico. Retorne apenas as descrições.`;
 
-
-
   try {
-
     const response = await callGroq(
-
       [{ role: 'user', content: prompt }],
-
       'GROQ_API_KEY_2',
-
       { model: 'meta-llama/llama-4-scout-17b-16e-instruct', maxTokens: 1500, temperature: 0.2 }
-
     );
-
     return response;
-
   } catch (err) {
-
     console.error('Groq image analysis error:', err);
-
     return null;
-
   }
-
 }
-
-
 
 // ============ ANALYZE NASA IMAGES (Last 4 with GEMINI) ============
-
 async function analyzeNasaImagesWithGemini(nasaMedia, logs = []) {
-
   if (!nasaMedia || nasaMedia.length === 0) return null;
 
-
-
   const lastFourImages = nasaMedia.slice(-4);
-
   const validImages = lastFourImages.filter(m => m.media_type === 'image' && m.url);
-
   if (validImages.length === 0) return null;
 
-
-
   const imageList = validImages
-
     .map((img, i) => `${i + 1}. ${img.title}\n   Descrição: ${img.description}\n   URL: ${img.url}`)
-
     .join('\n\n');
 
-
-
   const preparePayload = () => ({
-
     contents: [{ parts: [{ text: `Você é um especialista em análise de imagens científicas. IMAGENS FORNECIDAS:\n${imageList}\n\nTASK: Analise APENAS o conteúdo visual dessas imagens. Descreva o que cada uma mostra e o contexto científico. Retorne apenas as descrições.` }] }],
-
     generationConfig: { temperature: 0.2, maxOutputTokens: 2000 }
-
   });
 
-
-
   return await tryGeminiWithFallback(preparePayload, logs);
-
 }
-
-
-
-
 
 
 
 // ============ STEP 1: Generate Action Plan (internal) ============
-
 async function generateActionPlan(userQuestion, history = [], visionContext = '') {
-
   const historyText = history.length > 0 
-
     ? `\nHISTÓRICO (Contexto prévio):\n${history.map(m => `${m.role === 'user' ? 'Usuário' : 'IA'}: ${m.content}`).join('\n')}\n`
-
     : '';
-
   const visionText = visionContext ? `\n${visionContext}\n` : '';
 
-
-
   const prompt = `Você é um planejador científico. Para a pergunta, crie um plano de ação:
-
 ${historyText}${visionText}
-
 Pergunta atual: "${userQuestion}"
 
-
-
 Dica de Autodetecção: 
-
 - "ibge": busca dados estatísticos/notícias do Brasil (termos: brasil, população, estado, economia, dados).
-
 - "scielo": busca artigos acadêmicos (termos: artigo, tese, periódico, científico, revista).
-
 - "openlibrary": busca livros e autores (termos: livro, autor, obra, literatura, biografia).
-
 - "gbif": busca seres vivos e biodiversidade (termos: espécie, animal, planta, biologia, taxonomia, nome científico).
-
 - "usgs": busca terremotos e sismicidade (termos: terremoto, sismo, tremor, abalo, vulcão).
-
-
 
 REGRA IMPORTANTE: Se a pergunta for sobre terremotos, sismos, sol (nascer/pôr), localização em tempo real, posição da ISS, ou qualquer dado ao vivo já coletado pelos conectores ativos, defina "precisa_busca_web" como false. Esses dados já estão disponíveis e são mais precisos do que a web.
 
-
-
 Retorne APENAS JSON válido (sem markdown):
 
-
-
 {
-
   "objetivo": "Descrição clara do que responder",
-
   "area_cientifica": "Área(s) científica(s)",
-
   "passos": [ { "numero": 1, "nome": "Passo", "descricao": "O que fazer" } ],
-
   "precisa_busca_web": true/false,
-
   "termo_de_busca": "um termo de busca real para o Google (ex: 'Marte clima') se precisar de busca web (combine a pergunta atual com o histórico, se houver). Use null se não precisar pesquisar nada na internet para esta interação."
-
 }`;
 
-
-
   const response = await callGroq(
-
     [{ role: 'user', content: prompt }],
-
     'GROQ_API_KEY_2',
-
     { maxTokens: 800, temperature: 0.2 }
-
   );
 
-
-
   try {
-
     return JSON.parse(response);
-
   } catch (e) {
-
     console.error('Plan parse error:', e);
-
     return {
-
       objetivo: 'Responder à pergunta',
-
       area_cientifica: 'Geral',
-
       passos: [{ numero: 1, nome: 'Responder', descricao: 'Gerar uma resposta clara e precisa' }],
-
       precisa_busca_web: true,
-
     };
-
   }
-
 }
 
+function normalizeSourceToken(value = '') {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/^(?:id-da-fonte|fonte|source|src)\s*:\s*/i, '')
+    .replace(/^https?:\/\/(www\.)?/i, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
 
+function getSourceAliases(source = {}) {
+  const aliases = new Set([
+    source.id,
+    source.label,
+    source.type,
+    source.detail,
+    source.url,
+  ]);
+
+  if (source.url) {
+    try {
+      aliases.add(new URL(source.url).hostname.replace(/^www\./i, ''));
+    } catch (error) {}
+  }
+
+  switch ((source.type || '').toLowerCase()) {
+    case 'phet':
+      aliases.add('phet');
+      aliases.add('simulacao phet');
+      aliases.add('simulador phet');
+      break;
+    case 'iss':
+      aliases.add('iss');
+      aliases.add('dados orbitais da iss');
+      aliases.add('posicao atual da iss');
+      aliases.add('posicao da iss');
+      aliases.add('estacao espacial internacional');
+      aliases.add('open notify');
+      break;
+    case 'open-meteo':
+      aliases.add('open meteo');
+      aliases.add('dados meteorologicos');
+      aliases.add('clima atual');
+      aliases.add('meteorologia');
+      break;
+    case 'sunrise':
+      aliases.add('dados solares');
+      aliases.add('sunrise sunset');
+      aliases.add('nascer do sol');
+      aliases.add('por do sol');
+      break;
+    case 'usgs':
+      aliases.add('dados sismicos');
+      aliases.add('terremotos');
+      break;
+    case 'nasa':
+      aliases.add('dados da nasa');
+      aliases.add('nasa');
+      break;
+  }
+
+  return [...aliases].filter(Boolean);
+}
+
+function buildSourceLookup(sources = []) {
+  const byId = new Map();
+  const byAlias = new Map();
+
+  sources.forEach(source => {
+    if (!source?.id) return;
+    byId.set(source.id, source);
+
+    for (const alias of getSourceAliases(source)) {
+      const normalizedAlias = normalizeSourceToken(alias);
+      if (normalizedAlias && !byAlias.has(normalizedAlias)) {
+        byAlias.set(normalizedAlias, source);
+      }
+    }
+  });
+
+  return { byId, byAlias };
+}
+
+function resolveSourceReference(rawReference, lookup) {
+  const rawValue = String(rawReference || '').trim();
+  if (!rawValue) return null;
+
+  if (lookup.byId.has(rawValue)) {
+    return lookup.byId.get(rawValue);
+  }
+
+  const cleanedValue = rawValue
+    .replace(/^(?:id-da-fonte|fonte|source|src)\s*:\s*/i, '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .trim();
+
+  if (lookup.byId.has(cleanedValue)) {
+    return lookup.byId.get(cleanedValue);
+  }
+
+  const idPrefixMatch = cleanedValue.match(/^([A-Z0-9]+(?:[-_][A-Z0-9]+)+)\s*:/i);
+  if (idPrefixMatch && lookup.byId.has(idPrefixMatch[1])) {
+    return lookup.byId.get(idPrefixMatch[1]);
+  }
+
+  const normalizedValue = normalizeSourceToken(cleanedValue);
+  return normalizedValue ? (lookup.byAlias.get(normalizedValue) || null) : null;
+}
+
+function normalizeResponseCitations(response, sources = []) {
+  if (!response) return response;
+
+  const protectedBlocks = [];
+  const protectedResponse = String(response).replace(
+    /\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi,
+    match => {
+      const token = `__LATEX_GRAPH_BLOCK_${protectedBlocks.length}__`;
+      protectedBlocks.push(match);
+      return token;
+    }
+  );
+
+  const lookup = buildSourceLookup(sources);
+  const normalized = protectedResponse.replace(/\[([^\]]+)\]/g, (match, rawReference) => {
+    const token = String(rawReference || '').trim();
+    if (/^(?:PHET|PDB|OFFLINE_DOC|LATEX_GRAPH_TITLE|LATEX_GRAPH_CODE|\/LATEX_GRAPH_CODE|CONFIANCA|CONFIANÇA|IMAGEM ENVIADA PELO ALUNO)\b/i.test(token)) {
+      return match;
+    }
+
+    const source = resolveSourceReference(token, lookup);
+    if (source) {
+      return `[ID-DA-FONTE: ${source.id}]`;
+    }
+
+    if (/^(?:id-da-fonte|fonte|source|src)\s*:/i.test(token)) {
+      return '';
+    }
+
+    if (
+      /^(?:web|search|source|src|ref|citation|connector|result|tavily|wikipedia|nasa|esa|arxiv|pubmed|scielo)[-_ ]*[a-z0-9-]*\d+$/i.test(token) ||
+      /^[A-Z]{2,}(?:[-_][A-Z0-9]+)+$/i.test(token)
+    ) {
+      return '';
+    }
+
+    return match;
+  });
+
+  return normalized.replace(/__LATEX_GRAPH_BLOCK_(\d+)__/g, (match, index) => {
+    return protectedBlocks[Number(index)] || match;
+  });
+}
+
+function detectPhetSimulation(userQuestion = '', response = '', selectedConnectors = []) {
+  const activeConnectors = Array.isArray(selectedConnectors) ? selectedConnectors : [];
+  if (!activeConnectors.includes('phet')) return null;
+
+  const text = `${userQuestion}\n${response}`.toLowerCase();
+  const catalog = [
+    {
+      pattern: /\b(átomo|atomo|próton|proton|nêutron|neutron|elétron|eletron|camada eletrônica|estrutura atômica|forma um átomo|formaçao do átomo|formacao do atomo)\b/,
+      slug: 'build-an-atom',
+      guide: 'Monte prótons, nêutrons e elétrons e observe como o elemento muda.',
+      theory: 'O átomo é definido pelo número de prótons; nêutrons alteram isótopos e elétrons controlam a carga.',
+    },
+    {
+      pattern: /\b(isótopo|isotopo|massa atômica|massa atomica|número atômico|numero atomico|numero de massa)\b/,
+      slug: 'isotopes-and-atomic-mass',
+      guide: 'Compare prótons e nêutrons para ver como surgem diferentes isótopos.',
+      theory: 'Isótopos têm o mesmo elemento químico, mas mudam no número de nêutrons e na massa total.',
+    },
+    {
+      pattern: /\b(molécula|molecula|ligação química|ligacao quimica|montar molécula|montar molecula)\b/,
+      slug: 'build-a-molecule',
+      guide: 'Combine átomos e veja como a estrutura molecular aparece em tempo real.',
+      theory: 'Moléculas surgem quando átomos compartilham ou reorganizam elétrons em ligações químicas.',
+    },
+    {
+      pattern: /\b(ph|ácido|acido|base|acidez|basicidade)\b/,
+      slug: 'ph-scale',
+      guide: 'Teste soluções diferentes e acompanhe a mudança do pH na escala.',
+      theory: 'O pH mede a concentração relativa de íons ligados à acidez e à basicidade da solução.',
+    },
+    {
+      pattern: /\b(circuito|corrente elétrica|corrente eletrica|voltagem|tensão elétrica|tensao eletrica|resistor)\b/,
+      slug: 'circuit-construction-kit-dc',
+      guide: 'Monte o circuito com bateria, fios e resistores e acompanhe a corrente.',
+      theory: 'A corrente elétrica depende da diferença de potencial e do caminho fechado do circuito.',
+    },
+    {
+      pattern: /\b(ohm|resistência elétrica|resistencia eletrica)\b/,
+      slug: 'ohms-law',
+      guide: 'Ajuste tensão e resistência para observar a corrente variar pela Lei de Ohm.',
+      theory: 'A Lei de Ohm conecta tensão, corrente e resistência em circuitos simples.',
+    },
+    {
+      pattern: /\b(faraday|indução eletromagnética|inducao eletromagnetica|fluxo magnético|fluxo magnetico)\b/,
+      slug: 'faradays-law',
+      guide: 'Mova o ímã e a espira para ver a indução surgir instantaneamente.',
+      theory: 'A variação do fluxo magnético induz corrente elétrica no circuito.',
+    },
+    {
+      pattern: /\b(força|forca|movimento|aceleração|aceleracao|segunda lei de newton)\b/,
+      slug: 'forces-and-motion-basics',
+      guide: 'Aplique forças diferentes e compare como massa e atrito alteram o movimento.',
+      theory: 'A aceleração depende da força resultante e da massa do sistema.',
+    },
+  ];
+
+  return catalog.find(entry => entry.pattern.test(text)) || null;
+}
+
+function formatPhetTitle(slug = '') {
+  return String(slug || '')
+    .split('-')
+    .filter(Boolean)
+    .map(token => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(' ');
+}
+
+function ensureInteractiveTags(response, userQuestion, selectedConnectors = []) {
+  let finalResponse = String(response || '').trim();
+  if (!finalResponse) return finalResponse;
+
+  if (!/\[PHET:/i.test(finalResponse)) {
+    const phetMatch = detectPhetSimulation(userQuestion, finalResponse, selectedConnectors);
+    if (phetMatch) {
+      finalResponse = `${finalResponse}\n\n[PHET:${phetMatch.slug}|${phetMatch.guide}|${phetMatch.theory}]`;
+    }
+  }
+
+  return finalResponse;
+}
+
+function stripConfidenceTags(response = '') {
+  return String(response || '')
+    .replace(/\[\s*CONFIAN[ÇC]A\s*:\s*[^\]]+\]/gi, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function sanitizeFinalResponse(response = '') {
+  return stripConfidenceTags(
+    String(response || '')
+      .replace(/^Como\s+Revisor[\s\S]*?\n/i, '')
+      .trim()
+  );
+}
 
 // ============ STEP 2: Execute Research & Reasoning ============
-
 async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
-
   const connectorAuto = options.connectorAuto !== false;
-
   const userConnectors = Array.isArray(options.connectors) ? options.connectors : [];
 
-
-
   const autoDetectedConnectors = ['phet', 'wikidata', 'pubmed', 'rcsb'];
-
   const normalizedText = (userQuestion || '').toLowerCase();
-
   
-
   if (/\b(formiga|ant|ants|himenóptero|genus|inseto|antweb)\b/i.test(normalizedText)) autoDetectedConnectors.push('antweb');
-
   if (/\b(peixe|oceano|fishwatch|sustentabilidade|pesca|marinho)\b/.test(normalizedText)) autoDetectedConnectors.push('fishwatch');
-
   if (/\b(elemento|química|tabela periódica|elétrons|átomo|metal|massa atômica)\b/.test(normalizedText)) autoDetectedConnectors.push('periodictable');
-
   if (/\b(livro|literatura|gutenberg|autor|clássico|ebook)\b/.test(normalizedText)) autoDetectedConnectors.push('gutenberg');
-
   if (/\b(bíblia|versículo|escritura|evangelho)\b/.test(normalizedText)) autoDetectedConnectors.push('bible');
-
+  if (/\b(iss|estação espacial internacional|estacao espacial internacional)\b/.test(normalizedText)) autoDetectedConnectors.push('iss');
   if (/\b(satélite|órbita|celestrak|rastreio)\b/.test(normalizedText)) autoDetectedConnectors.push('celestrak');
-
   if (/\b(lançamento|foguete|missão espacial|spacedevs|voo espacial)\b/.test(normalizedText)) autoDetectedConnectors.push('spacedevs');
-
   if (/\b(planeta|sistema solar|corpo celeste|órbita solar)\b/.test(normalizedText)) autoDetectedConnectors.push('solarsystem');
-
+  if (/\b(sunrise|sunset|nascer do sol|pôr do sol|por do sol|amanhecer|anoitecer)\b/.test(normalizedText)) autoDetectedConnectors.push('sunrise');
   if (/\b(frase|citação|pensamento|quotes|inspirar)\b/i.test(normalizedText)) autoDetectedConnectors.push('quotes', 'quotes-free');
-
   if (/\b(cachorro|cão|raça|dog|pet)\b/.test(normalizedText)) autoDetectedConnectors.push('dogapi');
-
   if (/\b(ar|poluição|qualidade do ar|openaq|smog)\b/.test(normalizedText)) autoDetectedConnectors.push('openaq');
-
   if (/\b(constante|física|codata|velocidade da luz|planck)\b/.test(normalizedText)) autoDetectedConnectors.push('codata');
-
+  if (/\b(clima|tempo|temperatura|umidade|chuva|vento|previsão|previsao|meteorolog)\b/.test(normalizedText)) autoDetectedConnectors.push('open-meteo');
   
-
   // Maga Expansão Keys
-
   if (/\b(comida|alimento|food|caloria|nutrição|ingrediente)\b/.test(normalizedText)) autoDetectedConnectors.push('openfoodfacts');
-
   if (/\b(imagem|foto|picsum|paisagem)\b/.test(normalizedText)) autoDetectedConnectors.push('picsum');
-
   if (/\b(universo|cosmos|openuniverse|galáxia|espaço profundo)\b/.test(normalizedText)) autoDetectedConnectors.push('openuniverse');
-
   if (/\b(esa|europa|agência espacial europeia)\b/.test(normalizedText)) autoDetectedConnectors.push('esa');
-
   if (/\b(estrela|constelação|céu|stellarium|mapa estelar)\b/.test(normalizedText)) autoDetectedConnectors.push('stellarium');
-
   if (/\b(onda|gravidade|ligo|virgo|colisão|buraco negro)\b/.test(normalizedText)) autoDetectedConnectors.push('ligo');
-
   if (/\b(sol|sdo|atividade solar|mancha solar)\b/.test(normalizedText)) autoDetectedConnectors.push('sdo');
-
-  if (/\b(exoplaneta|planeta|kepler|tess|estrela binária)\b/.test(normalizedText)) autoDetectedConnectors.push('exoplanet', 'kepler');
-
+  if (/\b(exoplaneta|planeta|kepler|tess|estrela binária)\b/.test(normalizedText)) autoDetectedConnectors.push('exoplanets', 'kepler');
   if (/\b(matemática|álgebra|calculadora|mathjs|matriz|equação complexa)\b/.test(normalizedText)) autoDetectedConnectors.push('mathjs');
-
   if (/\b(química|composto|molécula|pubchem|farmac|3d)\b/.test(normalizedText)) autoDetectedConnectors.push('pubchem', 'pubchem-bio');
-
   if (/\b(gene|genoma|dna|rna|ensembl|mygene|mutação)\b/.test(normalizedText)) autoDetectedConnectors.push('ensembl', 'mygene');
-
   if (/\b(proteína|aminoácido|uniprot|interação|string)\b/.test(normalizedText)) autoDetectedConnectors.push('uniprot', 'string-db', 'reactome');
-
   if (/\b(saúde|médico|fda|datasus|sus|hospital|vacina)\b/.test(normalizedText)) autoDetectedConnectors.push('openfda', 'datasus', 'covid-jhu');
-
   if (/\b(genética|heran|omim|clinvar|câncer|cosmic)\b/.test(normalizedText)) autoDetectedConnectors.push('omim', 'clinvar', 'cosmic');
-
   if (/\b(clima|aquecimento|mudança climática|worldbank|noaa)\b/.test(normalizedText)) autoDetectedConnectors.push('noaa-climate', 'worldbank-climate');
-
   if (/\b(água|rio|usgs|recurso hídrico|seca|enchente)\b/.test(normalizedText)) autoDetectedConnectors.push('usgs-water');
-
   if (/\b(queimada|fogo|incêndio|firms|fumaça)\b/.test(normalizedText)) autoDetectedConnectors.push('firms');
-
   if (/\b(curso|aula|educação|mit|edx|mec|escola)\b/.test(normalizedText)) autoDetectedConnectors.push('edx', 'mit-ocw', 'mec-ejovem', 'educ4share');
-
   if (/\b(governo|transparência|tcu|gastos|público|dinheiro)\b/.test(normalizedText)) autoDetectedConnectors.push('tcu', 'transparencia');
-
   if (/\b(arte|museu|pessoal|met|getty|pintura|escultura)\b/.test(normalizedText)) autoDetectedConnectors.push('metmuseum', 'getty');
-
   if (/\b(libras|sinal|surdo|mudo)\b/.test(normalizedText)) autoDetectedConnectors.push('libras');
-
   if (/\b(modelo 3d|sketchfab|objetos|realidade)\b/.test(normalizedText)) autoDetectedConnectors.push('sketchfab');
-
-  if (/\b(timelapse|earth|google|satélite|evolução)\b/.test(normalizedText)) autoDetectedConnectors.push('google-earth');
-
-
+  if (/\b(timelapse|earth|google|satélite|evolução)\b/.test(normalizedText)) autoDetectedConnectors.push('timelapse');
 
   if (/\b(arxiv|paper|artigo|pesquisa|estudo|tese|scielo)\b/.test(normalizedText)) {
-
     autoDetectedConnectors.push('arxiv');
-
     if (/\b(scielo|brasil|português|tese)\b/.test(normalizedText)) autoDetectedConnectors.push('scielo');
-
   }
-
   
-
   if (/\b(brasil|ibge|demografia|população|estado|cidade|saneamento|município)\b/.test(normalizedText)) {
-
     autoDetectedConnectors.push('ibge');
-
   }
-
-
 
   if (/\b(médico|saúde|doença|vírus|pubmed|tratamento|vacina|biomed)\b/.test(normalizedText)) {
-
     autoDetectedConnectors.push('pubmed');
-
   }
-
   
-
   if (/\b(conceito|definição|o que é|explica|explicar|definir|wikidata|quem foi|onde fica)\b/.test(normalizedText)) {
-
     autoDetectedConnectors.push('wikipedia');
-
     autoDetectedConnectors.push('wikidata');
-
   }
-
-
 
   if (/\b(proteína|molécula|pdb|rcsb|estrutura 3d|hemoglobina|insulina|enzima)\b/.test(normalizedText)) {
-
     autoDetectedConnectors.push('rcsb');
-
   }
-
   
-
   if (/\b(matemática|equação|integral|derivada|cálculo|somar|subtrair|multiplicar|dividir)\b/.test(normalizedText)) autoDetectedConnectors.push('newton');
-
   if (/\b(espaço|nasa|planeta|satélite|foguete|astronomia|marte|lua|asteroide|asteróide)\b/.test(normalizedText)) {
-
     autoDetectedConnectors.push('nasa');
-
     autoDetectedConnectors.push('spacex');
-
   }
-
-  autoDetectedConnectors.push('open-meteo');
-
-
 
   const selectedConnectors = connectorAuto
-
     ? [...new Set(autoDetectedConnectors)]
-
     : [...new Set(userConnectors.map(c => c.toLowerCase()))];
-
-
 
   const useNasa = options.useNasa === true || selectedConnectors.includes('nasa');
 
-
-
   // Track which sources were used for answering (web + NASA)
-
   const sources = [];
 
-
-
   // Function to add sources for citation
-
   function addSource(id, label, type, detail, url) {
+    const safeId = String(id || 'SOURCE').trim() || 'SOURCE';
+    const safeLabel = String(label || safeId).trim() || safeId;
+    const safeType = String(type || 'generic').trim() || 'generic';
+    const safeDetail = String(detail || '').trim();
+    const safeUrl = typeof url === 'string' && url.trim() ? url.trim() : null;
 
-    sources.push({ id, label, type, detail, url });
+    const duplicateSource = sources.find(source =>
+      source.label === safeLabel &&
+      source.type === safeType &&
+      source.detail === safeDetail &&
+      source.url === safeUrl
+    );
 
-  }
-
-logs.push('🧠 Iniciando raciocínio (processo interno)');
-
-
-
-  let context = '';
-
-  let nasaMedia = [];
-
-  const media = [];
-
-  
-
-  const queryParaBuscar = actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion;
-
-
-
-  const isEarthquakeQuery = selectedConnectors.includes('usgs') && 
-
-    /terremoto|sismo|tremor|abalo|sism|quake/i.test(userQuestion);
-
-  const isSunQuery = selectedConnectors.includes('sunrise') &&
-
-    /sol|sunrise|sunset|nascer|pôr|por do sol/i.test(userQuestion);
-
-
-
-  // Tavily só roda se:
-
-  // 1. Modo Auto E o plano pede busca E não é query de dado em tempo real
-
-  // 2. OU modo manual E o usuário EXPLICITAMENTE selecionou 'tavily'
-
-  const podeBuscarWeb = connectorAuto
-
-    ? (actionPlan?.precisa_busca_web && !isEarthquakeQuery && !isSunQuery)
-
-    : selectedConnectors.includes('tavily');
-
-
-
-  if (podeBuscarWeb) {
-
-    logs.push(`🌐 Buscando na web: "${queryParaBuscar}"`);
-
-    const searchResult = await searchTavily(queryParaBuscar);
-
-    if (searchResult) {
-
-      context += `\n\n📰 Resultados de busca web (use apenas como complemento, NUNCA para dados em tempo real como terremotos ou clima):\n`;
-
-      context += `Resposta resumida: ${searchResult.answer}\n\n`;
-
-      searchResult.results.forEach((r, i) => {
-
-        context += `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.url}\n`;
-
-      });
-
-      addSource('WEB-SUMMARY', 'Resumo da busca web (Tavily)', 'web', searchResult.answer, null);
-
-      searchResult.results.forEach((r, i) => {
-
-        addSource(`WEB-${i + 1}`, r.title || `Web resultado ${i + 1}`, 'web', r.snippet, r.url);
-
-      });
-
-      logs.push('✅ Dados da web coletados');
-
-    } else {
-
-      logs.push('⚠️ Tavily API não disponível');
-
+    if (duplicateSource) {
+      return duplicateSource;
     }
 
-  } else if (!connectorAuto && !selectedConnectors.includes('tavily')) {
+    let finalId = safeId;
+    let counter = 2;
+    while (sources.some(source => source.id === finalId)) {
+      finalId = `${safeId}-${counter}`;
+      counter += 1;
+    }
 
-    logs.push('🔒 Modo manual: busca web desativada (Tavily não selecionado)');
+    const source = { id: finalId, label: safeLabel, type: safeType, detail: safeDetail, url: safeUrl };
+    sources.push(source);
+    return source;
+  }
+logs.push('🧠 Iniciando raciocínio (processo interno)');
 
-  } else if (isEarthquakeQuery) {
+  let context = '';
+  let nasaMedia = [];
+  const media = [];
+  const phetSuggestion = detectPhetSimulation(userQuestion, '', selectedConnectors);
+  
+  const queryParaBuscar = actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion;
 
-    logs.push('🚫 Tavily suprimido: dados sísmicos via USGS são a fonte primária autorizada');
-
-  } else if (isSunQuery) {
-
-    logs.push('🚫 Tavily suprimido: dados solares via Sunrise-Sunset API são a fonte primária');
-
-  } else {
-
-    logs.push('🔹 Busca web não necessária (dados já coletados pelos conectores)');
-
+  if (phetSuggestion) {
+    const phetTitle = formatPhetTitle(phetSuggestion.slug);
+    const phetUrl = `https://phet.colorado.edu/sims/html/${phetSuggestion.slug}/latest/${phetSuggestion.slug}_all.html`;
+    addSource('PHET-1', `PhET: ${phetTitle}`, 'phet', phetSuggestion.theory || phetSuggestion.guide || 'Simulação interativa recomendada para este conceito.', phetUrl);
+    context += `\n\n🧪 Simulação interativa disponível (PhET): ${phetTitle}\nComo usar: ${phetSuggestion.guide}\nBase teórica: ${phetSuggestion.theory}\nLink: ${phetUrl}\n`;
+    logs.push(`🧪 Simulação PhET preparada: ${phetTitle}`);
   }
 
+  const isEarthquakeQuery = selectedConnectors.includes('usgs') && 
+    /terremoto|sismo|tremor|abalo|sism|quake/i.test(userQuestion);
+  const isSunQuery = selectedConnectors.includes('sunrise') &&
+    /sol|sunrise|sunset|nascer|pôr|por do sol/i.test(userQuestion);
 
+  // Tavily só roda se:
+  // 1. Modo Auto E o plano pede busca E não é query de dado em tempo real
+  // 2. OU modo manual E o usuário EXPLICITAMENTE selecionou 'tavily'
+  const podeBuscarWeb = connectorAuto
+    ? (actionPlan?.precisa_busca_web && !isEarthquakeQuery && !isSunQuery)
+    : selectedConnectors.includes('tavily');
 
+  if (podeBuscarWeb) {
+    logs.push(`🌐 Buscando na web: "${queryParaBuscar}"`);
+    const searchResult = await searchTavily(queryParaBuscar);
+    if (searchResult) {
+      context += `\n\n📰 Resultados de busca web (use apenas como complemento, NUNCA para dados em tempo real como terremotos ou clima):\n`;
+      context += `Resposta resumida: ${searchResult.answer}\n\n`;
+      searchResult.results.forEach((r, i) => {
+        context += `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.url}\n`;
+      });
+      addSource('WEB-SUMMARY', 'Resumo da busca web (Tavily)', 'web', searchResult.answer, null);
+      searchResult.results.forEach((r, i) => {
+        addSource(`WEB-${i + 1}`, r.title || `Web resultado ${i + 1}`, 'web', r.snippet, r.url);
+      });
+      logs.push('✅ Dados da web coletados');
+    } else {
+      logs.push('⚠️ Tavily API não disponível');
+    }
+  } else if (!connectorAuto && !selectedConnectors.includes('tavily')) {
+    logs.push('🔒 Modo manual: busca web desativada (Tavily não selecionado)');
+  } else if (isEarthquakeQuery) {
+    logs.push('🚫 Tavily suprimido: dados sísmicos via USGS são a fonte primária autorizada');
+  } else if (isSunQuery) {
+    logs.push('🚫 Tavily suprimido: dados solares via Sunrise-Sunset API são a fonte primária');
+  } else {
+    logs.push('🔹 Busca web não necessária (dados já coletados pelos conectores)');
+  }
 
 
   logs.push(`🔌 Conectores selecionados: ${selectedConnectors.join(', ') || 'nenhum'}`);
 
-
-
   // Data de cada conector
-
   
-
   if (selectedConnectors.includes('scielo')) {
-
     logs.push(`📚 Buscando na SciELO: "${queryParaBuscar}"`);
-
     const scielo = await buscarSciELO(queryParaBuscar);
-
     if (scielo && scielo.length > 0) {
-
       scielo.forEach((item, i) => {
-
         context += `\n\n🇧🇷 SciELO ${i + 1}: ${item.title}\nAutores: ${item.authors}\nResumo: ${item.summary}\nLink: ${item.link}\n`;
-
         addSource(`SCIELO-${i + 1}`, item.title || `SciELO ${i + 1}`, 'scielo', item.summary || '', item.link);
-
       });
-
       logs.push('✅ Dados SciELO coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('ibge')) {
-
     logs.push(`📊 Buscando no IBGE: "${queryParaBuscar}"`);
-
     const ibge = await buscarIBGE(queryParaBuscar);
-
     if (ibge && ibge.length > 0) {
-
       ibge.forEach((item, i) => {
-
         context += `\n\n🇧🇷 IBGE Notícia ${i + 1} (${item.date}): ${item.title}\n${item.summary}\nLink: ${item.link}\n`;
-
         addSource(`IBGE-${i + 1}`, item.title || `IBGE ${i + 1}`, 'ibge', item.summary || '', item.link);
-
       });
-
       logs.push('✅ Dados IBGE coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('openlibrary')) {
-
     logs.push(`📚 Buscando na Open Library: "${queryParaBuscar}"`);
-
     const books = await buscarOpenLibrary(queryParaBuscar);
-
     if (books && books.length > 0) {
-
       books.forEach((b, i) => {
-
         context += `\n\n📖 Livro ${i + 1}: ${b.title}\nAutor: ${b.author}\nAno: ${b.year}\nAssuntos: ${b.subject}\nLink: ${b.link}\n`;
-
         addSource(`BOOK-${i + 1}`, b.title, 'openlibrary', `Autor: ${b.author}, Ano: ${b.year}`, b.link);
-
       });
-
       logs.push('✅ Livros encontrados na Open Library');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('gbif')) {
-
     logs.push(`🌿 Buscando no GBIF (Biodiversidade): "${queryParaBuscar}"`);
-
     const species = await buscarGBIF(queryParaBuscar);
-
     if (species && species.length > 0) {
-
       species.forEach((s, i) => {
-
         context += `\n\n🧬 Espécie ${i + 1}: ${s.scientificName} (${s.canonicalName || 'S/N'})\nReino: ${s.kingdom}, Filo: ${s.phylum}, Família: ${s.family}\nStatus: ${s.status}\n`;
-
         addSource(`GBIF-${i + 1}`, s.canonicalName || s.scientificName, 'gbif', `Taxonomia: ${s.kingdom} > ${s.family}`, null);
-
       });
-
       logs.push('✅ Dados de biodiversidade do GBIF coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('usgs')) {
-
     logs.push(`🌍 Buscando Terremotos no USGS (últimas 24h)...`);
-
     const quakes = await buscarUSGS();
-
     if (quakes && quakes.length > 0) {
-
       context += `\n\n📡 USGS - Terremotos nas últimas 24h (magnitude ≥ 3.5):\n`;
-
       quakes.forEach((q, i) => {
-
         context += `${i + 1}. Magnitude ${q.mag} em ${q.place} | Hora: ${q.time} | Profundidade: ${q.depth}km | ${q.url}\n`;
-
         addSource(`USGS-${i + 1}`, `Mag ${q.mag} em ${q.place}`, 'usgs', `Magnitude: ${q.mag}, Profundidade: ${q.depth}km`, q.url);
-
       });
-
       logs.push(`✅ ${quakes.length} terremotos encontrados pelo USGS`);
-
     } else {
-
       context += `\n\n📡 USGS: Nenhum terremoto significativo (≥3.5) nas últimas 24 horas. Planeta tranquilo por hoje!\n`;
-
       logs.push('✅ USGS consultado: sem terremotos relevantes nas últimas 24h');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('brasilapi')) {
-
     logs.push(`🇧🇷 Buscando dados via BrasilAPI...`);
-
     const brasil = await buscarBrasilAPI(queryParaBuscar);
-
     if (brasil) {
-
       const feriados = (brasil.feriados || []).slice(0, 5);
-
       context += `\n\n🇧🇷 BrasilAPI - Feriados Nacionais ${brasil.ano}:\n`;
-
       feriados.forEach(f => { context += `- ${f.date}: ${f.name} (${f.type})\n`; });
-
       addSource('BRASILAPI', 'BrasilAPI - Feriados', 'brasilapi', `Feriados do Brasil ${brasil.ano}`, 'https://brasilapi.com.br');
-
       logs.push('✅ Dados BrasilAPI coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('camara')) {
-
     logs.push(`🏛️ Buscando proposições na Câmara dos Deputados: "${queryParaBuscar}"`);
-
     const props = await buscarCamara(queryParaBuscar);
-
     if (props && props.length > 0) {
-
       context += `\n\n🏛️ Câmara dos Deputados - Proposições sobre "${queryParaBuscar}":\n`;
-
       props.forEach((p, i) => {
-
         context += `${i + 1}. ${p.sigle} ${p.number}/${p.year} (${p.date}): ${p.summary}\n`;
-
         addSource(`CAMARA-${i + 1}`, `${p.sigle} ${p.number}/${p.year}`, 'camara', p.summary, p.url);
-
       });
-
       logs.push('✅ Proposições da Câmara coletadas');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('iss')) {
-
     logs.push(`🛸 Buscando posição atual da ISS...`);
-
     const iss = await buscarISS();
-
     if (iss) {
-
       context += `\n\n🛸 Estação Espacial Internacional (ISS) agora:\nLatitude: ${iss.lat}° | Longitude: ${iss.lon}° | Horário: ${iss.timestamp}\n`;
-
-      addSource('ISS', 'Open Notify - ISS Tracker', 'iss', `Posição: ${iss.lat}°, ${iss.lon}°`, 'http://open-notify.org');
-
+      addSource('ISS', 'Dados Orbitais da ISS', 'iss', `Posição: ${iss.lat}°, ${iss.lon}°`, 'http://open-notify.org');
       logs.push('✅ Posição da ISS obtida');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('sunrise')) {
-
     const userLat = options.userContext?.lat || -23.55;
-
     const userLon = options.userContext?.lon || -46.63;
-
     logs.push(`🌅 Buscando nascer/pôr do sol...`);
-
     const sun = await buscarSunriseSunset(userLat, userLon);
-
     if (sun) {
-
       context += `\n\n🌅 Nascer/Pôr do Sol hoje:\nNascer: ${sun.sunrise} | Pôr: ${sun.sunset} | Meio-dia solar: ${sun.solar_noon}\n`;
-
-      addSource('SUNRISE', 'Sunrise-Sunset.org', 'sunrise', `Nascer: ${sun.sunrise}, Pôr: ${sun.sunset}`, 'https://sunrise-sunset.org');
-
+      addSource('SUNRISE', 'Nascer e Pôr do Sol', 'sunrise', `Nascer: ${sun.sunrise}, Pôr: ${sun.sunset}`, 'https://sunrise-sunset.org');
       logs.push('✅ Dados solares obtidos');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('dictionary-en')) {
-
     logs.push(`📖 Buscando no Dicionário Inglês: "${queryParaBuscar}"`);
-
     const def = await buscarDicionarioIngles(queryParaBuscar.split(' ')[0]);
-
     if (def) {
-
       context += `\n\n📖 Free Dictionary (EN) - "${def.word}" ${def.phonetic || ''}:\n`;
-
       def.meanings.forEach(m => {
-
         context += `[${m.partOfSpeech}] ${m.definition}${m.example ? ` — Exemplo: "${m.example}"` : ''}\n`;
-
       });
-
       addSource('DICT-EN', `Free Dictionary: ${def.word}`, 'dictionary-en', def.meanings[0]?.definition || '', `https://api.dictionaryapi.dev/api/v2/entries/en/${def.word}`);
-
       logs.push('✅ Definição em inglês encontrada');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('universities')) {
-
     logs.push(`🎓 Buscando universidades: "${queryParaBuscar}"`);
-
     const unis = await buscarUniversidades(queryParaBuscar);
-
     if (unis && unis.length > 0) {
-
       context += `\n\n🎓 Universidades encontradas:\n`;
-
       unis.forEach((u, i) => {
-
         context += `${i + 1}. ${u.name} (${u.country}) — ${u.web || 'N/A'}\n`;
-
         addSource(`UNI-${i + 1}`, u.name, 'universities', `País: ${u.country}`, u.web);
-
       });
-
       logs.push('✅ Dados de universidades coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('wikidata')) {
-
     logs.push(`🔍 Buscando no Wikidata: "${queryParaBuscar}"`);
-
     const wikiData = await buscarWikidata(queryParaBuscar);
-
     if (wikiData && wikiData.length > 0) {
-
       context += `\n\n🆔 Wikidata Knowledge:\n`;
-
       wikiData.forEach((w, i) => {
-
         context += `${i + 1}. ${w.label}: ${w.description}\n`;
-
         addSource(`WIKIDATA-${i + 1}`, w.label, 'wikidata', w.description, `https://www.wikidata.org/wiki/Special:Search?search=${encodeURIComponent(w.label)}`);
-
       });
-
       logs.push('✅ Dados do Wikidata coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('pubmed')) {
-
     logs.push(`🏥 Buscando no PubMed Central: "${queryParaBuscar}"`);
-
     const articles = await buscarPubMed(queryParaBuscar);
-
     if (articles && articles.length > 0) {
-
       context += `\n\n🏥 Artigos Médicos (PubMed):\n`;
-
       articles.forEach((a, i) => {
-
         context += `${i + 1}. ${a.title} | Autores: ${a.authors} | Fonte: ${a.source} (${a.pubdate})\n`;
-
         addSource(`PUBMED-${i + 1}`, a.title, 'pubmed', `${a.authors} - ${a.source}`, a.link);
-
       });
-
       logs.push('✅ Literatura médica coletada (PubMed)');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('rcsb')) {
-
     logs.push(`🧬 Buscando estruturas 3D na RCSB PDB: "${queryParaBuscar}"`);
-
     const pdbIds = await buscarRCSB(queryParaBuscar);
-
     if (pdbIds && pdbIds.length > 0) {
-
       context += `\n\n🧬 Estruturas PDB encontradas: ${pdbIds.join(', ')}\n(Se for relevante, cite o ID e use a tag [PDB:id] para o visualizador 3D).\n`;
-
       addSource('PDB-1', `PDB ID: ${pdbIds[0]}`, 'rcsb', `Estrutura de proteína via Protein Data Bank`, `https://www.rcsb.org/structure/${pdbIds[0]}`);
-
       logs.push(`✅ ${pdbIds.length} estruturas de proteínas encontradas`);
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('antweb')) {
-
     logs.push(`🐜 Buscando formigas no AntWeb: "${queryParaBuscar}"`);
-
     const ants = await buscarAntWeb(queryParaBuscar);
-
     if (ants && ants.length > 0) {
-
       context += `\n\n🐜 Dados de Formigas (AntWeb):\n`;
-
       ants.forEach((ant, i) => {
-
         context += `${i+1}. ${ant.scientific_name} (${ant.family})\n`;
-
         if (ant.image) media.push({ title: ant.scientific_name, url: ant.image, media_type: 'image', description: `Gênero: ${ant.genus}, Família: ${ant.family}` });
-
       });
-
       addSource('ANT-1', `AntWeb: ${ants[0].scientific_name}`, 'antweb', `Imagens e dados taxonômicos de formigas.`, `https://www.antweb.org/description.do?genus=${ants[0].genus}`);
-
       logs.push('✅ Imagens e dados de formigas coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('periodictable')) {
-
     logs.push(`⚛️ Buscando na Tabela Periódica: "${queryParaBuscar}"`);
-
     const element = await buscarTabelaPeriodica(queryParaBuscar);
-
     if (element) {
-
       context += `\n\n⚛️ Dados do Elemento (${element.name}):\nSímbolo: ${element.symbol}, Massa: ${element.atomicMass}, Número: ${element.atomicNumber}, Configuração: ${element.electronicConfiguration}\n`;
-
       addSource('CHEM-1', `Tabela Periódica: ${element.name}`, 'periodictable', `Dados químicos oficiais do elemento ${element.name}.`, `https://pt.wikipedia.org/wiki/${element.name}`);
-
       logs.push('✅ Dados químicos coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('gutenberg')) {
-
     logs.push(`📖 Buscando livros no Project Gutenberg: "${queryParaBuscar}"`);
-
     const books = await buscarGutenberg(queryParaBuscar);
-
     if (books && books.length > 0) {
-
       context += `\n\n📖 Livros Disponíveis (Gutenberg):\n`;
-
       books.forEach((b, i) => {
-
         context += `${i+1}. ${b.title} por ${b.authors}\n`;
-
         addSource(`BOOK-${i+1}`, b.title, 'gutenberg', `Obra clássica de ${b.authors}`, b.link);
-
       });
-
       logs.push('✅ Obras literárias encontradas');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('codata')) {
-
     logs.push(`🧪 Buscando constantes físicas (CODATA): "${queryParaBuscar}"`);
-
     const constants = await buscarCODATA(queryParaBuscar);
-
     if (constants && constants.length > 0) {
-
       context += `\n\n🧪 Constantes Físicas (CODATA):\n`;
-
       constants.forEach((c, i) => {
-
         context += `${i+1}. ${c.quantity}: ${c.value} ${c.unit} (Incerteza: ${c.uncertainty})\n`;
-
         addSource(`CONST-${i+1}`, c.quantity, 'codata', `${c.value} ${c.unit}`, 'https://physics.nist.gov/cuu/Constants/');
-
       });
-
       logs.push('✅ Constantes físicas coletadas');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('sdo')) {
-
     logs.push(`☀️ Buscando atividade solar (SDO)...`);
-
     const sdo = await buscarSDO();
-
     if (sdo) {
-
       context += `\n\n☀️ Atividade Solar (SDO):\nDados de monitoramento solar em tempo real disponíveis.\n`;
-
       addSource('SDO-1', 'Solar Dynamics Observatory', 'sdo', 'Monitoramento da atividade solar NASA.', 'https://sdo.gsfc.nasa.gov/');
-
       logs.push('✅ Dados solares coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('omim')) {
-
     logs.push(`🧬 Buscando genética humana (OMIM): "${queryParaBuscar}"`);
-
     const omim = await buscarOMIM(queryParaBuscar);
-
     if (omim) {
-
       context += `\n\n🧬 Dados Genéticos (OMIM):\nResultados de pesquisa genômica integrados.\n`;
-
       addSource('OMIM-1', 'OMIM Genetics', 'omim', 'Catálogo de genes e distúrbios humanos.', 'https://www.omim.org/');
-
       logs.push('✅ Dados genéticos coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('libras')) {
-
     logs.push(`🤟 Buscando tradução Libras: "${queryParaBuscar}"`);
-
     const libras = await buscarLibras(queryParaBuscar);
-
     if (libras) {
-
       context += `\n\n🤟 Acessibilidade (Libras):\n${libras.info}\n`;
-
       addSource('LIBRAS-1', 'VLibras', 'libras', 'Recursos de acessibilidade em Libras.', 'https://vlibras.gov.br/');
-
       logs.push('✅ Recursos de Libras integrados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('timelapse')) {
-
     logs.push(`🌍 Gerando link de timelapse: "${queryParaBuscar}"`);
-
     const timeL = await buscarTimelapse(queryParaBuscar);
-
     if (timeL) {
-
       media.push(timeL);
-
       addSource('TIME-1', timeL.title, 'timelapse', 'Evolução temporal do planeta.', timeL.url);
-
       logs.push('✅ Link de timelapse gerado');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('bible')) {
-
     logs.push(`📜 Buscando na Bíblia: "${queryParaBuscar}"`);
-
     const passage = await buscarBiblia(queryParaBuscar);
-
     if (passage) {
-
       context += `\n\n📜 Escritura Sagrada:\n${passage.text}\nReferência: ${passage.reference}\n`;
-
       addSource('BIBLE-1', passage.reference, 'bible', `Texto bíblico via Bible API`, `https://bible-api.com/${encodeURIComponent(passage.reference)}`);
-
       logs.push('✅ Versículos coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('fishwatch')) {
-
     logs.push(`🐟 Buscando espécies marinhas: "${queryParaBuscar}"`);
-
     const fish = await buscarFishWatch(queryParaBuscar);
-
     if (fish && fish.length > 0) {
-
        context += `\n\n🐟 Dados de Peixes (FishWatch):\n`;
-
        fish.forEach((f, i) => {
-
          context += `${i+1}. ${f.name} (${f.scientific}) - Habitat: ${f.habitat}\n`;
-
          if (f.image) media.push({ title: f.name, url: f.image, media_type: 'image', description: f.habitat });
-
        });
-
        addSource('FISH-1', fish[0].name, 'fishwatch', `Dados de biologia marinha.`, `https://www.fishwatch.gov/`);
-
        logs.push('✅ Dados de biologia marinha coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('openaq')) {
-
     logs.push(`🌬️ Buscando qualidade do ar: "${queryParaBuscar}"`);
-
     const aq = await buscarQualidadeAr(queryParaBuscar);
-
     if (aq) {
-
       context += `\n\n🌬️ Qualidade do Ar (${aq.city}):\n`;
-
       aq.measurements?.forEach(m => {
-
         context += `- ${m.parameter}: ${m.value} ${m.unit} (Última atualização: ${m.lastUpdated})\n`;
-
       });
-
       addSource('AIR-1', `OpenAQ: ${aq.city}`, 'openaq', `Dados de qualidade do ar em tempo real.`, `https://openaq.org/#/city/${encodeURIComponent(aq.city)}`);
-
       logs.push('✅ Dados atmosféricos coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('quotes')) {
-
     logs.push(`💬 Buscando citação inspiradora`);
-
     const q = await buscarFrase();
-
     if (q) {
-
       context += `\n\n💬 Citação: "${q.content}" — ${q.author}\n`;
-
       addSource('QUOTE-1', `Citação: ${q.author}`, 'quotes', `Frases e pensamentos célebres.`, `https://quotable.io/`);
-
       logs.push('✅ Citação coletada');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('dogapi')) {
-
     logs.push(`🐶 Buscando imagem de pet`);
-
     const dogImg = await buscarDog();
-
     if (dogImg) {
-
       // Extrair raça da URL (ex: https://dog.ceo/api/img/pitbull/...)
-
       const breedMatch = dogImg.match(/breeds\/([^\/]+)/);
-
       const rawBreed = breedMatch ? breedMatch[1].replace('-', ' ') : 'cachorro';
-
       const breed = rawBreed.charAt(0).toUpperCase() + rawBreed.slice(1);
-
       
-
       context += `\n\n🐶 Foto de Pet Encontrada: Raça ${breed}.\n`;
-
       media.push({ title: `Raça: ${breed}`, url: dogImg, media_type: 'image', description: `Um exemplar de ${breed} capturado pela Dog CEO API.` });
-
       logs.push(`✅ Imagem de ${breed} adicionada`);
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('solarsystem')) {
-
     logs.push(`🪐 Buscando dados planetários: "${queryParaBuscar}"`);
-
     const body = await buscarSistemaSolar(queryParaBuscar);
-
     if (body) {
-
       context += `\n\n🪐 Dados Celestiais (${body.englishName}):\nGravidade: ${body.gravity} m/s², Massa: ${body.mass?.massValue}x10^${body.mass?.massExponent} kg, Luas: ${body.moons?.length || 0}\n`;
-
       addSource('SPACE-1', `Solar System: ${body.englishName}`, 'solarsystem', `Dados astronômicos oficiais.`, `https://solarsystem.nasa.gov/planets/${body.englishName.toLowerCase()}`);
-
       logs.push('✅ Dados planetários coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('poetry')) {
-
     logs.push(`📜 Buscando poesia: "${queryParaBuscar}"`);
-
     const poems = await buscarPoesia(queryParaBuscar);
-
     if (poems && poems.length > 0) {
-
       context += `\n\n📜 PoetryDB - Poemas encontrados:\n`;
-
       poems.forEach((p, i) => {
-
         context += `${i + 1}. "${p.title}" — ${p.author}\n   Trecho: ${p.excerpt}\n`;
-
         addSource(`POEM-${i + 1}`, `"${p.title}" by ${p.author}`, 'poetry', p.excerpt, null);
-
       });
-
       logs.push('✅ Poemas encontrados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('wikipedia')) {
-
     logs.push(`🌐 Buscando na Wikipedia: "${queryParaBuscar}"`);
-
     const wiki = await buscarWikipedia(queryParaBuscar);
-
     if (wiki) {
-
       context += `\n\n📘 Wikipedia: ${wiki.title}\n${wiki.extract}\n`;  
-
       addSource('WIKIPEDIA', 'Wikipedia', 'wikipedia', wiki.extract || wiki.title, wiki.url);
-
       logs.push('✅ Dados do Wikipedia coletados');
-
     } else {
-
       logs.push('⚠️ Wikipedia não retornou dados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('arxiv')) {
-
     logs.push(`📚 Buscando no arXiv: "${queryParaBuscar}"`);
-
     const arxiv = await buscarArxiv(queryParaBuscar);
-
     if (arxiv.length > 0) {
-
       arxiv.slice(0, 3).forEach((item, i) => {
-
         context += `\n\n🧾 arXiv ${i + 1}: ${item.title}\n${item.summary}\nLink: ${item.link}\n`;
-
         addSource(`ARXIV-${i + 1}`, item.title || `arXiv ${i + 1}`, 'arxiv', item.summary || '', item.link);
-
       });
-
       logs.push('✅ Dados do arXiv coletados');
-
     } else {
-
       logs.push('⚠️ arXiv não retornou dados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('newton')) {
-
     logs.push(`🧮 Calculando com Newton/MathJS: "${queryParaBuscar}"`);
-
     const math = await calcular(queryParaBuscar);
-
     if (math) {
-
       context += `\n\n➗ Resultado MathJS para '${math.input}': ${math.result}\n`;
-
       addSource('NEWTON', 'MathJS (Newton)', 'newton', `${math.input} => ${math.result}`, 'https://api.mathjs.org');
-
       logs.push('✅ Dados de cálculo coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('spacex')) {
-
     logs.push('🚀 Buscando SpaceX...');
-
     const spacex = await buscarSpaceX();
-
     if (spacex) {
-
       context += `\n\n🚀 SpaceX - ${spacex.name} (${spacex.date_utc})\n${spacex.details || 'Sem detalhes'}\nLink: ${spacex.link || 'N/A'}\n`;
-
       addSource('SPACEX', 'SpaceX', 'spacex', spacex.details || spacex.name, spacex.link);
-
       logs.push('✅ Dados SpaceX coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('open-meteo')) {
-
     logs.push('☁️ Buscando meteorologia (Open-Meteo)...');
-
     const weather = await buscarOpenMeteo();
-
     if (weather) {
-
       let temp = "N/A", humi = "N/A";
-
       try {
-
         temp = weather.weather.hourly.temperature_2m[0];
-
         humi = weather.weather.hourly.relativehumidity_2m[0];
-
       } catch(e) {}
-
       context += `\n\n☁️ Open-Meteo para lat/lon (${weather.location.lat},${weather.location.lon}):\nTemperatura atual: ${temp}°C\nUmidade Relativa: ${humi}%\n`; 
-
-      addSource('OPEN-METEO', 'Open-Meteo API', 'open-meteo', `Temperatura atual: ${temp}°C, Umidade: ${humi}%`, 'https://open-meteo.com');
-
+      addSource('OPEN-METEO', 'Clima Atual (Open-Meteo)', 'open-meteo', `Temperatura atual: ${temp}°C, Umidade: ${humi}%`, 'https://open-meteo.com');
       logs.push('✅ Dados Open-Meteo coletados');
-
     }
-
   }
-
-
 
   // Loop para Conectores da Mega Expansão (Generic Map)
-
   for (const key of selectedConnectors) {
-
     if (GENERIC_API_MAP[key]) {
-
       logs.push(`🔍 Consultando conector especializado: ${key}...`);
-
       const data = await buscarGeneric(key, queryParaBuscar);
-
       if (data && !data.error) {
-
         context += `\n\n📊 Dados de ${key.toUpperCase()} (Conector especializado):\n${JSON.stringify(data, null, 2).slice(0, 1500)}\n`;
-
-        addSource(key.toUpperCase(), `API ${key}`, key, `Dados brutos via ${key}`, 'https://drekee.edu/connectors');
-
+        const apiConfig = GENERIC_API_MAP[key];
+        const apiUrl = apiConfig ? apiConfig.url.replace('${query}', queryParaBuscar) : null;
+        addSource(key.toUpperCase(), `API ${key}`, key, `Dados via ${key}`, apiUrl);
         logs.push(`✅ Dados de ${key} integrados`);
-
       }
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('esa')) {
-
     logs.push(`🇪🇺 Buscando na Agência Espacial Europeia (ESA): "${queryParaBuscar}"`);
-
     const esaData = await buscarGeneric('esa', queryParaBuscar);
-
     if (esaData && esaData.length > 0) {
-
       context += `\n\n🇪🇺 Dados da ESA (Imagens/Mídia):\n`;
-
       esaData.forEach((item, i) => {
-
         if (item.url) media.push({ title: item.title, url: item.url, media_type: 'image', description: item.description });
-
       });
-
       addSource('ESA-1', 'ESA Media', 'esa', 'Imagens e descobertas da ESA.', 'https://images-api.nasa.gov/search?center=ESA');
-
       logs.push('✅ Mídia da ESA integrada');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('openfoodfacts')) {
-
     logs.push(`🍎 Buscando alimentos (Open Food Facts): "${queryParaBuscar}"`);
-
     const foodData = await buscarGeneric('openfoodfacts', queryParaBuscar);
-
     if (foodData && foodData.products && foodData.products.length > 0) {
-
       context += `\n\n🍎 Dados de Alimentos (Open Food Facts):\n`;
-
       foodData.products.slice(0, 3).forEach((p, i) => {
-
         context += `${i+1}. ${p.product_name} (${p.brands || 'Marca desconhecida'}) - Nutrientes: ${JSON.stringify(p.nutriments)}\n`;
-
       });
-
       addSource('FOOD-1', 'Open Food Facts', 'openfoodfacts', 'Dados colaborativos de produtos alimentícios.', 'https://world.openfoodfacts.org/');
-
       logs.push('✅ Dados de alimentos coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('mathjs')) {
-
     logs.push(`🧮 Calculando com Math.js Advanced: "${queryParaBuscar}"`);
-
     const mathResult = await buscarGeneric('mathjs', queryParaBuscar);
-
     if (mathResult && typeof mathResult === 'string') {
-
       context += `\n\n🧮 Resultado Matemático Avançado: ${mathResult}\n`;
-
       addSource('MATH-ADV', 'Math.js Advanced', 'mathjs', mathResult, 'https://mathjs.org/');
-
       logs.push('✅ Cálculos avançados integrados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('pubchem')) {
-
     logs.push(`🧪 Buscando compostos químicos (PubChem): "${queryParaBuscar}"`);
-
     const chemData = await buscarGeneric('pubchem', queryParaBuscar);
-
     if (chemData && chemData.PC_Compounds) {
-
       context += `\n\n🧪 Dados Químicos (PubChem):\nComposto encontrado com CID: ${chemData.PC_Compounds[0].id.id.cid}\n`;
-
       addSource('PUBCHEM-1', 'PubChem 3D', 'pubchem', 'Estruturas químicas 3D.', 'https://pubchem.ncbi.nlm.nih.gov/');
-
       logs.push('✅ Dados químicos (PubChem) integrados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('uniprot')) {
-
     logs.push(`🧬 Buscando proteínas (UniProt): "${queryParaBuscar}"`);
-
     const protData = await buscarGeneric('uniprot', queryParaBuscar);
-
     if (protData && protData.results && protData.results.length > 0) {
-
       context += `\n\n🧬 Dados de Proteínas (UniProt):\n`;
-
       protData.results.slice(0, 2).forEach((r, i) => {
-
         context += `${i+1}. Proteína: ${r.primaryAccession} - Nome: ${r.proteinDescription?.recommendedName?.fullName?.value}\n`;
-
       });
-
       addSource('UNIPROT-1', 'UniProt Proteins', 'uniprot', 'Base de dados de proteínas.', 'https://www.uniprot.org/');
-
       logs.push('✅ Dados de proteínas coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('mygene')) {
-
     logs.push(`🧬 Buscando genes (MyGene.info): "${queryParaBuscar}"`);
-
     const geneData = await buscarGeneric('mygene', queryParaBuscar);
-
     if (geneData && geneData.hits && geneData.hits.length > 0) {
-
       context += `\n\n🧬 Dados Genômicos (MyGene):\n`;
-
       geneData.hits.slice(0, 2).forEach((h, i) => {
-
         context += `${i+1}. Gene: ${h.symbol} - Nome: ${h.name} (ID: ${h._id})\n`;
-
       });
-
       addSource('MYGENE-1', 'MyGene.info', 'mygene', 'Consulta de genes em tempo real.', 'https://mygene.info/');
-
       logs.push('✅ Dados de genes coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('reactome')) {
-
     logs.push(`🛤️ Buscando vias biológicas (Reactome): "${queryParaBuscar}"`);
-
     const reactData = await buscarGeneric('reactome', queryParaBuscar);
-
     if (reactData && reactData.results && reactData.results.length > 0) {
-
       context += `\n\n🛤️ Vias Biológicas (Reactome):\n`;
-
       reactData.results.slice(0, 3).forEach((r, i) => {
-
         context += `${i+1}. Via: ${r.name} (${r.stId})\n`;
-
       });
-
       addSource('REACTOME-1', 'Reactome Pathway', 'reactome', 'Vias biológicas e processos celulares.', 'https://reactome.org/');
-
       logs.push('✅ Vias biológicas coletadas');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('string-db')) {
-
     logs.push(`🕸️ Buscando interações proteicas (STRING): "${queryParaBuscar}"`);
-
     const stringData = await buscarGeneric('string-db', queryParaBuscar);
-
     if (stringData && stringData.length > 0) {
-
       context += `\n\n🕸️ Rede de Interações (STRING):\nDados de interações proteicas integrados.\n`;
-
       addSource('STRING-1', 'STRING Interaction', 'string-db', 'Rede de interações proteína-proteína.', 'https://string-db.org/');
-
       logs.push('✅ Rede de interações integrada');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('edx')) {
-
     logs.push(`🎓 Buscando cursos no edX: "${queryParaBuscar}"`);
-
     const edxData = await buscarGeneric('edx', queryParaBuscar);
-
     if (edxData && edxData.results) {
-
       context += `\n\n🎓 Cursos Acadêmicos (edX):\n`;
-
       edxData.results.slice(0, 3).forEach((c, i) => {
-
         context += `${i+1}. ${c.title} - ${c.org}\n`;
-
       });
-
       addSource('EDX-1', 'edX Open Courses', 'edx', 'Cursos acadêmicos de alto nível.', 'https://www.edx.org/');
-
       logs.push('✅ Cursos edX encontrados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('mit-ocw')) {
-
     logs.push(`🏛️ Buscando materiais MIT OCW: "${queryParaBuscar}"`);
-
     const mitData = await buscarGeneric('mit-ocw', queryParaBuscar);
-
     if (mitData) {
-
       context += `\n\n🏛️ Materiais MIT (OpenCourseWare):\nDados de cursos do MIT integrados.\n`;
-
       addSource('MIT-1', 'MIT OpenCourseWare', 'mit-ocw', 'Materiais gratuitos de cursos do MIT.', 'https://ocw.mit.edu/');
-
       logs.push('✅ Materiais do MIT integrados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('tcu')) {
-
     logs.push(`⚖️ Buscando dados no TCU: "${queryParaBuscar}"`);
-
     const tcuData = await buscarGeneric('tcu', queryParaBuscar);
-
     if (tcuData) {
-
       context += `\n\n⚖️ Dados Governamentais (TCU):\nInformações de fiscalização e contas públicas integradas.\n`;
-
       addSource('TCU-1', 'TCU Brasil', 'tcu', 'Fiscalização e contas públicas do Tribunal.', 'https://contas.tcu.gov.br/');
-
       logs.push('✅ Dados do TCU coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('osf')) {
-
     logs.push(`📂 Buscando projetos OSF: "${queryParaBuscar}"`);
-
     const osfData = await buscarGeneric('osf', queryParaBuscar);
-
     if (osfData && osfData.data && osfData.data.length > 0) {
-
       context += `\n\n📂 Projetos Científicos (OSF):\n`;
-
       osfData.data.slice(0, 3).forEach((d, i) => {
-
         context += `${i+1}. ${d.attributes.title} (ID: ${d.id})\n`;
-
       });
-
       addSource('OSF-1', 'Open Science OSF', 'osf', 'Gerenciamento de projetos científicos abertos.', 'https://osf.io/');
-
       logs.push('✅ Projetos OSF coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('celestrak')) {
-
     logs.push(`🛰️ Buscando satélites (CelesTrak): "${queryParaBuscar}"`);
-
     const satData = await buscarGeneric('celestrak', queryParaBuscar);
-
     if (satData) {
-
       context += `\n\n🛰️ Rastreamento Orbital (CelesTrak):\nDados orbitais e TLE integrados.\n`;
-
       addSource('SAT-1', 'CelesTrak', 'celestrak', 'Rastreamento de satélites e dados orbitais.', 'https://celestrak.org/');
-
       logs.push('✅ Dados de satélites coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('openuniverse')) {
-
     logs.push(`🌌 Buscando no OpenUniverse: "${queryParaBuscar}"`);
-
     const univData = await buscarGeneric('openuniverse', queryParaBuscar);
-
     if (univData) {
-
       context += `\n\n🌌 Dados Astronômicos (OpenUniverse):\nExploração de dados do cosmos integrada.\n`;
-
       addSource('UNIV-1', 'OpenUniverse', 'openuniverse', 'Exploração de dados astronômicos.', 'https://openuniverse.org/');
-
       logs.push('✅ Dados astronômicos coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('stellarium')) {
-
     logs.push(`🔭 Buscando no Stellarium: "${queryParaBuscar}"`);
-
     const stelData = await buscarGeneric('stellarium', queryParaBuscar);
-
     if (stelData) {
-
       context += `\n\n🔭 Planetário Virtual (Stellarium):\nDados de observação estelar integrados.\n`;
-
       addSource('STEL-1', 'Stellarium Web', 'stellarium', 'Planetário virtual para observação estelar.', 'https://stellarium-web.org/');
-
       logs.push('✅ Dados do Stellarium coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('ligo')) {
-
     logs.push(`🌊 Buscando ondas gravitacionais (LIGO): "${queryParaBuscar}"`);
-
     const ligoData = await buscarGeneric('ligo', queryParaBuscar);
-
     if (ligoData && ligoData.results) {
-
       context += `\n\n🌊 Ondas Gravitacionais (LIGO/Virgo):\n`;
-
       ligoData.results.slice(0, 2).forEach((r, i) => {
-
         context += `${i+1}. Evento: ${r.t_0} - Mag: ${r.far}\n`;
-
       });
-
       addSource('LIGO-1', 'Gravitational Waves (LIGO)', 'ligo', 'Detecção de ondas gravitacionais.', 'https://gracedb.ligo.org/');
-
       logs.push('✅ Dados de ondas gravitacionais coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('noaa-space')) {
-
     logs.push(`🌪️ Buscando clima espacial (NOAA): "${queryParaBuscar}"`);
-
     const spaceWeatherData = await buscarGeneric('noaa-space', queryParaBuscar);
-
     if (spaceWeatherData) {
-
       context += `\n\n🌪️ Clima Espacial (NOAA):\nDados de tempestades solares e auroras integrados.\n`;
-
       addSource('NOAA-S-1', 'NOAA Space Weather', 'noaa-space', 'Previsões de clima espacial e auroras.', 'https://www.swpc.noaa.gov/');
-
       logs.push('✅ Dados de clima espacial coletados');
-
     }
-
   }
-
-
 
   if (selectedConnectors.includes('exoplanets')) {
-
     logs.push(`🪐 Buscando exoplanetas (NASA): "${queryParaBuscar}"`);
-
     const exoData = await buscarGeneric('exoplanets', queryParaBuscar);
-
     if (exoData) {
-
       context += `\n\n🪐 Exoplanetas (NASA Archive):\nDados de planetas fora do sistema solar integrados.\n`;
-
       addSource('EXO-1', 'NASA Exoplanets', 'exoplanets', 'Arquivo oficial de exoplanetas.', 'https://exoplanetarchive.ipac.caltech.edu/');
-
       logs.push('✅ Dados de exoplanetas coletados');
-
     }
-
   }
-
-
 
   if (useNasa) {
-
     logs.push(`🚀 Otimizando busca NASA com IA para: "${queryParaBuscar}"`);
-
     const optimizedQuery = await optimizeNasaQuery(queryParaBuscar);
-
     logs.push(`📝 Query otimizada: "${optimizedQuery}"`);
 
-
-
     // Track NASA query as a source
-
     addSource('NASA-QUERY', 'Consulta NASA (busca de mídia)', 'nasa', optimizedQuery, null);
 
-
-
     logs.push('🚀 Buscando mídia da NASA...');
-
     let results = await searchNasaMedia(optimizedQuery);
 
-
-
     // If no results, try alternative queries
-
     if (!results || results.length === 0) {
-
       logs.push('🔁 Tentando alternativa de busca...');
-
       
-
       const keywords = userQuestion
-
         .split(/\s+/)
-
         .filter(w => w.length > 4)
-
         .slice(0, 3)
-
         .join(' ');
-
       
-
       if (keywords && keywords !== userQuestion) {
-
         results = await searchNasaMedia(keywords);
-
       }
-
     }
-
-
 
     // Last resort
-
     if (!results || results.length === 0) {
-
       logs.push('🔁 Buscando por categoria relacionada...');
-
       const categoryFallbacks = [
-
         'space exploration',
-
         'earth observation', 
-
         'astronomy',
-
         'solar system'
-
       ];
-
       
-
       for (const category of categoryFallbacks) {
-
         results = await searchNasaMedia(category);
-
         if (results && results.length > 0) {
-
           logs.push(`✅ Dados encontrados em categoria: ${category}`);
-
           break;
-
         }
-
       }
-
     }
-
-
 
     if (results && results.length > 0) {
-
       // Filter by relevance
-
       results = filterNasaResultsByRelevance(results, userQuestion);
-
       logs.push(`🔍 Filtrando resultados por relevância...`);
 
-
-
       if (results && results.length > 0) {
-
         // Select best results with AI
-
         const bestResults = await selectBestNasaResults(results, userQuestion);
-
         nasaMedia = bestResults.length > 0 ? bestResults : results.slice(0, 6);
-
         logs.push(`✅ Selecionados ${nasaMedia.length} melhores resultados`);
 
-
-
         // Register NASA media sources
-
         nasaMedia.forEach((item, i) => {
-
           addSource(`NASA-${i + 1}`, item.title || `NASA media ${i + 1}`, 'nasa', item.description, item.url);
-
         });
-
-
 
         context += `\n\n🔭 Resultados da NASA (imagens/vídeos selecionados):\n`;
-
         nasaMedia.slice(0, 5).forEach((item, i) => {
-
           context += `${i + 1}. ${item.title}\n`;
-
         });
-
         logs.push('✅ Dados da NASA coletados e otimizados');
 
-
-
         // ANALYZE IMAGES (first 4 with GROQ, last 4 with Gemini)
-
         const imagesCount = nasaMedia.filter(m => m.media_type === 'image').length;
-
         if (imagesCount >= 4) {
-
           logs.push('🔍 Analisando imagens com IA (Groq + Gemini)...');
 
-
-
           const [groqAnalysis, geminiAnalysis] = await Promise.all([
-
             analyzeNasaImagesWithGroq(nasaMedia).catch(err => {
-
               console.error('Groq image analysis failed:', err);
-
               return null;
-
             }),
-
             analyzeNasaImagesWithGemini(nasaMedia).catch(err => {
-
               console.error('Gemini image analysis failed:', err);
-
               return null;
-
             }),
-
           ]);
 
-
-
           if (groqAnalysis) {
-
             context += `\n\n📸 Análise de imagens (GROQ):\n${groqAnalysis}`;
-
             addSource('NASA-ANALYSIS-GROQ', 'Análise de imagens (GROQ)', 'nasa', groqAnalysis, null);
-
           }
-
           if (geminiAnalysis) {
-
             context += `\n\n📸 Análise de imagens (Gemini):\n${geminiAnalysis}`;
-
             addSource('NASA-ANALYSIS-GEMINI', 'Análise de imagens (Gemini)', 'nasa', geminiAnalysis, null);
-
           }
-
-
 
           if (groqAnalysis || geminiAnalysis) {
-
             logs.push('✅ Imagens analisadas');
-
           }
-
         }
-
       }
-
     }
-
-  }
-
-
-
-  if (sources.length === 0 && connectorAuto && !isEarthquakeQuery && !isSunQuery) {
-
-    logs.push(`🌐 Busca web de segurança: "${queryParaBuscar}"`);
-
-    const fallbackSearch = await searchTavily(queryParaBuscar);
-
-    if (fallbackSearch) {
-
-      context += `\n\n📰 Resultados de busca web (fallback de segurança para embasar a resposta):\n`;
-
-      context += `Resposta resumida: ${fallbackSearch.answer}\n\n`;
-
-      fallbackSearch.results.forEach((r, i) => {
-
-        context += `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.url}\n`;
-
-      });
-
-      addSource('WEB-SUMMARY', 'Resumo da busca web (Tavily)', 'web', fallbackSearch.answer, null);
-
-      fallbackSearch.results.forEach((r, i) => {
-
-        addSource(`WEB-${i + 1}`, r.title || `Web resultado ${i + 1}`, 'web', r.snippet, r.url);
-
-      });
-
-      logs.push('✅ Busca web de segurança concluída');
-
-    }
-
   }
 
   // Check if we have real API data (not just web snippets)
-
   const hasRealData = sources.some(s => !['web', 'nasa'].includes(s.type));
-
   const dataAuthorityWarning = hasRealData 
-
     ? `\n⚠️ ATENÇÃO: O contexto abaixo contém DADOS REAIS E ATUAIS (USGS, Sunrise, ISS, etc.). \n- Trate esses dados como VERDADE ABSOLUTA.\n- NUNCA os chame de "hipotéticos".\n- Responda primeiro os números/fatos exatos pedidos.\n`
-
     : '';
-
-
 
   const historyArray = options.history || [];
-
   const historyText = historyArray.length > 0
-
     ? `\nHISTÓRICO DA CONVERSA (Contexto mantido em memória para continuidade):\n${historyArray.map(m => `${m.role === 'user' ? 'Usuário' : 'IA'}: ${m.content}`).join('\n')}\n`
-
     : '';
-
   const visionText = options.visionContext ? `\n${options.visionContext}\n` : '';
-
-
 
   logs.push('🧠 Processando e raciocinando...');
 
-
-
   const executionPrompt = `${SCIENCE_SYSTEM_PROMPT}
-
-
 
 ${dataAuthorityWarning}
 
-
-
 CONTEXTO PESQUISADO (FONTES REAIS):
-
 ${context || 'Nenhum contexto externo necessário'}
-
 ${historyText}${visionText}
 
-
-
 FONTES DISPONÍVEIS PARA CITAÇÃO:
-
 ${sources.map(s => `${s.id}: ${s.label} - ${s.detail}`).join('\n')}
-
-
 
 PERGUNTA ATUAL DO USUÁRIO: "${userQuestion}"
 
-
-
 INSTRUÇÕES FINAIS:
-
-1. Se o usuário perguntou horários, listas de eventos (terremotos) ou fatos numéricos, entregue esses dados JÁ NO INÍCIO.
-
-2. Use a estrutura adaptativa do sistema (📊 para dados, 🔬 para conceitos).
-
-3. Cite TODAS as afirmações factuais com [ID-DA-FONTE].
-
-4. Mantenha o tom didático e amigável, mas seja direto nos dados.
-
-5. NÃO invente IDs de fonte. Se não houver fonte disponível para uma afirmação, remova a citação e deixe claro o limite.
-
-6. NÃO use analogias gratuitas, nem termine com pergunta ou convite, a menos que o usuário tenha pedido.
-
-
+1. Abra com um parágrafo objetivo de no máximo 3 frases, respondendo diretamente ao pedido do usuário.
+2. Se o usuário perguntou horários, listas de eventos (terremotos) ou fatos numéricos, entregue esses dados JÁ NO INÍCIO.
+3. Expanda só o necessário depois da resposta direta.
+4. Use a estrutura adaptativa do sistema (📊 para dados, 🔬 para conceitos).
+5. Cite TODAS as afirmações factuais com o formato exato [ID-DA-FONTE: ID_EXATO].
+6. Nunca use formatos como [FONTE: nome] ou rótulos livres no lugar do ID.
+7. Mantenha o tom didático e amigável, mas seja direto nos dados.
 
 Seja honesto. Não invente. Use as fontes.`;
 
 
-
-
-
   const response = await callGroq(
-
     [{ role: 'user', content: executionPrompt }],
-
     'GROQ_API_KEY_1',
-
     { maxTokens: 6000, temperature: 0.2 }
-
   );
 
-
-
   logs.push('✅ Resposta gerada pela IA principal');
-
-  return { response, media: [...media, ...nasaMedia], sources };
-
+  return { response, media: [...media, ...nasaMedia], sources, selectedConnectors };
 }
-
-
 
 // ============ STEP 3: Review with Gemini ============
-
 async function reviewResponse(response) {
-
   const reviewPrompt = `Você é um revisor científico experiente. Recebeu a resposta abaixo para revisão.
 
-
-
 Objetivo:
-
 - Garantir precisão e remover erros factuais.
-
-- Otimizar a estrutura e o tom: garantir uso de analogias simples do dia a dia.
-
-- Manter formatação excelente e acessível (parágrafos curtos, bullet points, negrito em conceitos chave).
-
-- Assegurar que há uma proposta de experimento ou pergunta instigante no final.
-
-
+- Otimizar a estrutura e o tom: abrir com um parágrafo curto e direto, e só depois expandir.
+- Manter formatação excelente e acessível (parágrafos curtos, bullet points e negrito apenas quando ajudarem).
+- Manter analogias simples do dia a dia apenas quando elas realmente ajudarem.
 
 REGRAS CRUCIAIS (RESPEITE 100%):
-
 1) Retorne APENAS a resposta final para o usuário. NADA mais.
-
 2) NÃO inclua nenhum texto como "Como revisor...", "Observação:", ou explicações sobre o processo de revisão.
-
-3) NÃO inclua títulos, cabeçalhos ou listas de etapas. Apenas texto fluido.
-
-4) Ao final, inclua SOMENTE a tag de confiança no formato: [CONFIANÇA: ALTO/MÉDIO/BAIXO]
-
+3) A primeira parte da resposta deve ser um parágrafo direto e objetivo, respondendo à pergunta sem rodeios.
+4) NÃO inclua títulos artificiais, listas de etapas ou qualquer prefácio sobre revisão. Apenas a resposta final ao usuário.
 5) Se não for possível afirmar com certeza, seja honesto e explique por que.
-
-6) IMPORTANTE: NÃO REMOVA as tags [ID-DA-FONTE] presentes no texto original. Se o texto estiver afirmando informações sem as tags apropriadas originais, ADICIONE as tags [ID-DA-FONTE] ao longo do texto. É vital manter o rastreio das fontes.
-
-
-
-RESPOSTA A REVISAR:
-
-${response}
-
-`;
-
-
-
-  return await callGemini(reviewPrompt);
-
-}
-
-
-
-async function reviewResponseStrict(response) {
-
-  const reviewPrompt = `Voce e um revisor cientifico experiente. Recebeu a resposta abaixo para revisao.
-
-Objetivo:
-- Garantir precisao e remover erros factuais.
-- Deixar a resposta direta, clara e profissional.
-- Manter boa formatacao e legibilidade.
-- Nao adicionar analogias gratuitas, floreios, perguntas finais, convites ou desafios.
-
-REGRAS CRUCIAIS (RESPEITE 100%):
-1) Retorne APENAS a resposta final para o usuario. Nada mais.
-2) Nao inclua texto como "Como revisor..." ou explicacoes sobre o processo.
-3) Nao invente novos IDs de fonte. Use somente os IDs [ID-DA-FONTE] que ja estiverem no texto original.
-4) Nao remova os IDs de fonte existentes. Se houver afirmacao factual sem tag e houver fonte correspondente no texto original, adicione a tag correta.
-5) Preserve integralmente, se existirem, os blocos [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE], sem adicionar markdown fences.
-6) Nao termine com pergunta, convite, "pensando nisso", experimento sugerido ou CTA, a menos que o usuario tenha pedido explicitamente.
-7) Ao final, inclua SOMENTE a tag de confianca no formato [CONFIANÃ‡A: ALTO/MÃ‰DIO/BAIXO].
+6) IMPORTANTE: NÃO REMOVA as tags [ID-DA-FONTE: ID_EXATO] presentes no texto original. Se o texto estiver afirmando informações sem as tags apropriadas originais, ADICIONE tags no mesmo formato exato [ID-DA-FONTE: ID_EXATO]. Nunca use [FONTE: nome] nem rótulos livres. É vital manter o rastreio das fontes.
+7) PRESERVE integralmente, se existirem, os blocos [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE], além de [PHET:...] e [PDB:...]. Você pode melhorar o texto ao redor, mas não corrompa essas tags.
 
 RESPOSTA A REVISAR:
 ${response}
 `;
 
   return await callGemini(reviewPrompt);
-
 }
 
 // ============ CONVERT LOGS TO COHERENT THINKING PARAGRAPH ============
-
 function convertLogsToThinking(logs) {
-
   if (!logs || logs.length === 0) {
-
     return 'Iniciando análise científica...';
-
   }
-
-
 
   // Extract meaningful actions from logs
-
   const thinking = [];
 
-
-
   for (const log of logs) {
-
     if (log.includes('Iniciando Agente')) {
-
       thinking.push('O agente científico foi inicializado');
-
     } else if (log.includes('busca web') || log.includes('Tavily')) {
-
       thinking.push('consultando fontes web em tempo real');
-
     } else if (log.includes('Dados da web')) {
-
       thinking.push('dados web foram integrados ao contexto');
-
     } else if (log.includes('Otimizando busca NASA')) {
-
       thinking.push('otimizando a busca por imagens ciêntíficas');
-
     } else if (log.includes('Query otimizada')) {
-
       thinking.push(`personalizando a busca de imagens NASA`);
-
     } else if (log.includes('Filtrando resultados')) {
-
       thinking.push('filtrando resultados por relevância');
-
     } else if (log.includes('Selecionados')) {
-
       const match = log.match(/(\\d+)/);
-
       if (match) thinking.push(`selecionados ${match[1]} resultados mais relevantes`);
-
     } else if (log.includes('Analisando imagens')) {
-
       thinking.push('analisando imagens científicas com modelos de IA');
-
     } else if (log.includes('Imagens analisadas')) {
-
       thinking.push('imagens foram contextualizadas');
-
     } else if (log.includes('Processando e raciocínio')) {
-
       thinking.push('processando informações e gerando resposta');
-
     } else if (log.includes('Resposta gerada')) {
-
       thinking.push('resposta científica foi gerada');
-
     } else if (log.includes('Revisando')) {
-
       thinking.push('validando precisão e clareza da resposta');
-
     } else if (log.includes('Resposta revisada')) {
-
       thinking.push('resposta foi revisada e validada');
-
     }
-
   }
-
-
 
   if (thinking.length === 0) {
-
     return 'Processando sua pergunta científica...';
-
   }
-
-
 
   // Create natural paragraph
-
   const uniqueThinking = [...new Set(thinking)]; // Remove duplicates
-
   return uniqueThinking.join(', ') + '.';
-
 }
-
-
 
 // ============ EXTRACT CONFIDENCE ============
-
 function extractConfidenceLevel(response) {
-
   const match = response.match(/\[CONFIANÇA:\s*(ALTO|MÉDIO|BAIXO)\]/i);
-
   if (match) return match[1].toUpperCase();
-
   return 'MÉDIO';
-
 }
 
-
-
-function sanitizeLatexGraphBlocks(response = '', { allowGraphs = true } = {}) {
-
-  const input = String(response || '');
-
-  if (!allowGraphs) {
-
-    return input
-
-      .replace(/\s*\[LATEX_GRAPH_TITLE:[^\]]*?\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]\s*/gi, '\n')
-
-      .trim();
-
-  }
-
-
-
-  return input.replace(
-
-    /(\[LATEX_GRAPH_TITLE:[^\]]*?\]\s*\[LATEX_GRAPH_CODE\])([\s\S]*?)(\[\/LATEX_GRAPH_CODE\])/gi,
-
-    (match, openTag, rawCode, closeTag) => {
-
-      const cleanedCode = String(rawCode || '')
-
-        .replace(/^\s*```(?:latex)?\s*/i, '')
-
-        .replace(/\s*```\s*$/i, '')
-
-        .trim();
-
-      return `${openTag}\n${cleanedCode}\n${closeTag}`;
-
-    }
-
-  );
-
-}
-
-function sanitizeSourceCitations(response = '', sources = []) {
-
-  const allowedIds = new Map(
-
-    (Array.isArray(sources) ? sources : [])
-
-      .filter(source => source?.id)
-
-      .map(source => [String(source.id).trim().toUpperCase(), String(source.id).trim()])
-
-  );
-
-
-
-  return String(response || '').replace(/\[ID-DA-FONTE:\s*([^\]]+?)\]/gi, (match, rawId) => {
-
-    const requestedId = String(rawId || '').trim();
-
-    const normalizedId = requestedId.toUpperCase();
-
-    if (!requestedId) return '';
-
-    if (allowedIds.has(normalizedId)) {
-
-      return `[ID-DA-FONTE: ${allowedIds.get(normalizedId)}]`;
-
-    }
-
-    return '';
-
+function openAgentEventStream(res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
   });
-
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
 }
 
-function stripUnrequestedFollowUp(response = '') {
-
-  return String(response || '')
-
-    .replace(/\n{2,}(Pensando nisso|Quer que eu|Posso tamb[eé]m|Se voc[eê] quiser|Voc[eê] gostaria)[\s\S]*$/i, '')
-
-    .trim();
-
+function writeAgentEvent(res, event, payload) {
+  if (!res || res.writableEnded) return;
+  const serialized = JSON.stringify(payload ?? {});
+  res.write(`event: ${event}\n`);
+  serialized.split('\n').forEach(line => {
+    res.write(`data: ${line}\n`);
+  });
+  res.write('\n');
 }
 
-function finalizeAssistantResponse(response = '', sources = []) {
+function createStreamingLogs(onLog) {
+  const logs = [];
+  logs.push = (...entries) => {
+    entries.forEach(entry => {
+      Array.prototype.push.call(logs, entry);
+      if (typeof onLog === 'function') {
+        onLog(entry, logs.length);
+      }
+    });
+    return logs.length;
+  };
+  return logs;
+}
 
-  const safeSources = Array.isArray(sources) ? sources : [];
+function serializeConversationForSummary(history = []) {
+  return history
+    .map((item, index) => {
+      const role = item?.role === 'assistant' ? 'IA' : 'Usuário';
+      const content = String(item?.content || '').trim();
+      if (!content) return null;
+      return `${index + 1}. ${role}:\n${content}`;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
 
-  const hasSources = safeSources.length > 0;
-
-  let cleaned = String(response || '').trim();
-
-  cleaned = sanitizeLatexGraphBlocks(cleaned, { allowGraphs: hasSources });
-
-  cleaned = sanitizeSourceCitations(cleaned, safeSources);
-
-  if (!/\[ID-DA-FONTE:\s*[^\]]+\]/i.test(cleaned)) {
-
-    cleaned = sanitizeLatexGraphBlocks(cleaned, { allowGraphs: false });
-
+async function generateOfflineSummaryDocument(history = [], requestedTitle = '', logs = []) {
+  const serializedHistory = serializeConversationForSummary(history);
+  if (!serializedHistory) {
+    throw new Error('Histórico insuficiente para gerar resumo offline.');
   }
 
-  cleaned = stripUnrequestedFollowUp(cleaned);
+  logs.push('🗂️ Consolidando a memória completa da conversa...');
+  logs.push('📝 Gerando documento offline com base em todo o chat...');
 
-  cleaned = cleaned.replace(/[ \t]+\n/g, '\n');
+  const prompt = `Você é o Drekee AI 1.5 Pro gerando um documento offline premium a partir do histórico completo de uma conversa.
 
-  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+OBJETIVO:
+- Resumir TODA a conversa, não apenas a última resposta.
+- Consolidar as perguntas do usuário, as respostas dadas e as conclusões mais úteis.
+- Produzir um documento limpo, objetivo, profundamente informativo, profissional e pronto para leitura offline.
 
-  return cleaned.trim();
+REGRAS OBRIGATÓRIAS:
+1. Use TODO o histórico abaixo como memória da conversa.
+2. NÃO copie a última resposta como se ela fosse o resumo inteiro.
+3. Faça um resumo executivo curto e direto no início.
+4. Depois organize o conteúdo em seções claras, densas e úteis.
+5. NÃO use as tags [CONFIANÇA], [ID-DA-FONTE], [PHET], [PDB], [OFFLINE_DOC] ou blocos [LATEX_GRAPH_TITLE]/[LATEX_GRAPH_CODE].
+6. Se houver fontes citadas ao longo da conversa, transforme isso em texto limpo na seção final "Fontes e referências mencionadas".
+7. Não fale sobre o processo de geração. Entregue apenas o documento.
+8. O documento precisa funcionar bem como PDF.
+9. Evite texto genérico. Cada seção deve trazer informação concreta, específica e realmente útil.
+10. Explique os conceitos principais de forma profissional, mas entendível por leigos e estudantes.
+11. Use subtítulos, negrito, bullets e parágrafos curtos quando isso melhorar a leitura.
+12. Se a conversa tratou de fatos científicos, inclua os pontos mais importantes, implicações, contexto e conclusões.
+13. O documento final deve parecer um relatório/apostila curta, não um bloco corrido de texto.
 
+FORMATO DE SAÍDA OBRIGATÓRIO:
+[TITLE]
+um título curto e profissional
+[/TITLE]
+[MARKDOWN]
+# Título
+
+### Sumário Executivo
+...
+
+### Visão Geral da Conversa
+...
+
+### Conceitos e Explicações Principais
+...
+
+### Pontos-Chave e Conclusões
+...
+
+### Fontes e referências mencionadas
+...
+[/MARKDOWN]
+
+TÍTULO SUGERIDO PELO APP: ${requestedTitle || 'Resumo Offline da Conversa'}
+
+HISTÓRICO COMPLETO:
+${serializedHistory}`;
+
+  const raw = await callGemini(prompt, logs);
+  const titleMatch = raw.match(/\[TITLE\]\s*([\s\S]*?)\s*\[\/TITLE\]/i);
+  const markdownMatch = raw.match(/\[MARKDOWN\]\s*([\s\S]*?)\s*\[\/MARKDOWN\]/i);
+
+  const title = sanitizeFinalResponse(titleMatch?.[1] || requestedTitle || 'Resumo Offline da Conversa')
+    .replace(/^#+\s*/gm, '')
+    .trim();
+  const markdown = sanitizeFinalResponse(markdownMatch?.[1] || raw).trim();
+
+  logs.push('✅ Documento offline consolidado');
+  return {
+    title: title || 'Resumo Offline da Conversa',
+    markdown,
+  };
 }
 
 // ============ MAIN HANDLER ============
-
 async function handler(req, res) {
-
   if (req.method !== 'POST') {
-
     return res.status(405).json({ error: 'Method not allowed' });
-
   }
-
-
 
   let body;
-
   try {
-
     body = await new Promise((resolve, reject) => {
-
       let data = '';
-
       req.on('data', (chunk) => { data += chunk; });
-
       req.on('end', () => {
-
         try {
-
           resolve(JSON.parse(data));
-
         } catch (err) {
-
           reject(err);
-
         }
-
       });
-
       req.on('error', reject);
-
     });
-
   } catch (err) {
-
     return res.status(400).json({ error: 'Invalid JSON body' });
-
   }
-
-
 
   const userQuestion = (body?.text || '').toString().trim();
-
   const connectorAuto = body?.connectorAuto !== false;
-
   const connectors = Array.isArray(body?.connectors) ? body.connectors : [];
-
   const history = Array.isArray(body?.history) ? body.history : [];
-
-
+  const wantsStream = body?.stream === true;
+  const wantsOfflineSummary = body?.offlineSummary === true;
 
   // Resolve user context: prefer browser-sent coords, fall back to IP geolocation
-
   let userContext = body?.userContext || {};
-
   if (!userContext.lat) {
-
     try {
-
       const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '';
-
       const ipGeo = await fetch(`https://ipapi.co/${clientIP ? clientIP + '/' : ''}json/`);
-
       if (ipGeo.ok) {
-
         const geo = await ipGeo.json();
-
         if (!geo.error && geo.latitude) {
-
           userContext.lat = geo.latitude;
-
           userContext.lon = geo.longitude;
-
           userContext.city = geo.city;
-
           userContext.region = geo.region;
-
           userContext.country_name = geo.country_name;
-
           userContext.timezone = geo.timezone;
-
           userContext._source = 'ip';
-
         }
-
       }
-
     } catch { /* IP geolocation optional */ }
-
   }
-
   // Always inject current date/time in São Paulo timezone if not sent by client
-
   if (!userContext.localDate) {
-
     const now = new Date();
-
     userContext.localDate = now.toLocaleDateString('pt-BR', { timeZone: userContext.timezone || 'America/Sao_Paulo' });
-
     userContext.localTime = now.toLocaleTimeString('pt-BR', { timeZone: userContext.timezone || 'America/Sao_Paulo' });
-
   }
 
-
-
-  if (!userQuestion) {
-
+  if (!userQuestion && !wantsOfflineSummary) {
     return res.status(400).json({ error: 'Pergunta vazia' });
-
   }
 
+  if (wantsStream) {
+    openAgentEventStream(res);
+    writeAgentEvent(res, 'status', {
+      message: 'Agente científico inicializado. Preparando o plano de execução.',
+    });
+  }
 
-
-  const logs = [];
-
-
+  const logs = createStreamingLogs((entry, index) => {
+    if (wantsStream) {
+      writeAgentEvent(res, 'log', { message: entry, index });
+    }
+  });
 
   try {
+    if (wantsOfflineSummary) {
+      logs.push('📚 Iniciando geração do resumo offline...');
+      const offlineDocument = await generateOfflineSummaryDocument(history, body?.summaryTitle || '', logs);
+      const payload = {
+        offlineDocument,
+        logs,
+      };
+      if (wantsStream) {
+        writeAgentEvent(res, 'final', payload);
+        writeAgentEvent(res, 'done', { ok: true });
+        return res.end();
+      }
+      return res.status(200).json(payload);
+    }
 
     logs.push('🚀 Iniciando Agente Científico...');
 
-
-
     const files = Array.isArray(body?.files) ? body.files : [];
-
     let visionContext = '';
-
     if (files.length > 0) {
-
       logs.push('👁️ Analisando arquivos anexados com visão computacional...');
-
-      const imgDesc = await analyzeUserFilesWithGemini(files, userQuestion);
-
+      const imgDesc = await analyzeUserFilesWithGemini(files, userQuestion, logs);
       if (imgDesc) {
-
         visionContext = `[IMAGEM ENVIADA PELO ALUNO]: ${imgDesc}\n`;
-
         logs.push('✅ Análise visual concluída');
-
       }
-
     }
 
-
-
     const actionPlan = await generateActionPlan(userQuestion, history, visionContext);
-
     const locationStr = userContext.city 
-
       ? `${userContext.city}, ${userContext.region || ''}, ${userContext.country_name || ''} (${userContext._source === 'ip' ? 'via IP, aproximado' : 'GPS'})`
-
       : userContext.lat 
-
         ? `Lat ${userContext.lat.toFixed(3)}, Lon ${userContext.lon.toFixed(3)}`
-
         : 'Desconhecida';
 
-
-
     const contextHeader = `\n⚡ CONTEXTO DO USUÁRIO (USE ESTES DADOS COMO VERDADE ABSOLUTA — não especule):\n- Data e Hora local: ${userContext.localDate || 'hoje'} às ${userContext.localTime || 'agora'}\n- Localização: ${locationStr}\n- Fuso horário: ${userContext.timezone || 'America/Sao_Paulo'}\n\nINSTRUÇÃO: Quando o contexto contiver dados de APIs em tempo real (USGS, Sunrise-Sunset, ISS etc.), cite-os com precisão numérica. NUNCA invente, estime ou use dados de outras fontes para substituí-los. Se o usuário perguntar "hoje" ou "agora", use os dados desta requisição.\n\n`;
-
     visionContext = contextHeader + visionContext;
 
-
-
     const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext, userContext });
-
-
+    exec.response = normalizeResponseCitations(exec.response, exec.sources || []);
 
     logs.push('👁️ Revisando resposta com Gemini...');
-
-    let response = await reviewResponseStrict(exec.response);
-
+    let response = await reviewResponse(exec.response);
     logs.push('✅ Resposta revisada e validada');
 
-
-
-    response = response.replace(/^Como\s+Revisor[\s\S]*?\n/, '').trim();
-
-    response = finalizeAssistantResponse(response, exec.sources || []);
-
-    response = response.replace(/\s*\[(?:CONFIANÃ‡A|CONFIANCA):\s*[A-ZÃ‰]+\]\s*$/i, '').trim();
-
-    const displayResponse = response.replace(/\s*\[CONFIANÇA:\s*\w+\]\s*$/i, '').trim();
-
-
+    response = ensureInteractiveTags(response, userQuestion, exec.selectedConnectors || []);
+    response = normalizeResponseCitations(response, exec.sources || []);
+    response = sanitizeFinalResponse(response);
+    const displayResponse = response;
 
     // Convert logs to thinking paragraph
-
     const thinking = convertLogsToThinking(logs);
 
-
-
-    return res.status(200).json({
-
+    const payload = {
       response: displayResponse || 'Desculpe, não consegui gerar uma resposta confiável.',
-
       thinking,
-
       logs,
-
       media: exec.media || [],
-
       sources: exec.sources || [],
-
-    });
-
+    };
+    if (wantsStream) {
+      writeAgentEvent(res, 'final', payload);
+      writeAgentEvent(res, 'done', { ok: true });
+      return res.end();
+    }
+    return res.status(200).json(payload);
   } catch (err) {
-
     console.error('Agent error:', err);
-
     logs.push(`❌ Erro: ${err.message}`);
 
-
-
     const thinking = convertLogsToThinking(logs);
 
-
-
-    return res.status(200).json({
-
+    const payload = {
       response: 'Desculpe, não consegui processar sua solicitação agora. Tente novamente em alguns instantes.',
-
       thinking,
-
       error: err.message,
-
       logs,
-
       media: [],
-
       sources: [],
-
-    });
-
+    };
+    if (wantsStream) {
+      writeAgentEvent(res, 'error', { message: err.message });
+      writeAgentEvent(res, 'final', payload);
+      writeAgentEvent(res, 'done', { ok: false });
+      return res.end();
+    }
+    return res.status(200).json(payload);
   }
-
 }
 
-
-
 module.exports = handler;
-
