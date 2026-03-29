@@ -3698,11 +3698,11 @@
         viewport.appendChild(surface);
         stage.appendChild(viewport);
 
-        setupLatexGraphPanzoom(surface, viewport);
-
         wrap.appendChild(stage);
 
         body.appendChild(wrap);
+
+        setupLatexGraphPanzoom(surface, viewport);
 
         const downloadBtn = document.createElement('a');
         downloadBtn.className = 'latex-graph-btn primary';
