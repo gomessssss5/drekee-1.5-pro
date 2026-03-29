@@ -2474,6 +2474,8 @@ INSTRUÇÕES FINAIS:
 6. Nunca use formatos como [FONTE: nome] ou rótulos livres no lugar do ID.
 7. Mantenha o tom didático e amigável, mas seja direto nos dados.
 8. Se houver comparações, percentuais, composição, ranking, escalas ou 3 ou mais itens numéricos comparáveis, prefira incluir um gráfico LaTeX no final.
+9. Nunca acrescente impactos indiretos, consequências econômicas/setoriais ou interpretações laterais sem fonte explícita.
+10. Se o gráfico for uma série temporal, use apenas line chart com escala proporcional real; não use área, cunha ou números hipotéticos fora da ordem de grandeza real.
 
 Seja honesto. Não invente. Use as fontes.`;
 
@@ -2497,6 +2499,8 @@ Objetivo:
 - Otimizar a estrutura e o tom: abrir com um parágrafo curto e direto, e só depois expandir.
 - Manter formatação excelente e acessível (parágrafos curtos, bullet points e negrito apenas quando ajudarem).
 - Manter analogias simples do dia a dia apenas quando elas realmente ajudarem.
+- Remover qualquer inferência causal, impacto indireto, consequência econômica/social ou extrapolação que não esteja claramente sustentada por tags [ID-DA-FONTE: ...].
+- Se não houver base explícita para um efeito, tendência ou interpretação adicional, corte esse trecho em vez de inventar contexto.
 
 REGRAS CRUCIAIS (RESPEITE 100%):
 1) Retorne APENAS a resposta final para o usuário. NADA mais.
@@ -2512,6 +2516,200 @@ ${response}
 `;
 
   return await callGemini(reviewPrompt);
+}
+
+function extractLatexGraphBlocks(response = '') {
+  const matches = [];
+  const pattern = /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi;
+  let match;
+  while ((match = pattern.exec(String(response || ''))) !== null) {
+    matches.push({
+      raw: match[0],
+      title: String(match[1] || '').trim(),
+      code: String(match[2] || '').trim(),
+    });
+  }
+  return matches;
+}
+
+function stripLatexGraphBlocks(response = '') {
+  return String(response || '')
+    .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
+    .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function replaceFirstLatexGraphBlock(response = '', graphBlock = '') {
+  return String(response || '').replace(
+    /\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/i,
+    String(graphBlock || '').trim()
+  );
+}
+
+function countCitationTags(text = '') {
+  return (String(text || '').match(/\[ID-DA-FONTE:\s*[^\]]+\]/gi) || []).length;
+}
+
+function assessResponseReliability(response = '', sources = []) {
+  const text = String(response || '');
+  const citedCount = countCitationTags(text);
+  const sourceCount = Array.isArray(sources) ? sources.length : 0;
+  const riskyParagraphs = text
+    .split(/\n{2,}/)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .filter(part => !/\[LATEX_GRAPH_TITLE:|\[LATEX_GRAPH_CODE\]|\[PHET:|\[PDB:/i.test(part))
+    .filter(part =>
+      !/\[ID-DA-FONTE:\s*[^\]]+\]/i.test(part) &&
+      /\b(al[eé]m disso|impacto indireto|pode impactar|pode afetar|tende a|provavel|possivelmente|isso sugere|isso indica|consequ[eê]ncia|economia|setores? como)\b/i.test(part)
+    ).length;
+
+  if (citedCount >= 4 && sourceCount >= 2 && riskyParagraphs === 0) return 'HIGH';
+  if (citedCount >= 2 && riskyParagraphs <= 1) return 'MEDIUM';
+  return 'LOW';
+}
+
+function removeUnsupportedAnalyticalParagraphs(response = '') {
+  const protectedBlocks = [];
+  let working = String(response || '').replace(
+    /\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi,
+    match => {
+      const token = `__GRAPH_BLOCK_${protectedBlocks.length}__`;
+      protectedBlocks.push(match);
+      return token;
+    }
+  );
+
+  working = working
+    .split(/\n{2,}/)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .filter(part => {
+      if (/__GRAPH_BLOCK_\d+__/.test(part)) return true;
+      if (/\[ID-DA-FONTE:\s*[^\]]+\]/i.test(part)) return true;
+      if (!/\b(al[eé]m disso|impacto indireto|pode impactar|pode afetar|setores? como|economia|mercado|cadeia|consequ[eê]ncia|tende a|isso sugere|isso indica)\b/i.test(part)) {
+        return true;
+      }
+      return false;
+    })
+    .join('\n\n');
+
+  working = working.replace(/__GRAPH_BLOCK_(\d+)__/g, (match, index) => protectedBlocks[Number(index)] || match);
+  return working.trim();
+}
+
+function detectTimeSeriesIntent(userQuestion = '', response = '') {
+  const text = `${userQuestion}\n${stripLatexGraphBlocks(response)}`.toLowerCase();
+  return /\b(ao longo|evolu[cç][aã]o|s[ée]rie|safra|d[eé]cada|anos?|mensal|anual|hist[oó]rico|entre\s+\d{4}\s+e\s+\d{4}|\d{4}\/\d{2})\b/.test(text);
+}
+
+function analyzeLatexGraph(code = '', context = {}) {
+  const issues = [];
+  const normalizedCode = String(code || '');
+  const isTimeSeries = detectTimeSeriesIntent(context.userQuestion, context.response);
+  const addPlotCount = (normalizedCode.match(/\\addplot/gi) || []).length;
+  const coordinateCount = (normalizedCode.match(/\([^()]+,\s*[-+]?\d+(?:\.\d+)?\)/g) || []).length;
+  const yLabelMatch = normalizedCode.match(/ylabel\s*=\s*\{([^}]*)\}/i);
+  const yLabel = String(yLabelMatch?.[1] || '').trim();
+
+  if (!addPlotCount) issues.push('O grafico nao possui \\addplot.');
+  if (coordinateCount < 2) issues.push('O grafico nao tem pontos suficientes.');
+  if (!yLabel) {
+    issues.push('O eixo Y nao foi rotulado.');
+  } else if (/^(valores?|valor|temperatura|indice|pontuacao|resultado)$/i.test(yLabel)) {
+    issues.push('O eixo Y esta generico demais para um grafico cientifico.');
+  }
+
+  if (isTimeSeries) {
+    if (/\bybar\b/i.test(normalizedCode)) issues.push('Serie temporal deve usar grafico de linha, nao barras.');
+    if (/fill\s*=|fill between|closedcycle|area legend/i.test(normalizedCode)) issues.push('Serie temporal nao deve usar area/cunha preenchida.');
+    if (!/mark\s*=|\bevery mark\b/i.test(normalizedCode)) issues.push('Serie temporal precisa de marcadores visiveis.');
+    if (!/thick|line width\s*=|very thick/i.test(normalizedCode)) issues.push('Serie temporal precisa de linha espessa o suficiente para leitura.');
+  }
+
+  return { issues, isTimeSeries };
+}
+
+async function alignGraphWithResponseReliability(response = '', sources = [], userQuestion = '', logs = []) {
+  const graphBlocks = extractLatexGraphBlocks(response);
+  if (graphBlocks.length === 0) {
+    return { response, confidence: assessResponseReliability(response, sources) };
+  }
+
+  const confidence = assessResponseReliability(response, sources);
+  if (confidence === 'LOW') {
+    logs.push('🛑 Grafico removido: confiabilidade textual insuficiente para sustentar visualizacao numerica.');
+    return { response: stripLatexGraphBlocks(response), confidence };
+  }
+
+  const graph = graphBlocks[0];
+  const graphAudit = analyzeLatexGraph(graph.code, { userQuestion, response });
+  if (graphAudit.issues.length === 0) {
+    return { response, confidence };
+  }
+
+  logs.push(`📈 Revisando grafico LaTeX para manter coerencia com a resposta (${confidence})...`);
+
+  const sourceDigest = (sources || [])
+    .slice(0, 8)
+    .map(source => `${source.id}: ${source.label} - ${source.detail}`)
+    .join('\n');
+
+  const graphPrompt = `Você é um revisor de gráficos científicos em LaTeX/PGFPlots.
+
+Sua tarefa é alinhar o gráfico abaixo ao MESMO nível de confiabilidade da resposta textual.
+
+PERGUNTA DO USUÁRIO:
+${userQuestion}
+
+RESPOSTA TEXTUAL JÁ REVISADA:
+${stripLatexGraphBlocks(response)}
+
+FONTES DISPONÍVEIS:
+${sourceDigest}
+
+PROBLEMAS DETECTADOS NO GRÁFICO ATUAL:
+${graphAudit.issues.map((issue, index) => `${index + 1}. ${issue}`).join('\n')}
+
+GRÁFICO ATUAL:
+[LATEX_GRAPH_TITLE: ${graph.title || 'Grafico informativo'}]
+[LATEX_GRAPH_CODE]
+${graph.code}
+[/LATEX_GRAPH_CODE]
+
+REGRAS OBRIGATÓRIAS:
+1. Nunca invente valores, ordem de grandeza, eixos ou categorias.
+2. O gráfico só pode usar números claramente sustentados pela resposta/fonte. Se isso não for possível, retorne apenas [NO_GRAPH].
+3. Em série temporal, use gráfico de linha com escala proporcional real no eixo Y e rótulo técnico com unidade/referência.
+4. Não use cunha, área preenchida, triângulo visual, distorção de escala ou atalhos artísticos.
+5. Retorne APENAS um bloco corrigido no formato [LATEX_GRAPH_TITLE] + [LATEX_GRAPH_CODE] ou APENAS [NO_GRAPH].
+6. Não inclua explicações fora do bloco.
+`;
+
+  const repaired = String(await callGemini(graphPrompt, logs) || '').trim();
+  if (/^\[NO_GRAPH\]$/i.test(repaired) || !/\[LATEX_GRAPH_TITLE:/i.test(repaired)) {
+    logs.push('🛑 Grafico removido: nao foi possivel garantir fidelidade cientifica suficiente.');
+    return { response: stripLatexGraphBlocks(response), confidence };
+  }
+
+  const repairedBlock = extractLatexGraphBlocks(repaired)[0];
+  if (!repairedBlock) {
+    logs.push('🛑 Grafico removido: bloco corrigido invalido.');
+    return { response: stripLatexGraphBlocks(response), confidence };
+  }
+
+  const repairedAudit = analyzeLatexGraph(repairedBlock.code, { userQuestion, response });
+  if (repairedAudit.issues.length > 0) {
+    logs.push('🛑 Grafico removido: revisao automatica ainda encontrou incoerencias visuais.');
+    return { response: stripLatexGraphBlocks(response), confidence };
+  }
+
+  logs.push('✅ Grafico revisado e alinhado ao nivel de confiabilidade da resposta.');
+  return {
+    response: replaceFirstLatexGraphBlock(response, repairedBlock.raw),
+    confidence,
+  };
 }
 
 // ============ CONVERT LOGS TO COHERENT THINKING PARAGRAPH ============
@@ -2787,8 +2985,12 @@ async function handler(req, res) {
 
     response = ensureInteractiveTags(response, userQuestion, exec.selectedConnectors || []);
     response = normalizeResponseCitations(response, exec.sources || []);
+    response = removeUnsupportedAnalyticalParagraphs(response);
     response = sanitizeFinalResponse(response);
+    const alignment = await alignGraphWithResponseReliability(response, exec.sources || [], userQuestion, logs);
+    response = sanitizeFinalResponse(alignment.response);
     const displayResponse = response;
+    logs.push(`🧪 Confiabilidade final da resposta: ${alignment.confidence}`);
 
     // Convert logs to thinking paragraph
     const thinking = convertLogsToThinking(logs);
@@ -2796,6 +2998,7 @@ async function handler(req, res) {
     const payload = {
       response: displayResponse || 'Desculpe, não consegui gerar uma resposta confiável.',
       thinking,
+      confidence: alignment.confidence,
       logs,
       media: exec.media || [],
       sources: exec.sources || [],
@@ -2815,6 +3018,7 @@ async function handler(req, res) {
     const payload = {
       response: 'Desculpe, não consegui processar sua solicitação agora. Tente novamente em alguns instantes.',
       thinking,
+      confidence: 'LOW',
       error: err.message,
       logs,
       media: [],
