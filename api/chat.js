@@ -4272,6 +4272,38 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
 
 
+  if (sources.length === 0 && connectorAuto && !isEarthquakeQuery && !isSunQuery) {
+
+    logs.push(`🌐 Busca web de segurança: "${queryParaBuscar}"`);
+
+    const fallbackSearch = await searchTavily(queryParaBuscar);
+
+    if (fallbackSearch) {
+
+      context += `\n\n📰 Resultados de busca web (fallback de segurança para embasar a resposta):\n`;
+
+      context += `Resposta resumida: ${fallbackSearch.answer}\n\n`;
+
+      fallbackSearch.results.forEach((r, i) => {
+
+        context += `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.url}\n`;
+
+      });
+
+      addSource('WEB-SUMMARY', 'Resumo da busca web (Tavily)', 'web', fallbackSearch.answer, null);
+
+      fallbackSearch.results.forEach((r, i) => {
+
+        addSource(`WEB-${i + 1}`, r.title || `Web resultado ${i + 1}`, 'web', r.snippet, r.url);
+
+      });
+
+      logs.push('✅ Busca web de segurança concluída');
+
+    }
+
+  }
+
   // Check if we have real API data (not just web snippets)
 
   const hasRealData = sources.some(s => !['web', 'nasa'].includes(s.type));
@@ -4335,6 +4367,10 @@ INSTRUÇÕES FINAIS:
 3. Cite TODAS as afirmações factuais com [ID-DA-FONTE].
 
 4. Mantenha o tom didático e amigável, mas seja direto nos dados.
+
+5. NÃO invente IDs de fonte. Se não houver fonte disponível para uma afirmação, remova a citação e deixe claro o limite.
+
+6. NÃO use analogias gratuitas, nem termine com pergunta ou convite, a menos que o usuário tenha pedido.
 
 
 
@@ -4413,6 +4449,33 @@ ${response}
 }
 
 
+
+async function reviewResponseStrict(response) {
+
+  const reviewPrompt = `Voce e um revisor cientifico experiente. Recebeu a resposta abaixo para revisao.
+
+Objetivo:
+- Garantir precisao e remover erros factuais.
+- Deixar a resposta direta, clara e profissional.
+- Manter boa formatacao e legibilidade.
+- Nao adicionar analogias gratuitas, floreios, perguntas finais, convites ou desafios.
+
+REGRAS CRUCIAIS (RESPEITE 100%):
+1) Retorne APENAS a resposta final para o usuario. Nada mais.
+2) Nao inclua texto como "Como revisor..." ou explicacoes sobre o processo.
+3) Nao invente novos IDs de fonte. Use somente os IDs [ID-DA-FONTE] que ja estiverem no texto original.
+4) Nao remova os IDs de fonte existentes. Se houver afirmacao factual sem tag e houver fonte correspondente no texto original, adicione a tag correta.
+5) Preserve integralmente, se existirem, os blocos [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE], sem adicionar markdown fences.
+6) Nao termine com pergunta, convite, "pensando nisso", experimento sugerido ou CTA, a menos que o usuario tenha pedido explicitamente.
+7) Ao final, inclua SOMENTE a tag de confianca no formato [CONFIANÃ‡A: ALTO/MÃ‰DIO/BAIXO].
+
+RESPOSTA A REVISAR:
+${response}
+`;
+
+  return await callGemini(reviewPrompt);
+
+}
 
 // ============ CONVERT LOGS TO COHERENT THINKING PARAGRAPH ============
 
@@ -4525,6 +4588,116 @@ function extractConfidenceLevel(response) {
 }
 
 
+
+function sanitizeLatexGraphBlocks(response = '', { allowGraphs = true } = {}) {
+
+  const input = String(response || '');
+
+  if (!allowGraphs) {
+
+    return input
+
+      .replace(/\s*\[LATEX_GRAPH_TITLE:[^\]]*?\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]\s*/gi, '\n')
+
+      .trim();
+
+  }
+
+
+
+  return input.replace(
+
+    /(\[LATEX_GRAPH_TITLE:[^\]]*?\]\s*\[LATEX_GRAPH_CODE\])([\s\S]*?)(\[\/LATEX_GRAPH_CODE\])/gi,
+
+    (match, openTag, rawCode, closeTag) => {
+
+      const cleanedCode = String(rawCode || '')
+
+        .replace(/^\s*```(?:latex)?\s*/i, '')
+
+        .replace(/\s*```\s*$/i, '')
+
+        .trim();
+
+      return `${openTag}\n${cleanedCode}\n${closeTag}`;
+
+    }
+
+  );
+
+}
+
+function sanitizeSourceCitations(response = '', sources = []) {
+
+  const allowedIds = new Map(
+
+    (Array.isArray(sources) ? sources : [])
+
+      .filter(source => source?.id)
+
+      .map(source => [String(source.id).trim().toUpperCase(), String(source.id).trim()])
+
+  );
+
+
+
+  return String(response || '').replace(/\[ID-DA-FONTE:\s*([^\]]+?)\]/gi, (match, rawId) => {
+
+    const requestedId = String(rawId || '').trim();
+
+    const normalizedId = requestedId.toUpperCase();
+
+    if (!requestedId) return '';
+
+    if (allowedIds.has(normalizedId)) {
+
+      return `[ID-DA-FONTE: ${allowedIds.get(normalizedId)}]`;
+
+    }
+
+    return '';
+
+  });
+
+}
+
+function stripUnrequestedFollowUp(response = '') {
+
+  return String(response || '')
+
+    .replace(/\n{2,}(Pensando nisso|Quer que eu|Posso tamb[eé]m|Se voc[eê] quiser|Voc[eê] gostaria)[\s\S]*$/i, '')
+
+    .trim();
+
+}
+
+function finalizeAssistantResponse(response = '', sources = []) {
+
+  const safeSources = Array.isArray(sources) ? sources : [];
+
+  const hasSources = safeSources.length > 0;
+
+  let cleaned = String(response || '').trim();
+
+  cleaned = sanitizeLatexGraphBlocks(cleaned, { allowGraphs: hasSources });
+
+  cleaned = sanitizeSourceCitations(cleaned, safeSources);
+
+  if (!/\[ID-DA-FONTE:\s*[^\]]+\]/i.test(cleaned)) {
+
+    cleaned = sanitizeLatexGraphBlocks(cleaned, { allowGraphs: false });
+
+  }
+
+  cleaned = stripUnrequestedFollowUp(cleaned);
+
+  cleaned = cleaned.replace(/[ \t]+\n/g, '\n');
+
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+  return cleaned.trim();
+
+}
 
 // ============ MAIN HANDLER ============
 
@@ -4704,13 +4877,17 @@ async function handler(req, res) {
 
     logs.push('👁️ Revisando resposta com Gemini...');
 
-    let response = await reviewResponse(exec.response);
+    let response = await reviewResponseStrict(exec.response);
 
     logs.push('✅ Resposta revisada e validada');
 
 
 
     response = response.replace(/^Como\s+Revisor[\s\S]*?\n/, '').trim();
+
+    response = finalizeAssistantResponse(response, exec.sources || []);
+
+    response = response.replace(/\s*\[(?:CONFIANÃ‡A|CONFIANCA):\s*[A-ZÃ‰]+\]\s*$/i, '').trim();
 
     const displayResponse = response.replace(/\s*\[CONFIANÇA:\s*\w+\]\s*$/i, '').trim();
 
