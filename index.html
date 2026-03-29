@@ -13,6 +13,8 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script defer src="https://unpkg.com/@panzoom/panzoom@4.6.0/dist/panzoom.min.js"></script>
 <link rel="icon" href="data:,"/>
 <style>
   :root {
@@ -887,11 +889,14 @@
   @keyframes phet-spin { to { transform: rotate(360deg); } }
   .latex-graph-section {
     margin-top: 1.15rem;
-    padding: 1rem;
-    border-radius: 1rem;
-    background: rgba(15, 23, 42, 0.78);
-    border: 1px solid rgba(96,165,250,0.18);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    padding: 1.1rem;
+    border-radius: 1.35rem;
+    background:
+      radial-gradient(circle at top left, rgba(255,153,0,0.12), transparent 30%),
+      radial-gradient(circle at top right, rgba(66,133,244,0.14), transparent 36%),
+      linear-gradient(180deg, rgba(18,24,38,0.96), rgba(9,13,24,0.96));
+    border: 1px solid rgba(148,163,184,0.16);
+    box-shadow: 0 22px 60px rgba(2, 6, 23, 0.36), inset 0 1px 0 rgba(255,255,255,0.05);
   }
   .latex-graph-head {
     display: flex;
@@ -920,7 +925,7 @@
   }
   .latex-graph-subtitle {
     margin-top: 0.4rem;
-    color: rgba(203,213,225,0.76);
+    color: rgba(203,213,225,0.72);
     font-size: 0.82rem;
     line-height: 1.55;
     max-width: 48rem;
@@ -938,9 +943,9 @@
     gap: 0.38rem;
     padding: 0.52rem 0.72rem;
     border-radius: 999px;
-    border: 1px solid rgba(96,165,250,0.24);
-    background: rgba(30,41,59,0.72);
-    color: #bfdbfe;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(20,27,42,0.72);
+    color: #dbeafe;
     font-size: 0.74rem;
     font-weight: 700;
     cursor: pointer;
@@ -948,15 +953,21 @@
   }
   .latex-graph-btn:hover {
     transform: translateY(-1px);
-    background: rgba(30,41,59,0.95);
-    border-color: rgba(96,165,250,0.4);
+    background: rgba(30,41,59,0.96);
+    border-color: rgba(255,153,0,0.42);
+  }
+  .latex-graph-btn.primary {
+    background: linear-gradient(135deg, rgba(255,153,0,0.24), rgba(66,133,244,0.24));
+    border-color: rgba(255,190,92,0.38);
+    color: #fff7ed;
+  }
+  .latex-graph-btn.primary:hover {
+    border-color: rgba(255,190,92,0.55);
   }
   .latex-graph-body {
-    min-height: 20rem;
-    border-radius: 1rem;
-    background:
-      radial-gradient(circle at top right, rgba(59,130,246,0.08), transparent 34%),
-      rgba(2, 6, 23, 0.9);
+    min-height: 22rem;
+    border-radius: 1.15rem;
+    background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(242,246,252,0.98));
     border: 1px solid rgba(148,163,184,0.12);
     overflow: hidden;
     position: relative;
@@ -975,40 +986,116 @@
   .latex-graph-loading .material-icons-outlined,
   .latex-graph-error .material-icons-outlined {
     font-size: 2rem;
-    color: #93c5fd;
+    color: #2563eb;
   }
   .latex-graph-error .material-icons-outlined { color: #fda4af; }
   .latex-graph-loading p,
   .latex-graph-error p {
-    color: rgba(203,213,225,0.78);
+    color: rgba(15,23,42,0.72);
     font-size: 0.9rem;
     line-height: 1.6;
     max-width: 38rem;
   }
   .latex-graph-image-wrap {
     width: 100%;
+    padding: 1rem;
+  }
+  .latex-graph-stage {
+    position: relative;
+    width: 100%;
+    min-height: 22rem;
+    border-radius: 1rem;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(249,250,251,1), rgba(241,245,249,1));
+    border: 1px solid rgba(148,163,184,0.18);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 18px 50px rgba(148,163,184,0.15);
+  }
+  .latex-graph-viewport {
+    position: relative;
+    width: 100%;
+    min-height: 22rem;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+  }
+  .latex-graph-viewport.is-dragging {
+    cursor: grabbing;
+  }
+  .latex-graph-surface {
     display: flex;
+    align-items: center;
     justify-content: center;
-    align-items: flex-start;
-    padding: 0.9rem;
-    overflow: auto;
+    min-height: 22rem;
+    padding: 1rem;
+    transform-origin: center center;
   }
   .latex-graph-image {
-    width: 100%;
-    max-width: 1200px;
+    width: min(100%, 76rem);
+    max-width: none;
     height: auto;
     display: block;
-    border-radius: 0.85rem;
-    background: #fff;
-    box-shadow: 0 18px 42px rgba(0,0,0,0.32);
+    user-select: none;
+    -webkit-user-drag: none;
+    filter: drop-shadow(0 20px 34px rgba(15,23,42,0.14));
   }
-  .latex-graph-pdf {
-    width: 100%;
-    min-height: 42rem;
+  .latex-graph-meta {
+    position: absolute;
+    top: 0.9rem;
+    right: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.42rem 0.68rem;
+    border-radius: 999px;
+    background: rgba(15,23,42,0.7);
+    color: #e5eefc;
+    font-size: 0.73rem;
+    font-weight: 700;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .latex-graph-toolbar {
+    position: absolute;
+    left: 0.9rem;
+    bottom: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem;
+    border-radius: 999px;
+    background: rgba(15,23,42,0.72);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(12px);
+  }
+  .latex-graph-tool {
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 999px;
     border: none;
-    border-radius: 0.85rem;
-    background: #fff;
-    box-shadow: 0 18px 42px rgba(0,0,0,0.32);
+    background: rgba(255,255,255,0.08);
+    color: #f8fafc;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.18s ease, background 0.18s ease;
+  }
+  .latex-graph-tool:hover {
+    transform: translateY(-1px);
+    background: rgba(255,255,255,0.16);
+  }
+  .latex-graph-tool .material-icons-outlined {
+    font-size: 1.05rem;
+  }
+  @media (max-width: 780px) {
+    .latex-graph-stage,
+    .latex-graph-viewport,
+    .latex-graph-surface {
+      min-height: 16rem;
+    }
+    .latex-graph-image {
+      width: 100%;
+    }
   }
   .doc-title {
     flex: 1;
@@ -3509,7 +3596,7 @@
 
     if (contentType.includes('pdf')) {
       const blob = await response.blob();
-      return { pdfUrl: URL.createObjectURL(blob), revokeOnUnload: true };
+      return await renderPdfBlobAsPng(blob);
     }
 
     if (!contentType.includes('json')) {
@@ -3530,6 +3617,69 @@
     }
 
     return { imageUrl: `data:image/png;base64,${rawImage}`, revokeOnUnload: false };
+  }
+
+  async function renderPdfBlobAsPng(pdfBlob) {
+    if (!window.pdfjsLib) {
+      throw new Error('PDF.js nao foi carregado para converter o grafico em PNG.');
+    }
+
+    if (!window.__drekeePdfWorkerConfigured) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      window.__drekeePdfWorkerConfigured = true;
+    }
+
+    const pdfBytes = new Uint8Array(await pdfBlob.arrayBuffer());
+    const pdf = await window.pdfjsLib.getDocument({ data: pdfBytes }).promise;
+    const page = await pdf.getPage(1);
+    const baseViewport = page.getViewport({ scale: 1 });
+    const targetWidth = Math.max(1800, Math.min(2600, Math.round(baseViewport.width * 2.2)));
+    const scale = targetWidth / baseViewport.width;
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d', { alpha: false });
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+
+    await page.render({
+      canvasContext: context,
+      viewport,
+      background: '#ffffff',
+    }).promise;
+
+    const pngBlob = await new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (blob) resolve(blob);
+        else reject(new Error('Falha ao converter o PDF do grafico em PNG.'));
+      }, 'image/png', 1);
+    });
+
+    return {
+      imageUrl: URL.createObjectURL(pngBlob),
+      revokeOnUnload: true,
+      downloadName: 'drekee-grafico.png',
+    };
+  }
+
+  function setupLatexGraphPanzoom(surface, viewport) {
+    if (!window.Panzoom || !surface || !viewport) return null;
+    const panzoom = window.Panzoom(surface, {
+      canvas: true,
+      contain: 'outside',
+      cursor: 'grab',
+      minScale: 1,
+      maxScale: 5,
+      step: 0.25,
+      panOnlyWhenZoomed: true,
+    });
+
+    viewport.addEventListener('wheel', panzoom.zoomWithWheel, { passive: false });
+    viewport.addEventListener('pointerdown', () => viewport.classList.add('is-dragging'));
+    const clearDragging = () => viewport.classList.remove('is-dragging');
+    viewport.addEventListener('pointerup', clearDragging);
+    viewport.addEventListener('pointerleave', clearDragging);
+
+    return panzoom;
   }
 
   function createLatexGraphSection(graphSpec) {
@@ -3591,36 +3741,73 @@
     section.appendChild(body);
 
     requestLatexGraphRender(graphSpec.code)
-      .then(({ imageUrl, pdfUrl, revokeOnUnload }) => {
+      .then(({ imageUrl, revokeOnUnload, downloadName }) => {
         body.innerHTML = '';
 
         const wrap = document.createElement('div');
         wrap.className = 'latex-graph-image-wrap';
-        const assetUrl = imageUrl || pdfUrl;
+        const assetUrl = imageUrl;
 
-        if (imageUrl) {
-          const image = document.createElement('img');
-          image.className = 'latex-graph-image';
-          image.src = imageUrl;
-          image.alt = graphSpec.title || 'Grafico informativo';
-          image.loading = 'lazy';
-          wrap.appendChild(image);
-        } else if (pdfUrl) {
-          const iframe = document.createElement('iframe');
-          iframe.className = 'latex-graph-pdf';
-          iframe.src = pdfUrl;
-          iframe.title = graphSpec.title || 'Grafico informativo';
-          wrap.appendChild(iframe);
+        const stage = document.createElement('div');
+        stage.className = 'latex-graph-stage';
+
+        const viewport = document.createElement('div');
+        viewport.className = 'latex-graph-viewport';
+
+        const surface = document.createElement('div');
+        surface.className = 'latex-graph-surface';
+
+        const image = document.createElement('img');
+        image.className = 'latex-graph-image';
+        image.src = imageUrl;
+        image.alt = graphSpec.title || 'Grafico informativo';
+        image.loading = 'lazy';
+        image.draggable = false;
+        surface.appendChild(image);
+        viewport.appendChild(surface);
+        stage.appendChild(viewport);
+
+        const meta = document.createElement('div');
+        meta.className = 'latex-graph-meta';
+        meta.innerHTML = '<span class="material-icons-outlined" style="font-size:0.95rem;">image</span><span>PNG pronto</span>';
+        stage.appendChild(meta);
+
+        const panzoom = setupLatexGraphPanzoom(surface, viewport);
+        if (panzoom) {
+          const toolbar = document.createElement('div');
+          toolbar.className = 'latex-graph-toolbar';
+          [
+            { icon: 'remove', action: () => panzoom.zoomOut() },
+            { icon: 'restart_alt', action: () => panzoom.reset() },
+            { icon: 'add', action: () => panzoom.zoomIn() },
+          ].forEach(tool => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'latex-graph-tool';
+            button.innerHTML = `<span class="material-icons-outlined">${tool.icon}</span>`;
+            button.addEventListener('click', tool.action);
+            toolbar.appendChild(button);
+          });
+          stage.appendChild(toolbar);
         }
+
+        wrap.appendChild(stage);
 
         body.appendChild(wrap);
 
         const openBtn = document.createElement('button');
         openBtn.type = 'button';
         openBtn.className = 'latex-graph-btn';
-        openBtn.innerHTML = '<span class="material-icons-outlined" style="font-size:0.95rem;">open_in_new</span><span>Abrir imagem</span>';
+        openBtn.innerHTML = '<span class="material-icons-outlined" style="font-size:0.95rem;">open_in_new</span><span>Abrir PNG</span>';
         openBtn.addEventListener('click', () => window.open(assetUrl, '_blank', 'noopener,noreferrer'));
         actions.appendChild(openBtn);
+
+        const downloadBtn = document.createElement('a');
+        downloadBtn.className = 'latex-graph-btn primary';
+        downloadBtn.href = assetUrl;
+        downloadBtn.download = downloadName || 'drekee-grafico.png';
+        downloadBtn.innerHTML = '<span class="material-icons-outlined" style="font-size:0.95rem;">download</span><span>Baixar PNG</span>';
+        actions.appendChild(downloadBtn);
 
         if (revokeOnUnload && assetUrl) {
           window.addEventListener('beforeunload', () => URL.revokeObjectURL(assetUrl), { once: true });
