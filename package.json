@@ -1,6 +1,6 @@
 {
   "name": "drekee-1.5-pro",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "description": "Drekee AI 1.5 Pro - Scientific Agent with NASA Integration",
   "main": "api/chat.js",
   "scripts": {

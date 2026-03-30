@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const packageJson = require('./package.json');
 
 // Import the chat handler
 const chatHandler = require('./api/chat.js');
@@ -21,6 +22,69 @@ app.post('/api/chat', async (req, res) => {
   } catch (error) {
     console.error('Server error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/admin/status', async (req, res) => {
+  try {
+    const diagnostics = await chatHandler.getAdminDiagnostics();
+    return res.json({
+      ok: true,
+      version: packageJson.version,
+      diagnostics,
+    });
+  } catch (error) {
+    console.error('Admin status error:', error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/admin/test-connector', async (req, res) => {
+  try {
+    const key = String(req.body?.key || '').trim().toLowerCase();
+    if (!key) {
+      return res.status(400).json({ ok: false, error: 'Missing connector key' });
+    }
+    const result = await chatHandler.probeConnector(key, { userContext: req.body?.userContext || {} });
+    return res.json({ ok: true, result });
+  } catch (error) {
+    console.error('Admin connector test error:', error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/admin/test-all', async (req, res) => {
+  try {
+    const connectors = Array.isArray(chatHandler.supportedConnectors) ? chatHandler.supportedConnectors : [];
+    const concurrency = 6;
+    const results = [];
+    let index = 0;
+
+    async function worker() {
+      while (index < connectors.length) {
+        const current = connectors[index++];
+        const result = await chatHandler.probeConnector(current, { userContext: req.body?.userContext || {} });
+        results.push(result);
+      }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(concurrency, connectors.length) }, () => worker()));
+    results.sort((a, b) => a.key.localeCompare(b.key));
+
+    return res.json({
+      ok: true,
+      total: results.length,
+      counts: {
+        active: results.filter(item => item.status === 'active').length,
+        error: results.filter(item => item.status === 'error').length,
+        missing_key: results.filter(item => item.status === 'missing_key').length,
+        present_only: results.filter(item => item.status === 'present_only').length,
+      },
+      results,
+    });
+  } catch (error) {
+    console.error('Admin test-all error:', error);
+    return res.status(500).json({ ok: false, error: error.message });
   }
 });
 
@@ -314,7 +378,7 @@ app.post('/api/render-latex', async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', version: '1.5.3' });
+  res.json({ status: 'OK', version: packageJson.version });
 });
 
 // Serve index.html for root

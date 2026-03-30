@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Drekee Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07111f;
+    --bg-soft: #0d1a2e;
+    --panel: rgba(11, 24, 43, 0.82);
+    --panel-strong: rgba(8, 17, 31, 0.94);
+    --line: rgba(148, 163, 184, 0.16);
+    --text: #e5eefb;
+    --muted: #8fa4c2;
+    --ok: #2dd4bf;
+    --warn: #fbbf24;
+    --bad: #fb7185;
+    --idle: #94a3b8;
+    --blue: #60a5fa;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: 'Manrope', sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(circle at top left, rgba(96,165,250,0.16), transparent 24%),
+      radial-gradient(circle at top right, rgba(45,212,191,0.12), transparent 18%),
+      linear-gradient(180deg, #050c18, #0a1324 55%, #07111f);
+  }
+
+  .shell {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 22px;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(96,165,250,0.1);
+    color: #bfdbfe;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  h1 {
+    margin: 12px 0 8px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(2rem, 4vw, 3.3rem);
+    line-height: 0.95;
+    letter-spacing: -0.05em;
+  }
+
+  .lead {
+    max-width: 880px;
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.65;
+    font-size: 0.98rem;
+  }
+
+  .topbar-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  button {
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .btn.primary {
+    background: linear-gradient(135deg, rgba(96,165,250,0.22), rgba(45,212,191,0.14));
+    border-color: rgba(96,165,250,0.28);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    grid-column: span 12;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 18px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 22px 60px rgba(0,0,0,0.22);
+  }
+
+  .metric-card { grid-column: span 3; }
+  .metric-label {
+    color: var(--muted);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 800;
+  }
+  .metric-value {
+    margin-top: 14px;
+    font-size: clamp(1.7rem, 3vw, 2.6rem);
+    font-weight: 800;
+    line-height: 1;
+  }
+  .metric-copy {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 0.84rem;
+    line-height: 1.55;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: -0.03em;
+  }
+
+  .section-note {
+    color: var(--muted);
+    font-size: 0.84rem;
+  }
+
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+  }
+
+  .status-item {
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.025);
+    padding: 14px;
+  }
+
+  .status-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .pill.active { background: rgba(45,212,191,0.14); color: #99f6e4; }
+  .pill.error { background: rgba(251,113,133,0.14); color: #fecdd3; }
+  .pill.missing, .pill.missing_key { background: rgba(251,191,36,0.14); color: #fde68a; }
+  .pill.untested, .pill.present_only, .pill.idle { background: rgba(148,163,184,0.12); color: #cbd5e1; }
+
+  .status-name {
+    font-weight: 800;
+    font-size: 0.95rem;
+  }
+
+  .status-detail {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  .toolbar input, .toolbar select {
+    flex: 1 1 220px;
+    min-width: 0;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px 14px;
+    color: var(--text);
+    font: inherit;
+  }
+
+  .table-wrap {
+    overflow: auto;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 980px;
+    background: rgba(3, 10, 20, 0.52);
+  }
+
+  th, td {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(148,163,184,0.1);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    color: #c7d7ee;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  td {
+    font-size: 0.88rem;
+    color: #d8e4f5;
+  }
+
+  .connector-name { font-weight: 800; }
+  .meta-line {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+
+  .tiny-btn {
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .footer-note {
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 1200px) {
+    .metric-card { grid-column: span 6; }
+  }
+
+  @media (max-width: 760px) {
+    .shell { padding: 14px; }
+    .topbar { flex-direction: column; }
+    .metric-card { grid-column: span 12; }
+    .btn { width: 100%; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow"><span class="material-icons-outlined" style="font-size:16px;">admin_panel_settings</span> Administração Drekee</div>
+        <h1>Painel operacional do Drekee AI</h1>
+        <p class="lead">Este painel mostra saúde real das chaves, catálogo de conectores do código, cobertura de auto-detecção e testes ativos em tempo real para validar se cada integração está realmente pronta para entrar em produção.</p>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn" id="refreshBtn"><span class="material-icons-outlined">refresh</span><span>Atualizar status</span></button>
+        <button class="btn primary" id="testAllBtn"><span class="material-icons-outlined">science</span><span>Testar todos os conectores</span></button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="card metric-card">
+        <div class="metric-label">Versão</div>
+        <div class="metric-value" id="versionValue">--</div>
+        <div class="metric-copy" id="generatedAtValue">Aguardando leitura do servidor.</div>
+      </section>
+
+      <section class="card metric-card">
+        <div class="metric-label">Catálogo no Código</div>
+        <div class="metric-value" id="connectorCountValue">--</div>
+        <div class="metric-copy" id="inventoryDeltaValue">Comparando código com inventário textual.</div>
+      </section>
+
+      <section class="card metric-card">
+        <div class="metric-label">Auto-detecção</div>
+        <div class="metric-value" id="autoDetectValue">--</div>
+        <div class="metric-copy">Conectores que o Drekee tenta chamar sozinho por heurística.</div>
+      </section>
+
+      <section class="card metric-card">
+        <div class="metric-label">Último Teste em Lote</div>
+        <div class="metric-value" id="batchSummaryValue">--</div>
+        <div class="metric-copy" id="batchDetailValue">Ainda não executado nesta sessão.</div>
+      </section>
+
+      <section class="card" style="grid-column: span 12;">
+        <div class="section-head">
+          <h2>Saúde das Chaves</h2>
+          <div class="section-note">Estados: ativa, cadastrada com erro, ou não cadastrada.</div>
+        </div>
+        <div class="status-grid" id="keysGrid"></div>
+      </section>
+
+      <section class="card" style="grid-column: span 12;">
+        <div class="section-head">
+          <h2>Conectores</h2>
+          <div class="section-note">Cada teste tenta usar a integração real do backend, não só verificar se o nome existe na lista.</div>
+        </div>
+        <div class="toolbar">
+          <input type="search" id="searchInput" placeholder="Filtrar por nome, chave ou mensagem..." />
+          <select id="statusFilter">
+            <option value="all">Todos os status</option>
+            <option value="active">Ativos</option>
+            <option value="error">Com erro</option>
+            <option value="missing_key">Sem chave</option>
+            <option value="untested">Ainda não testados</option>
+            <option value="present_only">Só presentes</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Conector</th>
+                <th>Status</th>
+                <th>Auto</th>
+                <th>Chaves</th>
+                <th>Resumo</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="connectorsBody"></tbody>
+          </table>
+        </div>
+        <div class="footer-note" id="footerNote">O painel diferencia catálogo do código, cobertura de auto-detecção e funcionamento real. Isso ajuda a descobrir por que uma API “existe” mas não entra no fluxo quando a pergunta do aluno chega.</div>
+      </section>
+    </div>
+  </div>
+
+<script>
+  const state = {
+    version: '--',
+    diagnostics: null,
+    connectorResults: new Map(),
+  };
+
+  const keysGrid = document.getElementById('keysGrid');
+  const connectorsBody = document.getElementById('connectorsBody');
+  const versionValue = document.getElementById('versionValue');
+  const generatedAtValue = document.getElementById('generatedAtValue');
+  const connectorCountValue = document.getElementById('connectorCountValue');
+  const inventoryDeltaValue = document.getElementById('inventoryDeltaValue');
+  const autoDetectValue = document.getElementById('autoDetectValue');
+  const batchSummaryValue = document.getElementById('batchSummaryValue');
+  const batchDetailValue = document.getElementById('batchDetailValue');
+  const searchInput = document.getElementById('searchInput');
+  const statusFilter = document.getElementById('statusFilter');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const testAllBtn = document.getElementById('testAllBtn');
+
+  function humanizeKey(key) {
+    return String(key || '')
+      .replace(/[-_]+/g, ' ')
+      .replace(/\b\w/g, char => char.toUpperCase());
+  }
+
+  function statusClass(status) {
+    return ['active', 'error', 'missing', 'missing_key', 'untested', 'present_only'].includes(status)
+      ? status
+      : 'idle';
+  }
+
+  function statusLabel(status) {
+    const labels = {
+      active: 'Ativo',
+      error: 'Erro',
+      missing: 'Sem chave',
+      missing_key: 'Sem chave',
+      untested: 'Não testado',
+      present_only: 'Só presente',
+    };
+    return labels[status] || status || 'Indefinido';
+  }
+
+  function renderKeys(keys = []) {
+    keysGrid.innerHTML = keys.map(item => `
+      <article class="status-item">
+        <div class="status-top">
+          <div class="status-name">${item.env}</div>
+          <span class="pill ${statusClass(item.status)}">${statusLabel(item.status)}</span>
+        </div>
+        <div class="status-detail">${item.message || 'Sem mensagem'}</div>
+      </article>
+    `).join('');
+  }
+
+  function getMergedConnectors() {
+    const diagnostics = state.diagnostics || { connectors: [] };
+    return diagnostics.connectors.map(item => {
+      const runtime = state.connectorResults.get(item.key) || {};
+      return { ...item, ...runtime, key: item.key };
+    });
+  }
+
+  function renderConnectors() {
+    const query = searchInput.value.trim().toLowerCase();
+    const filter = statusFilter.value;
+
+    const rows = getMergedConnectors().filter(item => {
+      if (filter !== 'all' && (item.status || 'untested') !== filter) return false;
+      if (!query) return true;
+      const haystack = [
+        item.key,
+        humanizeKey(item.key),
+        item.message,
+        item.summary,
+      ].join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+
+    connectorsBody.innerHTML = rows.map(item => `
+      <tr>
+        <td>
+          <span class="connector-name">${humanizeKey(item.key)}</span>
+          <span class="meta-line">${item.key}</span>
+        </td>
+        <td><span class="pill ${statusClass(item.status || 'untested')}">${statusLabel(item.status || 'untested')}</span></td>
+        <td>${item.autoDetected ? 'Sim' : 'Manual'}</td>
+        <td>${(item.requiresKeys || []).length ? item.requiresKeys.join(', ') : 'Pública / nenhuma'}</td>
+        <td>
+          ${item.message || 'Aguardando teste'}
+          <span class="meta-line">${item.summary || ''}</span>
+        </td>
+        <td><button class="tiny-btn" data-key="${item.key}">Testar</button></td>
+      </tr>
+    `).join('');
+  }
+
+  async function loadStatus() {
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<span class="material-icons-outlined">sync</span><span>Lendo servidor...</span>';
+    try {
+      const res = await fetch('/api/admin/status');
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Falha ao carregar status');
+
+      state.version = json.version;
+      state.diagnostics = json.diagnostics;
+
+      versionValue.textContent = json.version;
+      generatedAtValue.textContent = `Snapshot gerado em ${new Date(json.diagnostics.generatedAt).toLocaleString('pt-BR')}`;
+      connectorCountValue.textContent = json.diagnostics.catalog.supportedConnectorCount;
+
+      const inventoryCount = json.diagnostics.catalog.inventoryFileCount;
+      const codeCount = json.diagnostics.catalog.supportedConnectorCount;
+      const delta = inventoryCount == null ? 'Inventário textual indisponível' : `Inventário textual: ${inventoryCount}. Diferença para o código: ${codeCount - inventoryCount}.`;
+      inventoryDeltaValue.textContent = delta;
+
+      autoDetectValue.textContent = json.diagnostics.catalog.autoDetectedConnectorCount;
+      renderKeys(json.diagnostics.keys || []);
+      renderConnectors();
+    } catch (error) {
+      generatedAtValue.textContent = error.message;
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = '<span class="material-icons-outlined">refresh</span><span>Atualizar status</span>';
+    }
+  }
+
+  async function testConnector(key, button) {
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Testando...';
+    }
+    try {
+      const res = await fetch('/api/admin/test-connector', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Falha no teste');
+      state.connectorResults.set(key, json.result);
+      renderConnectors();
+    } catch (error) {
+      state.connectorResults.set(key, { key, status: 'error', message: error.message });
+      renderConnectors();
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Testar';
+      }
+    }
+  }
+
+  async function testAll() {
+    testAllBtn.disabled = true;
+    testAllBtn.innerHTML = '<span class="material-icons-outlined">hourglass_top</span><span>Testando tudo...</span>';
+    batchSummaryValue.textContent = '...';
+    batchDetailValue.textContent = 'Executando bateria completa. Isso pode levar alguns segundos.';
+    try {
+      const res = await fetch('/api/admin/test-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Falha no teste em lote');
+
+      state.connectorResults = new Map(json.results.map(item => [item.key, item]));
+      batchSummaryValue.textContent = `${json.counts.active}/${json.total}`;
+      batchDetailValue.textContent = `Ativos: ${json.counts.active} | Erros: ${json.counts.error} | Sem chave: ${json.counts.missing_key} | Só presentes: ${json.counts.present_only}`;
+      renderConnectors();
+    } catch (error) {
+      batchSummaryValue.textContent = 'Erro';
+      batchDetailValue.textContent = error.message;
+    } finally {
+      testAllBtn.disabled = false;
+      testAllBtn.innerHTML = '<span class="material-icons-outlined">science</span><span>Testar todos os conectores</span>';
+    }
+  }
+
+  refreshBtn.addEventListener('click', loadStatus);
+  testAllBtn.addEventListener('click', testAll);
+  searchInput.addEventListener('input', renderConnectors);
+  statusFilter.addEventListener('change', renderConnectors);
+  connectorsBody.addEventListener('click', event => {
+    const button = event.target.closest('button[data-key]');
+    if (!button) return;
+    testConnector(button.dataset.key, button);
+  });
+
+  loadStatus();
+</script>
+</body>
+</html>

@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 // Drekee AI 1.5 Pro - Cientific Agent
 // Fluxo: GeneratePlan -> Research/Reasoning -> Review -> Retornar logs + resposta + mídia
 
@@ -709,6 +712,7 @@ const SUPPORTED_CONNECTORS = new Set([
   'noaa-space',
   'exoplanets',
   'mathjs',
+  'wolfram',
   'pubchem',
   'ensembl',
   'mygene',
@@ -726,6 +730,7 @@ const SUPPORTED_CONNECTORS = new Set([
   'timelapse',
   'spacedevs',
   'openuniverse',
+  'horizons',
   'sdo',
   'kepler',
   'numberempire',
@@ -1453,6 +1458,191 @@ async function buscarSistemaSolar(query) {
   }
 }
 
+// ============ WOLFRAM ALPHA API ============
+async function buscarWolframAlpha(query) {
+  const appId = process.env.WOLFRAM_APP_ID;
+  if (!appId) {
+    return { error: 'missing_api_key', key: 'WOLFRAM_APP_ID' };
+  }
+
+  try {
+    const url = `https://api.wolframalpha.com/v2/query?appid=${encodeURIComponent(appId)}&input=${encodeURIComponent(query)}&output=json&format=plaintext`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+    const data = await res.json();
+    const queryResult = data?.queryresult;
+
+    if (!res.ok) {
+      return { error: `HTTP ${res.status}`, details: queryResult?.error || data };
+    }
+
+    if (!queryResult || queryResult.error) {
+      return { error: queryResult?.error?.msg || 'query_error', details: queryResult?.error || null };
+    }
+
+    const pods = Array.isArray(queryResult.pods) ? queryResult.pods : [];
+    const preferredPod =
+      pods.find(pod => /^(result|results|decimal approximation|exact result|solution)$/i.test(pod?.title || '')) ||
+      pods.find(pod => pod?.primary === true) ||
+      pods[0];
+
+    const podText = (preferredPod?.subpods || [])
+      .map(subpod => String(subpod?.plaintext || '').trim())
+      .filter(Boolean);
+
+    return {
+      input: queryResult.inputstring || query,
+      result: podText[0] || null,
+      podTitle: preferredPod?.title || null,
+      pods: pods.slice(0, 5).map(pod => ({
+        title: pod?.title || 'Sem título',
+        text: (pod?.subpods || [])
+          .map(subpod => String(subpod?.plaintext || '').trim())
+          .filter(Boolean)
+          .join(' | '),
+      })),
+      assumptions: Array.isArray(queryResult.assumptions) ? queryResult.assumptions : [],
+    };
+  } catch (err) {
+    console.error('Wolfram Alpha error:', err);
+    return { error: err.message || 'fetch_failed' };
+  }
+}
+
+function translateHorizonsQuery(query = '') {
+  const normalized = String(query || '').toLowerCase().trim();
+  if (!normalized) return '';
+
+  const dictionary = {
+    mercurio: 'Mercury',
+    venus: 'Venus',
+    terra: 'Earth',
+    lua: 'Moon',
+    marte: 'Mars',
+    jupiter: 'Jupiter',
+    saturno: 'Saturn',
+    urano: 'Uranus',
+    netuno: 'Neptune',
+    plutao: 'Pluto',
+    sol: 'Sun',
+    io: 'Io',
+    europa: 'Europa',
+    ganimedes: 'Ganymede',
+    calisto: 'Callisto',
+    tita: 'Titan',
+    encelado: 'Enceladus',
+  };
+
+  for (const [pt, en] of Object.entries(dictionary)) {
+    if (normalized.includes(pt)) return en;
+  }
+
+  return String(query || '').trim();
+}
+
+function getHorizonsLookupGroup(query = '') {
+  const normalized = String(query || '').toLowerCase();
+  if (/\b(lua|moon|io|europa|ganymede|ganimedes|callisto|calisto|titan|enceladus|encelado)\b/.test(normalized)) return 'sat';
+  if (/\b(mercurio|mercury|venus|terra|earth|marte|mars|jupiter|saturno|saturn|urano|uranus|netuno|neptune|plutao|pluto|sol|sun)\b/.test(normalized)) return 'pln';
+  return '';
+}
+
+function formatHorizonsDate(date = new Date()) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const hour = String(date.getUTCHours()).padStart(2, '0');
+  const minute = String(date.getUTCMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+}
+
+function parseHorizonsObserverRow(resultText = '') {
+  const match = String(resultText || '').match(/\$\$SOE([\s\S]*?)\$\$EOE/);
+  if (!match) return null;
+
+  const row = match[1]
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .find(line => line.includes(','));
+
+  if (!row) return null;
+
+  const parts = row
+    .replace(/,$/, '')
+    .split(',')
+    .map(item => item.trim());
+
+  if (parts.length < 11) {
+    return { raw: row };
+  }
+
+  const distanceAu = Number(parts[9]);
+  const distanceKm = Number.isFinite(distanceAu) ? Math.round(distanceAu * 149597870.7) : null;
+
+  return {
+    timestamp: parts[0],
+    ra: parts[3],
+    dec: parts[4],
+    azimuth: parts[5],
+    elevation: parts[6],
+    magnitude: parts[7],
+    surfaceBrightness: parts[8],
+    distanceAu: Number.isFinite(distanceAu) ? distanceAu : null,
+    distanceKm,
+    radialVelocityKmS: parts[10],
+    raw: row,
+  };
+}
+
+async function buscarNasaHorizons(query, userContext = {}) {
+  try {
+    const translatedQuery = translateHorizonsQuery(query);
+    const group = getHorizonsLookupGroup(translatedQuery);
+    const lookupUrl = `https://ssd.jpl.nasa.gov/api/horizons_lookup.api?sstr=${encodeURIComponent(translatedQuery)}${group ? `&group=${group}` : ''}`;
+    const lookupRes = await fetch(lookupUrl, { signal: AbortSignal.timeout(12000) });
+    const lookupData = await lookupRes.json();
+    const matches = Array.isArray(lookupData?.result) ? lookupData.result : [];
+    if (!lookupRes.ok || matches.length === 0) return null;
+
+    const target = matches[0];
+    const lat = Number(userContext?.lat ?? -23.55);
+    const lon = Number(userContext?.lon ?? -46.63);
+    const eastLongitude = ((lon % 360) + 360) % 360;
+    const altitudeKm = Number(userContext?.altitude_km ?? 0);
+    const start = new Date();
+    const stop = new Date(start.getTime() + 60 * 1000);
+
+    const horizonsUrl =
+      `https://ssd.jpl.nasa.gov/api/horizons.api?format=json` +
+      `&COMMAND='${encodeURIComponent(target.spkid)}'` +
+      `&OBJ_DATA='YES'&MAKE_EPHEM='YES'&EPHEM_TYPE='OBSERVER'` +
+      `&CENTER='coord@399'&COORD_TYPE='GEODETIC'` +
+      `&SITE_COORD='${encodeURIComponent(`${eastLongitude},${lat},${altitudeKm}`)}'` +
+      `&START_TIME='${encodeURIComponent(formatHorizonsDate(start))}'` +
+      `&STOP_TIME='${encodeURIComponent(formatHorizonsDate(stop))}'` +
+      `&STEP_SIZE='1m'&QUANTITIES='1,4,9,20'&CSV_FORMAT='YES'`;
+
+    const res = await fetch(horizonsUrl, { signal: AbortSignal.timeout(15000) });
+    const data = await res.json();
+    if (!res.ok || !data?.result) return null;
+
+    const parsed = parseHorizonsObserverRow(data.result);
+    if (!parsed) return null;
+
+    return {
+      query: translatedQuery,
+      targetName: target.name,
+      targetType: target.type,
+      spkid: target.spkid,
+      ...parsed,
+      sourceUrl: 'https://ssd.jpl.nasa.gov/api/horizons.api',
+    };
+  } catch (err) {
+    console.error('NASA Horizons error:', err);
+    return null;
+  }
+}
+
 // ============ GROQ Call (flexible with fallback) ============
 async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
@@ -1965,8 +2155,10 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(estrela|constelação|céu|stellarium|mapa estelar)\b/.test(normalizedText)) autoDetectedConnectors.push('stellarium');
   if (/\b(onda|gravidade|ligo|virgo|colisão|buraco negro)\b/.test(normalizedText)) autoDetectedConnectors.push('ligo');
   if (/\b(sol|sdo|atividade solar|mancha solar)\b/.test(normalizedText)) autoDetectedConnectors.push('sdo');
+  if (/\b(posição|posicao|onde está|onde esta|agora|hoje|visível|visivel|horizons|efeméride|efemeride|azimute|elevação|elevacao)\b/.test(normalizedText) && /\b(marte|mars|júpiter|jupiter|saturno|saturn|venus|vênus|lua|moon|mercurio|mercúrio|sol|sun|urano|uranus|netuno|neptune|plutao|plutão)\b/.test(normalizedText)) autoDetectedConnectors.push('horizons');
   if (/\b(exoplaneta|planeta|kepler|tess|estrela binária)\b/.test(normalizedText)) autoDetectedConnectors.push('exoplanets', 'kepler');
   if (/\b(matemática|álgebra|calculadora|mathjs|matriz|equação complexa)\b/.test(normalizedText)) autoDetectedConnectors.push('mathjs');
+  if (/\b(wolfram|equação diferencial|equacao diferencial|limite|transformada|sistema linear|integral imprópria|integral impropria|álgebra linear|algebra linear|resolver simbolicamente|derivada parcial)\b/.test(normalizedText)) autoDetectedConnectors.push('wolfram');
   if (/\b(química|composto|molécula|pubchem|farmac|3d)\b/.test(normalizedText)) autoDetectedConnectors.push('pubchem', 'pubchem-bio');
   if (/\b(gene|genoma|dna|rna|ensembl|mygene|mutação)\b/.test(normalizedText)) autoDetectedConnectors.push('ensembl', 'mygene');
   if (/\b(proteína|aminoácido|uniprot|interação|string)\b/.test(normalizedText)) autoDetectedConnectors.push('uniprot', 'string-db', 'reactome');
@@ -2450,6 +2642,21 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     }
   }
 
+  if (selectedConnectors.includes('horizons')) {
+    logs.push(`🛰️ Buscando efemérides na NASA Horizons: "${queryParaBuscar}"`);
+    const horizonsData = await buscarNasaHorizons(queryParaBuscar, options.userContext || {});
+    if (horizonsData) {
+      const distanceLine = horizonsData.distanceKm
+        ? `Distância aproximada: ${horizonsData.distanceKm.toLocaleString('pt-BR')} km (${horizonsData.distanceAu} AU)\n`
+        : '';
+      context += `\n\n🛰️ NASA Horizons (${horizonsData.targetName}):\nInstante: ${horizonsData.timestamp}\nAzimute: ${horizonsData.azimuth}°\nElevação: ${horizonsData.elevation}°\nAscensão reta: ${horizonsData.ra}\nDeclinação: ${horizonsData.dec}\nMagnitude aparente: ${horizonsData.magnitude}\n${distanceLine}`;
+      addSource('HORIZONS-1', `NASA Horizons: ${horizonsData.targetName}`, 'horizons', `Azimute ${horizonsData.azimuth}°, elevação ${horizonsData.elevation}°, magnitude ${horizonsData.magnitude}.`, horizonsData.sourceUrl);
+      logs.push('✅ Efemérides NASA Horizons coletadas');
+    } else {
+      logs.push('⚠️ NASA Horizons não retornou dados');
+    }
+  }
+
   if (selectedConnectors.includes('poetry')) {
     logs.push(`📜 Buscando poesia: "${queryParaBuscar}"`);
     const poems = await buscarPoesia(queryParaBuscar);
@@ -2572,6 +2779,25 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       context += `\n\n🧮 Resultado Matemático Avançado: ${mathResult}\n`;
       addSource('MATH-ADV', 'Math.js Advanced', 'mathjs', mathResult, 'https://mathjs.org/');
       logs.push('✅ Cálculos avançados integrados');
+    }
+  }
+
+  if (selectedConnectors.includes('wolfram')) {
+    logs.push(`🧠 Consultando Wolfram Alpha: "${queryParaBuscar}"`);
+    const wolframData = await buscarWolframAlpha(queryParaBuscar);
+    if (wolframData && !wolframData.error) {
+      const podLines = (wolframData.pods || [])
+        .filter(pod => pod.text)
+        .slice(0, 3)
+        .map((pod, index) => `${index + 1}. ${pod.title}: ${pod.text}`)
+        .join('\n');
+      context += `\n\n🧠 Wolfram Alpha:\nEntrada interpretada: ${wolframData.input}\nResultado principal: ${wolframData.result || 'Sem resultado textual principal'}\n${podLines}\n`;
+      addSource('WOLFRAM-1', 'Wolfram Alpha', 'wolfram', wolframData.result || wolframData.input, 'https://products.wolframalpha.com/api/');
+      logs.push('✅ Wolfram Alpha integrado');
+    } else if (wolframData?.error === 'missing_api_key') {
+      logs.push('⚠️ Wolfram Alpha sem chave configurada');
+    } else {
+      logs.push('⚠️ Wolfram Alpha não retornou dados');
     }
   }
 
@@ -4115,6 +4341,342 @@ ${serializedHistory}`;
   };
 }
 
+const CONNECTOR_REQUIRES_KEYS = {
+  tavily: ['TAVILY_API_KEY'],
+  wolfram: ['WOLFRAM_APP_ID'],
+  omim: ['OMIM_API_KEY'],
+};
+
+const AUTO_DETECTED_CONNECTORS = new Set([
+  'antweb', 'fishwatch', 'periodictable', 'gutenberg', 'bible', 'iss', 'celestrak',
+  'spacedevs', 'solarsystem', 'sunrise', 'quotes', 'quotes-free', 'dogapi', 'openaq',
+  'codata', 'open-meteo', 'openfoodfacts', 'picsum', 'openuniverse', 'esa', 'stellarium',
+  'ligo', 'sdo', 'horizons', 'exoplanets', 'kepler', 'mathjs', 'wolfram', 'pubchem',
+  'pubchem-bio', 'ensembl', 'mygene', 'uniprot', 'string-db', 'reactome', 'openfda',
+  'datasus', 'covid-jhu', 'omim', 'clinvar', 'cosmic', 'noaa-climate', 'worldbank-climate',
+  'usgs-water', 'firms', 'edx', 'mit-ocw', 'mec-ejovem', 'educ4share', 'tcu', 'transparencia',
+  'metmuseum', 'getty', 'libras', 'sketchfab', 'timelapse', 'arxiv', 'scielo', 'ibge',
+  'pubmed', 'wikipedia', 'wikidata', 'rcsb', 'newton', 'nasa', 'spacex'
+]);
+
+const CONNECTOR_PROBE_QUERIES = {
+  tavily: 'fotossintese',
+  wikipedia: 'fotossíntese',
+  arxiv: 'quantum computing',
+  scielo: 'dengue',
+  newton: 'derivada de x^2',
+  ibge: 'população',
+  nasa: 'mars',
+  openlibrary: 'inteligencia artificial',
+  gbif: 'Panthera onca',
+  camara: 'educação',
+  'dictionary-en': 'science',
+  universities: 'harvard',
+  poetry: 'Shakespeare',
+  phet: 'lei de ohm',
+  pubmed: 'crispr',
+  wikidata: 'Albert Einstein',
+  rcsb: 'hemoglobin',
+  antweb: 'Atta',
+  periodictable: 'oxygen',
+  fishwatch: 'salmon',
+  gutenberg: 'sherlock holmes',
+  bible: 'John 3:16',
+  openaq: 'Sao Paulo',
+  solarsystem: 'mars',
+  celestrak: 'iss',
+  codata: 'Planck constant',
+  openfoodfacts: 'chocolate',
+  esa: 'mars',
+  stellarium: 'Mars',
+  exoplanets: 'Kepler',
+  mathjs: '2*(5+3)',
+  wolfram: 'integrate x^2',
+  pubchem: 'caffeine',
+  ensembl: 'BRCA1',
+  mygene: 'TP53',
+  uniprot: 'hemoglobin',
+  reactome: 'glycolysis',
+  'string-db': 'TP53',
+  openfda: 'aspirin',
+  'worldbank-climate': 'BR',
+  timelapse: 'amazon rainforest',
+  openuniverse: 'mars',
+  horizons: 'Mars',
+  kepler: 'Kepler-22 b',
+  numberempire: 'sin(x)',
+  'pubchem-bio': 'ibuprofen',
+  omim: 'BRCA1',
+  clinvar: 'BRCA1',
+  cosmic: 'TP53',
+  sentinel: 'amazon rainforest',
+  firms: 'wildfires',
+  edx: 'physics',
+  'mit-ocw': 'physics',
+  'mec-ejovem': 'ciência',
+  educ4share: 'energia solar',
+  modis: 'Amazon',
+  tcu: 'educação',
+  transparencia: 'educação',
+  datasus: 'dengue',
+  seade: 'educação',
+  getty: 'astronomy',
+  libras: 'ciência',
+};
+
+function getConnectorProbeQuery(key) {
+  return CONNECTOR_PROBE_QUERIES[key] || 'science';
+}
+
+function summarizeProbeData(value) {
+  if (value == null) return 'Sem dados';
+  if (typeof value === 'string') return value.slice(0, 120);
+  if (Array.isArray(value)) return `${value.length} item(ns) retornados`;
+  if (typeof value === 'object') {
+    if (value.error) return String(value.error);
+    if (value.title) return String(value.title);
+    if (value.name) return String(value.name);
+    if (value.targetName) return `Alvo ${value.targetName}`;
+    const keys = Object.keys(value);
+    return keys.length > 0 ? `Campos: ${keys.slice(0, 5).join(', ')}` : 'Objeto sem campos';
+  }
+  return String(value);
+}
+
+function isProbeSuccessful(value) {
+  if (value == null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') {
+    if (value.error) return false;
+    if (value.success === false) return false;
+    if (Object.prototype.hasOwnProperty.call(value, 'result') && !value.result) {
+      return Array.isArray(value.pods) ? value.pods.length > 0 : false;
+    }
+    return Object.keys(value).length > 0;
+  }
+  return Boolean(value);
+}
+
+function getInventoryFileCount() {
+  try {
+    const inventoryPath = path.join(process.cwd(), 'conectores_drekee.txt');
+    const text = fs.readFileSync(inventoryPath, 'utf8');
+    return [...text.matchAll(/^\s*(\d+)\.\s+/gm)].length;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function probeConnector(key, options = {}) {
+  const query = options.query || getConnectorProbeQuery(key);
+  const userContext = options.userContext || { lat: -23.55, lon: -46.63, timezone: 'America/Sao_Paulo' };
+  try {
+    let data = null;
+    switch (key) {
+      case 'tavily': data = await searchTavily(query); break;
+      case 'wikipedia': data = await buscarWikipedia(query); break;
+      case 'arxiv': data = await buscarArxiv(query); break;
+      case 'scielo': data = await buscarSciELO(query); break;
+      case 'newton': data = await calcular(query); break;
+      case 'spacex': data = await buscarSpaceX(); break;
+      case 'ibge': data = await buscarIBGE(query); break;
+      case 'open-meteo': data = await buscarOpenMeteo(userContext.lat, userContext.lon); break;
+      case 'nasa': data = await searchNasaMedia(query); break;
+      case 'openlibrary': data = await buscarOpenLibrary(query); break;
+      case 'gbif': data = await buscarGBIF(query); break;
+      case 'usgs': data = await buscarUSGS(); break;
+      case 'brasilapi': data = await buscarBrasilAPI(query); break;
+      case 'camara': data = await buscarCamara(query); break;
+      case 'iss': data = await buscarISS(); break;
+      case 'sunrise': data = await buscarSunriseSunset(userContext.lat, userContext.lon); break;
+      case 'dictionary-en': data = await buscarDicionarioIngles(query); break;
+      case 'universities': data = await buscarUniversidades(query); break;
+      case 'poetry': data = await buscarPoesia(query); break;
+      case 'phet': data = detectPhetSimulation('Explique a Lei de Ohm com simulacao', '', ['phet']); break;
+      case 'pubmed': data = await buscarPubMed(query); break;
+      case 'wikidata': data = await buscarWikidata(query); break;
+      case 'rcsb': data = await buscarRCSB(query); break;
+      case 'antweb': data = await buscarAntWeb(query); break;
+      case 'periodictable': data = await buscarTabelaPeriodica(query); break;
+      case 'fishwatch': data = await buscarFishWatch(query); break;
+      case 'gutenberg': data = await buscarGutenberg(query); break;
+      case 'bible': data = await buscarBiblia(query); break;
+      case 'openaq': data = await buscarQualidadeAr(query); break;
+      case 'solarsystem': data = await buscarSistemaSolar(query); break;
+      case 'quotes': data = await buscarFrase(); break;
+      case 'dogapi': data = await buscarDog(); break;
+      case 'celestrak': data = await buscarGeneric('celestrak', query); break;
+      case 'codata': data = await buscarCODATA(query); break;
+      case 'quotes-free': data = await buscarGeneric('quotes-free', query); break;
+      case 'openfoodfacts': data = await buscarGeneric('openfoodfacts', query); break;
+      case 'picsum': data = await buscarGeneric('picsum', query); break;
+      case 'esa': data = await buscarGeneric('esa', query); break;
+      case 'stellarium': data = await buscarGeneric('stellarium', query); break;
+      case 'ligo': data = await buscarGeneric('ligo', query); break;
+      case 'noaa-space': data = await buscarGeneric('noaa-space', query); break;
+      case 'exoplanets': data = await buscarGeneric('exoplanets', query); break;
+      case 'mathjs': data = await buscarGeneric('mathjs', query); break;
+      case 'wolfram': data = await buscarWolframAlpha(query); break;
+      case 'pubchem': data = await buscarGeneric('pubchem', query); break;
+      case 'ensembl': data = await buscarGeneric('ensembl', query); break;
+      case 'mygene': data = await buscarGeneric('mygene', query); break;
+      case 'uniprot': data = await buscarGeneric('uniprot', query); break;
+      case 'reactome': data = await buscarGeneric('reactome', query); break;
+      case 'string-db': data = await buscarGeneric('string-db', query); break;
+      case 'openfda': data = await buscarGeneric('openfda', query); break;
+      case 'covid-jhu': data = await buscarGeneric('covid-jhu', query); break;
+      case 'noaa-climate': data = await buscarGeneric('noaa-climate', query); break;
+      case 'worldbank-climate': data = await buscarGeneric('worldbank-climate', query); break;
+      case 'usgs-water': data = await buscarGeneric('usgs-water', query); break;
+      case 'metmuseum': data = await buscarGeneric('metmuseum', query); break;
+      case 'sketchfab': data = await buscarGeneric('sketchfab', query); break;
+      case 'osf': data = await buscarGeneric('osf', query); break;
+      case 'timelapse': data = await buscarTimelapse(query); break;
+      case 'spacedevs': data = await buscarLancamentos(); break;
+      case 'openuniverse': data = await buscarOpenUniverse(query); break;
+      case 'horizons': data = await buscarNasaHorizons(query, userContext); break;
+      case 'sdo': data = await buscarSDO(); break;
+      case 'kepler': data = await buscarKeplerTess(query); break;
+      case 'numberempire': data = await buscarNumberEmpire(query); break;
+      case 'pubchem-bio': data = await buscarPubChemBio(query); break;
+      case 'omim': data = await buscarOMIM(query); break;
+      case 'clinvar': data = await buscarClinVar(query); break;
+      case 'cosmic': data = await buscarCosmic(query); break;
+      case 'sentinel': data = await buscarSentinel(query); break;
+      case 'firms': data = await buscarFirms(query); break;
+      case 'edx': data = await buscarCoursePage('https://www.edx.org/search?q=', query); break;
+      case 'mit-ocw': data = await buscarCoursePage('https://ocw.mit.edu/search/?q=', query); break;
+      case 'mec-ejovem': data = await buscarMecEJovem(query); break;
+      case 'educ4share': data = await buscarEduc4Share(query); break;
+      case 'modis': data = await buscarModis(query); break;
+      case 'tcu': data = await buscarTCU(query); break;
+      case 'transparencia': data = await buscarTransparencia(query); break;
+      case 'datasus': data = await buscarDataSUS(query); break;
+      case 'seade': data = await buscarSEADE(query); break;
+      case 'getty': data = await buscarGetty(query); break;
+      case 'libras': data = await buscarLibras(query); break;
+      default:
+        return { key, ok: false, status: 'present_only', message: 'Conector listado, mas sem rotina de teste dedicada no admin.', autoDetected: AUTO_DETECTED_CONNECTORS.has(key), requiresKeys: CONNECTOR_REQUIRES_KEYS[key] || [] };
+    }
+
+    if (data?.error === 'missing_api_key') {
+      return { key, ok: false, status: 'missing_key', message: `Chave ausente: ${data.key}`, summary: summarizeProbeData(data), autoDetected: AUTO_DETECTED_CONNECTORS.has(key), requiresKeys: CONNECTOR_REQUIRES_KEYS[key] || [] };
+    }
+
+    const ok = isProbeSuccessful(data);
+    return {
+      key,
+      ok,
+      status: ok ? 'active' : 'error',
+      message: ok ? 'Conector respondeu com dados' : 'Conector não retornou dados utilizáveis',
+      summary: summarizeProbeData(data),
+      autoDetected: AUTO_DETECTED_CONNECTORS.has(key),
+      requiresKeys: CONNECTOR_REQUIRES_KEYS[key] || [],
+    };
+  } catch (error) {
+    return { key, ok: false, status: 'error', message: error.message || 'Falha no teste do conector', autoDetected: AUTO_DETECTED_CONNECTORS.has(key), requiresKeys: CONNECTOR_REQUIRES_KEYS[key] || [] };
+  }
+}
+
+async function testGroqKey(envName) {
+  const key = process.env[envName];
+  if (!key) return { env: envName, status: 'missing', ok: false, message: 'Chave não cadastrada' };
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1, temperature: 0 }),
+      signal: AbortSignal.timeout(12000),
+    });
+    const json = await res.json();
+    if (!res.ok) return { env: envName, status: 'configured_error', ok: false, message: `Erro ${res.status}: ${JSON.stringify(json).slice(0, 180)}` };
+    return { env: envName, status: 'active', ok: true, message: 'Chave válida e respondendo' };
+  } catch (error) {
+    return { env: envName, status: 'configured_error', ok: false, message: error.message };
+  }
+}
+
+async function testGeminiKey(envName) {
+  const key = process.env[envName];
+  if (!key) return { env: envName, status: 'missing', ok: false, message: 'Chave não cadastrada' };
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: 'ping' }] }], generationConfig: { temperature: 0, maxOutputTokens: 8 } }),
+      signal: AbortSignal.timeout(12000),
+    });
+    const json = await res.json();
+    if (!res.ok) return { env: envName, status: 'configured_error', ok: false, message: `Erro ${res.status}: ${JSON.stringify(json).slice(0, 180)}` };
+    return { env: envName, status: 'active', ok: true, message: 'Chave válida e respondendo' };
+  } catch (error) {
+    return { env: envName, status: 'configured_error', ok: false, message: error.message };
+  }
+}
+
+async function testTavilyKey() {
+  const key = process.env.TAVILY_API_KEY;
+  if (!key) return { env: 'TAVILY_API_KEY', status: 'missing', ok: false, message: 'Chave não cadastrada' };
+  try {
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: key, query: 'fotossintese', max_results: 1, include_answer: false }),
+      signal: AbortSignal.timeout(12000),
+    });
+    const json = await res.json();
+    if (!res.ok) return { env: 'TAVILY_API_KEY', status: 'configured_error', ok: false, message: `Erro ${res.status}: ${JSON.stringify(json).slice(0, 180)}` };
+    return { env: 'TAVILY_API_KEY', status: 'active', ok: true, message: 'Chave válida e respondendo' };
+  } catch (error) {
+    return { env: 'TAVILY_API_KEY', status: 'configured_error', ok: false, message: error.message };
+  }
+}
+
+async function testOptionalKey(envName, tester) {
+  if (!process.env[envName]) return { env: envName, status: 'missing', ok: false, message: 'Chave não cadastrada' };
+  try {
+    const data = await tester();
+    if (data && !data.error) return { env: envName, status: 'active', ok: true, message: 'Chave válida e respondendo' };
+    return { env: envName, status: 'configured_error', ok: false, message: summarizeProbeData(data) };
+  } catch (error) {
+    return { env: envName, status: 'configured_error', ok: false, message: error.message };
+  }
+}
+
+async function getAdminDiagnostics() {
+  const supportedConnectors = [...SUPPORTED_CONNECTORS];
+  return {
+    generatedAt: new Date().toISOString(),
+    runtime: {
+      node: process.version,
+      platform: process.platform,
+      uptimeSeconds: Math.round(process.uptime()),
+      cwd: process.cwd(),
+    },
+    catalog: {
+      supportedConnectorCount: supportedConnectors.length,
+      inventoryFileCount: getInventoryFileCount(),
+      autoDetectedConnectorCount: AUTO_DETECTED_CONNECTORS.size,
+    },
+    keys: await Promise.all([
+      testGroqKey('GROQ_API_KEY_1'),
+      testGroqKey('GROQ_API_KEY_2'),
+      testGeminiKey('GEMINI_API_KEY'),
+      testGeminiKey('GEMINI_API_KEY_2'),
+      testTavilyKey(),
+      testOptionalKey('OMIM_API_KEY', () => buscarOMIM('BRCA1')),
+      testOptionalKey('WOLFRAM_APP_ID', () => buscarWolframAlpha('2+2')),
+    ]),
+    connectors: supportedConnectors.map(key => ({
+      key,
+      autoDetected: AUTO_DETECTED_CONNECTORS.has(key),
+      requiresKeys: CONNECTOR_REQUIRES_KEYS[key] || [],
+      status: 'untested',
+    })),
+  };
+}
+
 // ============ MAIN HANDLER ============
 async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -4287,4 +4849,7 @@ async function handler(req, res) {
   }
 }
 
+handler.getAdminDiagnostics = getAdminDiagnostics;
+handler.probeConnector = probeConnector;
+handler.supportedConnectors = [...SUPPORTED_CONNECTORS];
 module.exports = handler;
