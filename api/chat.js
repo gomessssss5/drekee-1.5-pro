@@ -1535,6 +1535,52 @@ async function buscarKeplerTess(query) {
   }
 }
 
+async function buscarExoplanetas(query) {
+  const normalized = String(query || '').trim() || 'Kepler';
+  const sql = `
+    select top 5
+      pl_name, hostname, discoverymethod, disc_year, sy_dist, pl_bmasse
+    from pscomppars
+    where lower(pl_name) like lower('%${normalized}%')
+       or lower(hostname) like lower('%${normalized}%')
+    order by disc_year desc
+  `.replace(/\s+/g, ' ').trim();
+  const url = `https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=${encodeURIComponent(sql)}&format=json`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { 'Accept': 'application/json', 'User-Agent': 'DrekeeAI/1.6' },
+      signal: AbortSignal.timeout(12000),
+    });
+    const contentType = res.headers.get('content-type') || '';
+    const text = await res.text();
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${text.slice(0, 140)}`);
+    }
+
+    if (!contentType.includes('json')) {
+      throw new Error(`unexpected_content_type: ${contentType || 'unknown'} :: ${text.slice(0, 140)}`);
+    }
+
+    const data = JSON.parse(text);
+    if (!Array.isArray(data)) return [];
+    return data;
+  } catch (err) {
+    console.error('Exoplanets error:', err);
+    const fallback = await fetchHtmlSummary(`https://exoplanetarchive.ipac.caltech.edu/cgi-bin/DisplayOverview/nph-DisplayOverview?objname=${encodeURIComponent(normalized)}&type=PLANET`);
+    return fallback ? [{
+      pl_name: fallback.title || normalized,
+      hostname: normalized,
+      discoverymethod: 'N/A',
+      disc_year: 'N/A',
+      sy_dist: null,
+      pl_bmasse: null,
+      summary: fallback.description || 'Pagina institucional do NASA Exoplanet Archive disponivel.'
+    }] : [];
+  }
+}
+
 async function buscarNumberEmpire(query) {
   const result = await buscarGeneric('mathjs', query);
   return {
@@ -3201,8 +3247,8 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('exoplanets')) {
     logs.push(`🪐 Buscando exoplanetas (NASA): "${queryParaBuscar}"`);
-    const exoData = await buscarGeneric('exoplanets', queryParaBuscar);
-    if (exoData) {
+    const exoData = await buscarExoplanetas(queryParaBuscar);
+    if (exoData && exoData.length > 0) {
       context += `\n\n🪐 Exoplanetas (NASA Archive):\nDados de planetas fora do sistema solar integrados.\n`;
       addSource('EXO-1', 'NASA Exoplanets', 'exoplanets', 'Arquivo oficial de exoplanetas.', 'https://exoplanetarchive.ipac.caltech.edu/');
       logs.push('✅ Dados de exoplanetas coletados');
@@ -4753,7 +4799,7 @@ async function probeConnector(key, options = {}) {
       case 'stellarium': data = await buscarGeneric('stellarium', query); break;
       case 'ligo': data = await buscarLigoRobusto(query); break;
       case 'noaa-space': data = await buscarGeneric('noaa-space', query); break;
-      case 'exoplanets': data = await buscarGeneric('exoplanets', query); break;
+      case 'exoplanets': data = await buscarExoplanetas(query); break;
       case 'mathjs': data = await buscarGeneric('mathjs', query); break;
       case 'wolfram': data = await buscarWolframAlpha(query); break;
       case 'pubchem': data = await buscarGeneric('pubchem', query); break;
