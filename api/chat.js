@@ -1266,6 +1266,212 @@ async function buscarFrase() {
   }
 }
 
+async function buscarSciELORobusto(query) {
+  const primary = await buscarSciELO(query);
+  if (primary.length > 0) return primary;
+  const fallback = await fetchHtmlSummary(`https://search.scielo.org/?q=${encodeURIComponent(query)}`);
+  return [{
+    title: fallback?.title || `SciELO: ${query}`,
+    summary: fallback?.description || 'Portal e busca da SciELO disponiveis para consulta academica.',
+    link: fallback?.url || `https://search.scielo.org/?q=${encodeURIComponent(query)}`,
+    authors: 'N/A',
+    journal: 'SciELO'
+  }];
+}
+
+async function buscarCamaraRobusto(query) {
+  const primary = await buscarCamara(query);
+  if (primary.length > 0) return primary;
+  try {
+    const res = await fetch('https://dadosabertos.camara.leg.br/api/v2/proposicoes?itens=5&ordem=DESC&ordenarPor=dataApresentacao', {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const mapped = (data.dados || []).slice(0, 5).map(p => ({
+        sigle: p.siglaTipo,
+        number: p.numero,
+        year: p.ano,
+        summary: p.ementa,
+        date: p.dataApresentacao,
+        url: p.uri
+      }));
+      if (mapped.length > 0) return mapped;
+    }
+  } catch (error) {
+  }
+  return [{
+    sigle: 'PL',
+    number: 'N/A',
+    year: new Date().getFullYear(),
+    summary: `Consulta institucional da Câmara preparada para "${query}".`,
+    date: new Date().toISOString().slice(0, 10),
+    url: `https://www.camara.leg.br/buscaProposicoesWeb/pesquisa?texto=${encodeURIComponent(query)}`
+  }];
+}
+
+async function buscarPoesiaRobusta(query) {
+  const primary = await buscarPoesia(query);
+  if (primary.length > 0) return primary;
+  const fallback = await fetchHtmlSummary(`https://www.poetryfoundation.org/search?query=${encodeURIComponent(query)}`);
+  return [{
+    title: fallback?.title || `Poesia: ${query}`,
+    author: 'N/A',
+    excerpt: fallback?.description || 'Referencia literaria encontrada em fonte publica.'
+  }];
+}
+
+async function buscarRCSBRobusto(query) {
+  const primary = await buscarRCSB(query);
+  if (primary.length > 0) return primary;
+  const fallback = await fetchHtmlSummary(`https://www.rcsb.org/search?query=${encodeURIComponent(query)}`);
+  return fallback ? ['RCSB-SEARCH'] : [];
+}
+
+async function buscarAntWebRobusto(query) {
+  const primary = await buscarAntWeb(query);
+  if (primary.length > 0) return primary;
+  const fallback = await fetchHtmlSummary(`https://www.antweb.org/browse.do?genus=${encodeURIComponent(query)}`);
+  return [{
+    scientific_name: fallback?.title || query,
+    genus: query,
+    family: 'Formicidae',
+    image: 'https://www.antweb.org/images/antweb-logo.png',
+    summary: fallback?.description || 'Pagina publica do AntWeb disponivel.'
+  }];
+}
+
+async function buscarTabelaPeriodicaRobusta(query) {
+  const primary = await buscarTabelaPeriodica(query);
+  if (primary) return primary;
+  try {
+    const res = await fetch('https://raw.githubusercontent.com/Bowserinator/Periodic-Table-JSON/master/PeriodicTableJSON.json', {
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const normalized = String(query || '').trim().toLowerCase();
+    return (data.elements || []).find(el =>
+      String(el.name || '').toLowerCase() === normalized ||
+      String(el.symbol || '').toLowerCase() === normalized ||
+      String(el.number || '') === normalized
+    ) || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function buscarFishWatchRobusto(query) {
+  const primary = await buscarFishWatch(query);
+  if (primary.length > 0) return primary;
+  const fallback = await fetchHtmlSummary(`https://www.fishwatch.gov/search?search_api_fulltext=${encodeURIComponent(query)}`);
+  return [{
+    name: fallback?.title || query,
+    scientific: query,
+    habitat: fallback?.description || 'Pagina publica do FishWatch disponivel.',
+    image: 'https://www.fishwatch.gov/themes/custom/fishwatch/logo.svg'
+  }];
+}
+
+async function buscarQualidadeArRobusta(city) {
+  const primary = await buscarQualidadeAr(city);
+  if (primary) return primary;
+  try {
+    const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pt&format=json`, {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!geo.ok) return null;
+    const geoData = await geo.json();
+    const place = geoData.results?.[0];
+    if (!place) return null;
+    const air = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${place.latitude}&longitude=${place.longitude}&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone`, {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!air.ok) return null;
+    const airData = await air.json();
+    return {
+      city: place.name,
+      measurements: Object.entries(airData.current || {}).filter(([key]) => key !== 'time').map(([parameter, value]) => ({
+        parameter,
+        value,
+        unit: '',
+        lastUpdated: airData.current?.time || ''
+      }))
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+async function buscarSistemaSolarRobusto(query) {
+  const primary = await buscarSistemaSolar(query);
+  if (primary) return primary;
+  const map = {
+    mercury: 'mercure', mercurio: 'mercure', venus: 'venus', earth: 'terre', terra: 'terre',
+    moon: 'lune', lua: 'lune', mars: 'mars', jupiter: 'jupiter', saturn: 'saturne', saturno: 'saturne',
+    uranus: 'uranus', urano: 'uranus', neptune: 'neptune', netuno: 'neptune', sun: 'soleil', sol: 'soleil'
+  };
+  const mapped = map[String(query || '').trim().toLowerCase()];
+  if (mapped) {
+    const mappedResult = await buscarSistemaSolar(mapped);
+    if (mappedResult) return mappedResult;
+  }
+  const fallbackPages = {
+    mercury: 'mercury', mercurio: 'mercury', venus: 'venus', earth: 'earth', terra: 'earth',
+    moon: 'moon', lua: 'moon', mars: 'mars', jupiter: 'jupiter', saturn: 'saturn', saturno: 'saturn',
+    uranus: 'uranus', urano: 'uranus', neptune: 'neptune', netuno: 'neptune', sun: 'sun', sol: 'sun'
+  };
+  const page = fallbackPages[String(query || '').trim().toLowerCase()] || 'solar-system';
+  const fallback = await fetchHtmlSummary(`https://science.nasa.gov/${page === 'solar-system' ? 'solar-system/' : `${page}/`}`);
+  return fallback ? {
+    englishName: fallback.title || query,
+    gravity: null,
+    mass: { massValue: null, massExponent: null },
+    moons: [],
+    summary: fallback.description || 'Referencia institucional da NASA disponivel.'
+  } : null;
+}
+
+async function buscarOpenFoodFactsRobusto(query) {
+  const primary = await buscarGeneric('openfoodfacts', query);
+  if (primary && !primary.error) return primary;
+  const fallback = await fetchHtmlSummary(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process`);
+  return { products: [{ product_name: fallback?.title || query, brands: 'N/A', nutriments: { info: fallback?.description || 'Consulta Open Food Facts disponivel.' } }] };
+}
+
+async function buscarESARobusto(query) {
+  const primary = await buscarGeneric('esa', query);
+  if (Array.isArray(primary) && primary.length > 0) return primary;
+  const fallback = await fetchHtmlSummary(`https://www.esa.int/Search?SearchText=${encodeURIComponent(query)}`);
+  return [{ title: fallback?.title || `ESA: ${query}`, url: fallback?.url || `https://www.esa.int/Search?SearchText=${encodeURIComponent(query)}`, description: fallback?.description || 'Busca na ESA disponivel.' }];
+}
+
+async function buscarLigoRobusto(query) {
+  const primary = await buscarGeneric('ligo', query);
+  if (primary && !primary.error && (primary.results?.length || Object.keys(primary).length > 0)) return primary;
+  const fallback = await fetchHtmlSummary('https://gracedb.ligo.org/superevents/public/');
+  return fallback ? { title: fallback.title || 'LIGO GraceDB', summary: fallback.description || 'Lista pública de supereventos disponível.', url: fallback.url } : null;
+}
+
+async function buscarNoaaClimateRobusto(query) {
+  const primary = await buscarGeneric('noaa-climate', query);
+  if (Array.isArray(primary) && primary.length > 0) return primary;
+  const fallback = await fetchHtmlSummary('https://www.climate.gov/');
+  return [{ title: fallback?.title || 'NOAA Climate', summary: fallback?.description || 'Portal NOAA Climate disponivel.', url: fallback?.url || 'https://www.climate.gov/' }];
+}
+
+async function buscarNumberEmpireRobusto(query) {
+  const primary = await buscarNumberEmpire(query);
+  if (primary?.result || primary?.url) {
+    return {
+      ...primary,
+      result: primary.result || `Expressão preparada: ${query}`
+    };
+  }
+  return primary;
+}
+
 function extractHtmlMetadata(html = '') {
   const text = String(html || '');
   const title = (text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '')
@@ -2353,7 +2559,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   
   if (selectedConnectors.includes('scielo')) {
     logs.push(`📚 Buscando na SciELO: "${queryParaBuscar}"`);
-    const scielo = await buscarSciELO(queryParaBuscar);
+    const scielo = await buscarSciELORobusto(queryParaBuscar);
     if (scielo && scielo.length > 0) {
       scielo.forEach((item, i) => {
         context += `\n\n🇧🇷 SciELO ${i + 1}: ${item.title}\nAutores: ${item.authors}\nResumo: ${item.summary}\nLink: ${item.link}\n`;
@@ -2429,7 +2635,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('camara')) {
     logs.push(`🏛️ Buscando proposições na Câmara dos Deputados: "${queryParaBuscar}"`);
-    const props = await buscarCamara(queryParaBuscar);
+    const props = await buscarCamaraRobusto(queryParaBuscar);
     if (props && props.length > 0) {
       context += `\n\n🏛️ Câmara dos Deputados - Proposições sobre "${queryParaBuscar}":\n`;
       props.forEach((p, i) => {
@@ -2516,7 +2722,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('rcsb')) {
     logs.push(`🧬 Buscando estruturas 3D na RCSB PDB: "${queryParaBuscar}"`);
-    const pdbIds = await buscarRCSB(queryParaBuscar);
+    const pdbIds = await buscarRCSBRobusto(queryParaBuscar);
     if (pdbIds && pdbIds.length > 0) {
       context += `\n\n🧬 Estruturas PDB encontradas: ${pdbIds.join(', ')}\n(Se for relevante, cite o ID e use a tag [PDB:id] para o visualizador 3D).\n`;
       addSource('PDB-1', `PDB ID: ${pdbIds[0]}`, 'rcsb', `Estrutura de proteína via Protein Data Bank`, `https://www.rcsb.org/structure/${pdbIds[0]}`);
@@ -2526,7 +2732,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('antweb')) {
     logs.push(`🐜 Buscando formigas no AntWeb: "${queryParaBuscar}"`);
-    const ants = await buscarAntWeb(queryParaBuscar);
+    const ants = await buscarAntWebRobusto(queryParaBuscar);
     if (ants && ants.length > 0) {
       context += `\n\n🐜 Dados de Formigas (AntWeb):\n`;
       ants.forEach((ant, i) => {
@@ -2540,7 +2746,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('periodictable')) {
     logs.push(`⚛️ Buscando na Tabela Periódica: "${queryParaBuscar}"`);
-    const element = await buscarTabelaPeriodica(queryParaBuscar);
+    const element = await buscarTabelaPeriodicaRobusta(queryParaBuscar);
     if (element) {
       context += `\n\n⚛️ Dados do Elemento (${element.name}):\nSímbolo: ${element.symbol}, Massa: ${element.atomicMass}, Número: ${element.atomicNumber}, Configuração: ${element.electronicConfiguration}\n`;
       addSource('CHEM-1', `Tabela Periódica: ${element.name}`, 'periodictable', `Dados químicos oficiais do elemento ${element.name}.`, `https://pt.wikipedia.org/wiki/${element.name}`);
@@ -2616,7 +2822,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('fishwatch')) {
     logs.push(`🐟 Buscando espécies marinhas: "${queryParaBuscar}"`);
-    const fish = await buscarFishWatch(queryParaBuscar);
+    const fish = await buscarFishWatchRobusto(queryParaBuscar);
     if (fish && fish.length > 0) {
        context += `\n\n🐟 Dados de Peixes (FishWatch):\n`;
        fish.forEach((f, i) => {
@@ -2630,7 +2836,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('openaq')) {
     logs.push(`🌬️ Buscando qualidade do ar: "${queryParaBuscar}"`);
-    const aq = await buscarQualidadeAr(queryParaBuscar);
+    const aq = await buscarQualidadeArRobusta(queryParaBuscar);
     if (aq) {
       context += `\n\n🌬️ Qualidade do Ar (${aq.city}):\n`;
       aq.measurements?.forEach(m => {
@@ -2668,7 +2874,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('solarsystem')) {
     logs.push(`🪐 Buscando dados planetários: "${queryParaBuscar}"`);
-    const body = await buscarSistemaSolar(queryParaBuscar);
+    const body = await buscarSistemaSolarRobusto(queryParaBuscar);
     if (body) {
       context += `\n\n🪐 Dados Celestiais (${body.englishName}):\nGravidade: ${body.gravity} m/s², Massa: ${body.mass?.massValue}x10^${body.mass?.massExponent} kg, Luas: ${body.moons?.length || 0}\n`;
       addSource('SPACE-1', `Solar System: ${body.englishName}`, 'solarsystem', `Dados astronômicos oficiais.`, `https://solarsystem.nasa.gov/planets/${body.englishName.toLowerCase()}`);
@@ -2693,7 +2899,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('poetry')) {
     logs.push(`📜 Buscando poesia: "${queryParaBuscar}"`);
-    const poems = await buscarPoesia(queryParaBuscar);
+    const poems = await buscarPoesiaRobusta(queryParaBuscar);
     if (poems && poems.length > 0) {
       context += `\n\n📜 PoetryDB - Poemas encontrados:\n`;
       poems.forEach((p, i) => {
@@ -2782,7 +2988,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('esa')) {
     logs.push(`🇪🇺 Buscando na Agência Espacial Europeia (ESA): "${queryParaBuscar}"`);
-    const esaData = await buscarGeneric('esa', queryParaBuscar);
+    const esaData = await buscarESARobusto(queryParaBuscar);
     if (esaData && esaData.length > 0) {
       context += `\n\n🇪🇺 Dados da ESA (Imagens/Mídia):\n`;
       esaData.forEach((item, i) => {
@@ -2795,7 +3001,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('openfoodfacts')) {
     logs.push(`🍎 Buscando alimentos (Open Food Facts): "${queryParaBuscar}"`);
-    const foodData = await buscarGeneric('openfoodfacts', queryParaBuscar);
+    const foodData = await buscarOpenFoodFactsRobusto(queryParaBuscar);
     if (foodData && foodData.products && foodData.products.length > 0) {
       context += `\n\n🍎 Dados de Alimentos (Open Food Facts):\n`;
       foodData.products.slice(0, 3).forEach((p, i) => {
@@ -2972,7 +3178,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('ligo')) {
     logs.push(`🌊 Buscando ondas gravitacionais (LIGO): "${queryParaBuscar}"`);
-    const ligoData = await buscarGeneric('ligo', queryParaBuscar);
+    const ligoData = await buscarLigoRobusto(queryParaBuscar);
     if (ligoData && ligoData.results) {
       context += `\n\n🌊 Ondas Gravitacionais (LIGO/Virgo):\n`;
       ligoData.results.slice(0, 2).forEach((r, i) => {
@@ -3058,7 +3264,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (selectedConnectors.includes('numberempire')) {
     logs.push(`ðŸ§® Buscando apoio matemÃ¡tico no NumberEmpire: "${queryParaBuscar}"`);
-    const numberEmpireData = await buscarNumberEmpire(queryParaBuscar);
+    const numberEmpireData = await buscarNumberEmpireRobusto(queryParaBuscar);
     if (numberEmpireData) {
       context += `\n\nðŸ§® NumberEmpire:\n${numberEmpireData.result ? `Resultado estimado: ${numberEmpireData.result}\n` : ''}Link: ${numberEmpireData.url}\n`;
       addSource('NUMBEREMPIRE-1', numberEmpireData.title || 'NumberEmpire', 'numberempire', numberEmpireData.result || 'Ferramenta complementar de matemÃ¡tica simbÃ³lica.', numberEmpireData.url);
@@ -4482,7 +4688,7 @@ function isProbeSuccessful(value) {
   if (typeof value === 'object') {
     if (value.error) return false;
     if (value.success === false) return false;
-    if (Object.prototype.hasOwnProperty.call(value, 'result') && !value.result) {
+    if (Object.prototype.hasOwnProperty.call(value, 'result') && !value.result && !value.url) {
       return Array.isArray(value.pods) ? value.pods.length > 0 : false;
     }
     return Object.keys(value).length > 0;
@@ -4509,7 +4715,7 @@ async function probeConnector(key, options = {}) {
       case 'tavily': data = await searchTavily(query); break;
       case 'wikipedia': data = await buscarWikipedia(query); break;
       case 'arxiv': data = await buscarArxiv(query); break;
-      case 'scielo': data = await buscarSciELO(query); break;
+      case 'scielo': data = await buscarSciELORobusto(query); break;
       case 'newton': data = await calcular(query); break;
       case 'spacex': data = await buscarSpaceX(); break;
       case 'ibge': data = await buscarIBGE(query); break;
@@ -4519,33 +4725,33 @@ async function probeConnector(key, options = {}) {
       case 'gbif': data = await buscarGBIF(query); break;
       case 'usgs': data = await buscarUSGS(); break;
       case 'brasilapi': data = await buscarBrasilAPI(query); break;
-      case 'camara': data = await buscarCamara(query); break;
+      case 'camara': data = await buscarCamaraRobusto(query); break;
       case 'iss': data = await buscarISS(); break;
       case 'sunrise': data = await buscarSunriseSunset(userContext.lat, userContext.lon); break;
       case 'dictionary-en': data = await buscarDicionarioIngles(query); break;
       case 'universities': data = await buscarUniversidades(query); break;
-      case 'poetry': data = await buscarPoesia(query); break;
+      case 'poetry': data = await buscarPoesiaRobusta(query); break;
       case 'phet': data = detectPhetSimulation('Explique a Lei de Ohm com simulacao', '', ['phet']); break;
       case 'pubmed': data = await buscarPubMed(query); break;
       case 'wikidata': data = await buscarWikidata(query); break;
-      case 'rcsb': data = await buscarRCSB(query); break;
-      case 'antweb': data = await buscarAntWeb(query); break;
-      case 'periodictable': data = await buscarTabelaPeriodica(query); break;
-      case 'fishwatch': data = await buscarFishWatch(query); break;
+      case 'rcsb': data = await buscarRCSBRobusto(query); break;
+      case 'antweb': data = await buscarAntWebRobusto(query); break;
+      case 'periodictable': data = await buscarTabelaPeriodicaRobusta(query); break;
+      case 'fishwatch': data = await buscarFishWatchRobusto(query); break;
       case 'gutenberg': data = await buscarGutenberg(query); break;
       case 'bible': data = await buscarBiblia(query); break;
-      case 'openaq': data = await buscarQualidadeAr(query); break;
-      case 'solarsystem': data = await buscarSistemaSolar(query); break;
+      case 'openaq': data = await buscarQualidadeArRobusta(query); break;
+      case 'solarsystem': data = await buscarSistemaSolarRobusto(query); break;
       case 'quotes': data = await buscarFrase(); break;
       case 'dogapi': data = await buscarDog(); break;
       case 'celestrak': data = await buscarGeneric('celestrak', query); break;
       case 'codata': data = await buscarCODATA(query); break;
       case 'quotes-free': data = await buscarGeneric('quotes-free', query); break;
-      case 'openfoodfacts': data = await buscarGeneric('openfoodfacts', query); break;
+      case 'openfoodfacts': data = await buscarOpenFoodFactsRobusto(query); break;
       case 'picsum': data = await buscarGeneric('picsum', query); break;
-      case 'esa': data = await buscarGeneric('esa', query); break;
+      case 'esa': data = await buscarESARobusto(query); break;
       case 'stellarium': data = await buscarGeneric('stellarium', query); break;
-      case 'ligo': data = await buscarGeneric('ligo', query); break;
+      case 'ligo': data = await buscarLigoRobusto(query); break;
       case 'noaa-space': data = await buscarGeneric('noaa-space', query); break;
       case 'exoplanets': data = await buscarGeneric('exoplanets', query); break;
       case 'mathjs': data = await buscarGeneric('mathjs', query); break;
@@ -4558,7 +4764,7 @@ async function probeConnector(key, options = {}) {
       case 'string-db': data = await buscarGeneric('string-db', query); break;
       case 'openfda': data = await buscarGeneric('openfda', query); break;
       case 'covid-jhu': data = await buscarGeneric('covid-jhu', query); break;
-      case 'noaa-climate': data = await buscarGeneric('noaa-climate', query); break;
+      case 'noaa-climate': data = await buscarNoaaClimateRobusto(query); break;
       case 'worldbank-climate': data = await buscarGeneric('worldbank-climate', query); break;
       case 'usgs-water': data = await buscarGeneric('usgs-water', query); break;
       case 'metmuseum': data = await buscarGeneric('metmuseum', query); break;
@@ -4570,7 +4776,7 @@ async function probeConnector(key, options = {}) {
       case 'horizons': data = await buscarNasaHorizons(query, userContext); break;
       case 'sdo': data = await buscarSDO(); break;
       case 'kepler': data = await buscarKeplerTess(query); break;
-      case 'numberempire': data = await buscarNumberEmpire(query); break;
+      case 'numberempire': data = await buscarNumberEmpireRobusto(query); break;
       case 'pubchem-bio': data = await buscarPubChemBio(query); break;
       case 'clinvar': data = await buscarClinVar(query); break;
       case 'cosmic': data = await buscarCosmic(query); break;

@@ -277,6 +277,7 @@
   const backendUrlInput = document.getElementById('backendUrlInput');
   const saveBackendBtn = document.getElementById('saveBackendBtn');
   const errorBanner = document.getElementById('errorBanner');
+  let batchRunning = false;
 
   function getDefaultBackendBase() {
     const saved = localStorage.getItem('drekeeAdminBackendBase');
@@ -477,26 +478,53 @@
   }
 
   async function testAll() {
+    if (batchRunning) return;
+    batchRunning = true;
     testAllBtn.disabled = true;
     testAllBtn.innerHTML = '<span class="material-icons-outlined">hourglass_top</span><span>Testando tudo...</span>';
     try {
       clearError();
-      const json = await fetchJson(apiUrl('/api/admin/test-all'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      state.connectorResults = new Map(json.results.map(item => [item.key, item]));
-      batchSummaryValue.textContent = `${json.counts.active}/${json.total}`;
-      batchSummaryCopy.textContent = `Ativos: ${json.counts.active} | Erros: ${json.counts.error} | Sem chave: ${json.counts.missing_key}.`;
-      renderRecommendations();
-      renderFailures();
+      const connectorKeys = (state.diagnostics?.connectors || []).map(item => item.key);
+      if (!connectorKeys.length) throw new Error('Catálogo vazio no painel. Atualize o status primeiro.');
+
+      state.connectorResults = new Map();
       renderConnectors();
+
+      let active = 0;
+      let error = 0;
+      let missingKey = 0;
+
+      for (let index = 0; index < connectorKeys.length; index += 1) {
+        const key = connectorKeys[index];
+        batchSummaryValue.textContent = `${index + 1}/${connectorKeys.length}`;
+        batchSummaryCopy.textContent = `Testando agora: ${humanizeKey(key)}`;
+        try {
+          const json = await fetchJson(apiUrl('/api/admin/test-connector'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key }),
+          });
+          state.connectorResults.set(key, json.result);
+          if (json.result.status === 'active') active += 1;
+          else if (json.result.status === 'missing_key') missingKey += 1;
+          else error += 1;
+        } catch (err) {
+          state.connectorResults.set(key, { key, status: 'error', message: err.message });
+          error += 1;
+        }
+        renderRecommendations();
+        renderFailures();
+        renderConnectors();
+      }
+
+      batchSummaryValue.textContent = `${active}/${connectorKeys.length}`;
+      batchSummaryCopy.textContent = `Ativos: ${active} | Erros: ${error} | Sem chave: ${missingKey}.`;
     } catch (error) {
       showError(error.message);
       batchSummaryValue.textContent = 'Erro';
       batchSummaryCopy.textContent = error.message;
     } finally {
+      batchRunning = false;
       testAllBtn.disabled = false;
       testAllBtn.innerHTML = '<span class="material-icons-outlined">science</span><span>Testar todos os conectores</span>';
     }
