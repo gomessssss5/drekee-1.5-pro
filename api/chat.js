@@ -45,6 +45,9 @@ DIRETRIZES DE OURO:
     - No mapa mental, envie documento LaTeX completo com TikZ e bibliotecas necessárias já declaradas.
     - O mapa mental deve ter nó central e ramos distribuídos em múltiplas direções; não faça fluxograma vertical.
     - Prefira 3 a 5 ramos principais com subtópicos curtos, visual compacto e legível.
+    - Em cada nó, use texto curto, preferencialmente até 2 ou 3 palavras.
+    - Defina text width e align=center nos nós para evitar texto sobreposto.
+    - Use distâncias suficientes entre centro, ramos e subtópicos; não deixe rótulos colidirem.
     - Use rótulos em português e faça o gráfico ficar coerente com o tema da resposta.
     - Gere gráficos simples e robustos: prefira standalone + pgfplots, um único tikzpicture, no máximo 1 ou 2 \\addplot, sem bibliotecas exóticas.
     - Evite macros próprias, comandos avançados, tabelas \\pgfplotstable, arquivos externos, imagens externas e dependências além de pgfplots e xcolor.
@@ -2610,14 +2613,536 @@ function analyzeMindMapCode(code = '') {
   const hasLeftRightLayout = /\bleft=|\bright=|\babove left=|\babove right=|\bbelow left=|\bbelow right=|\bleft of\b|\bright of\b/i.test(normalizedCode);
   const onlyVerticalFlow = !hasLeftRightLayout && (/\babove=|\bbelow=|\babove of\b|\bbelow of\b/i.test(normalizedCode));
   const branchHints = (normalizedCode.match(/\b(?:left|right|north|south|east|west)\b/gi) || []).length;
+  const hasTextWidth = /\btext width\s*=/i.test(normalizedCode);
+  const hasCenteredText = /\balign\s*=\s*center\b/i.test(normalizedCode);
+  const nodeLabelMatches = [...normalizedCode.matchAll(/\\node(?:\[[^\]]*\])?\s*(?:\([^)]+\))?\s*\{([^{}]+)\}/g)];
+  const longLabels = nodeLabelMatches
+    .map(match => String(match[1] || '').replace(/\\+/g, ' ').replace(/\s+/g, ' ').trim())
+    .filter(label => label.length > 26);
   const issues = [];
 
   if (nodeCount < 5) issues.push('Mapa mental com poucos nos para sintetizar o tema.');
   if (drawCount < 4) issues.push('Mapa mental com conexoes insuficientes.');
   if (onlyVerticalFlow) issues.push('O codigo parece um fluxograma vertical, nao um mapa mental radial.');
   if (branchHints < 4) issues.push('O mapa mental nao distribui ramos em multiplas direcoes.');
+  if (longLabels.length >= 2) issues.push('Os rotulos dos nos estao longos demais e podem se sobrepor.');
+  if (!hasTextWidth) issues.push('Os nos nao definem text width, aumentando risco de sobreposicao.');
+  if (!hasCenteredText) issues.push('Os nos nao centralizam o texto, o que prejudica a leitura.');
 
   return { issues, nodeCount, drawCount };
+}
+
+function extractJsonObject(raw = '') {
+  const text = String(raw || '')
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '');
+
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return null;
+
+  try {
+    return JSON.parse(text.slice(start, end + 1));
+  } catch (error) {
+    return null;
+  }
+}
+
+function appendVisualSafetyNotice(response = '', notice = '') {
+  const trimmedResponse = String(response || '').trim();
+  const trimmedNotice = String(notice || '').trim();
+  if (!trimmedNotice) return trimmedResponse;
+  const safeNotice = `Nota sobre a visualizacao: ${trimmedNotice}`;
+  if (!trimmedResponse) return safeNotice;
+  if (trimmedResponse.includes(safeNotice)) return trimmedResponse;
+  return `${trimmedResponse}\n\n${safeNotice}`;
+}
+
+function escapeLatexLabel(value = '') {
+  return String(value || '')
+    .replace(/\\/g, '\\textbackslash ')
+    .replace(/([%&#_$])/g, '\\$1')
+    .replace(/\{/g, '\\{')
+    .replace(/\}/g, '\\}')
+    .replace(/\^/g, '\\textasciicircum ')
+    .replace(/~/g, '\\textasciitilde ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function detectCompositionIntent(userQuestion = '', response = '') {
+  const text = `${userQuestion}\n${stripLatexGraphBlocks(response)}`.toLowerCase();
+  return /\b(composi[cç][aã]o|distribui[cç][aã]o|participa[cç][aã]o|percentual|porcentagem|fatia|propor[cç][aã]o)\b/.test(text) &&
+    !detectTimeSeriesIntent(userQuestion, response);
+}
+
+async function buildStructuredGraphSpec(response = '', sources = [], userQuestion = '', logs = []) {
+  const sourceDigest = (sources || [])
+    .slice(0, 8)
+    .map(source => `${source.id}: ${source.label} - ${source.detail}`)
+    .join('\n');
+
+  const preferredType = detectTimeSeriesIntent(userQuestion, response)
+    ? 'line'
+    : (detectCompositionIntent(userQuestion, response) ? 'composition' : 'bar');
+
+  const prompt = `Você é um extrator de dados científicos para visualização confiável.
+
+Transforme a resposta abaixo em uma tabela estruturada para gráfico. Não invente nenhum valor.
+
+PERGUNTA:
+${userQuestion}
+
+RESPOSTA:
+${stripLatexGraphBlocks(response)}
+
+FONTES DISPONÍVEIS:
+${sourceDigest}
+
+RETORNE APENAS JSON VÁLIDO:
+{
+  "title": "titulo curto",
+  "chartType": "${preferredType}",
+  "xLabel": "rotulo tecnico do eixo x",
+  "yLabel": "rotulo tecnico do eixo y com unidade",
+  "unit": "unidade ou referencia tecnica",
+  "basis": "absolute|percentage|index|count|unknown",
+  "missingLabels": ["rotulos/anos sem dado"],
+  "series": [
+    {
+      "name": "nome da serie",
+      "points": [
+        { "label": "rotulo x", "value": 0, "status": "confirmed" }
+      ]
+    }
+  ]
+}
+
+REGRAS:
+1. Use APENAS valores explicitamente sustentados pela resposta/fonte.
+2. Se faltar dado, coloque o rótulo em "missingLabels" e NÃO invente 0.
+3. Em série temporal, preserve apenas anos/periodos realmente confirmados.
+4. Em composição, prefira percentuais apenas se estiverem explicitamente sustentados; caso contrário, use valores absolutos.
+5. Se não houver dados suficientes para um gráfico confiável, retorne {"title":"", "chartType":"${preferredType}", "xLabel":"", "yLabel":"", "unit":"", "basis":"unknown", "missingLabels":[], "series":[]}
+6. Não use markdown.
+`;
+
+  return extractJsonObject(await callGemini(prompt, logs));
+}
+
+function validateStructuredGraphSpec(spec = {}, context = {}) {
+  const issues = [];
+  const normalized = {
+    title: String(spec?.title || 'Grafico informativo').trim(),
+    chartType: String(spec?.chartType || '').trim().toLowerCase(),
+    xLabel: String(spec?.xLabel || '').trim(),
+    yLabel: String(spec?.yLabel || '').trim(),
+    unit: String(spec?.unit || '').trim(),
+    basis: String(spec?.basis || 'unknown').trim().toLowerCase(),
+    missingLabels: Array.isArray(spec?.missingLabels) ? spec.missingLabels.map(item => String(item || '').trim()).filter(Boolean) : [],
+    series: Array.isArray(spec?.series) ? spec.series.map(series => ({
+      name: String(series?.name || '').trim() || 'Serie',
+      points: Array.isArray(series?.points) ? series.points.map(point => ({
+        label: String(point?.label || '').trim(),
+        value: Number(point?.value),
+        status: String(point?.status || 'confirmed').trim().toLowerCase(),
+      })).filter(point => point.label && Number.isFinite(point.value)) : [],
+    })).filter(series => series.points.length > 0) : [],
+  };
+
+  if (!['line', 'bar', 'composition'].includes(normalized.chartType)) {
+    issues.push('Tipo de grafico estruturado invalido.');
+  }
+  if (!normalized.yLabel || normalized.yLabel.length < 3) {
+    issues.push('Rotulo tecnico do eixo Y ausente.');
+  }
+  if (normalized.series.length === 0) {
+    issues.push('Tabela estruturada sem series confirmadas.');
+  }
+
+  const allPoints = normalized.series.flatMap(series => series.points);
+  const labels = allPoints.map(point => point.label);
+  const values = allPoints.map(point => point.value);
+  const numericYearLabels = labels.filter(label => /^\d{4}(?:\/\d{2})?$/.test(label));
+  const allPercentLike = normalized.basis === 'percentage' || /%|porcent|percent/i.test(`${normalized.unit} ${normalized.yLabel}`);
+
+  if (allPoints.some(point => point.status !== 'confirmed')) {
+    issues.push('Tabela estruturada contem pontos nao confirmados.');
+  }
+  if (allPercentLike && values.some(value => Math.abs(value) > 100)) {
+    issues.push('Valor percentual fora de faixa plausivel.');
+  }
+  if (normalized.chartType === 'line' && allPoints.length < 2) {
+    issues.push('Grafico de linha precisa de ao menos dois pontos confirmados.');
+  }
+  if (normalized.chartType === 'composition' && normalized.series.length !== 1) {
+    issues.push('Grafico de composicao deve usar uma unica serie estruturada.');
+  }
+  if (normalized.chartType === 'composition') {
+    const total = values.reduce((sum, value) => sum + value, 0);
+    if (allPercentLike && (total < 95 || total > 105)) {
+      issues.push('Composicao percentual nao fecha aproximadamente 100%.');
+    }
+  }
+  if (findLongestRepeatedNumericRun(values) >= 3 && normalized.missingLabels.length === 0 && normalized.chartType === 'line') {
+    issues.push('Sequencia numerica improvavel sem aviso de dado ausente.');
+  }
+
+  const requestedYearRange = detectRequestedYearRange(context.userQuestion || '');
+  if (requestedYearRange && numericYearLabels.length > 0) {
+    const plottedYears = [...new Set(numericYearLabels.map(label => Number(label.slice(0, 4))))];
+    const expectedYears = requestedYearRange.endYear - requestedYearRange.startYear + 1;
+    if (plottedYears.length < expectedYears && normalized.missingLabels.length === 0) {
+      issues.push('Cobertura temporal incompleta sem declaracao de dados ausentes.');
+    }
+    if (plottedYears.length < expectedYears && normalized.chartType === 'line') {
+      issues.push('Serie temporal incompleta deve usar barras ou declarar claramente as lacunas.');
+    }
+  }
+
+  if (detectCategoryComparisonIntent(context.userQuestion, context.response) && normalized.chartType === 'line') {
+    issues.push('Comparacao discreta nao deve sair como linha.');
+  }
+  if (detectCompositionIntent(context.userQuestion, context.response) && normalized.chartType !== 'composition') {
+    issues.push('Pergunta de composicao deve usar template de composicao.');
+  }
+
+  return { issues, spec: normalized };
+}
+
+function renderStructuredGraphLatex(spec = {}) {
+  const title = escapeLatexLabel(spec.title || 'Grafico informativo');
+  const xLabel = escapeLatexLabel(spec.xLabel || 'Categoria');
+  const yLabel = escapeLatexLabel(spec.yLabel || 'Valor');
+  const chartType = spec.chartType;
+
+  if (chartType === 'line') {
+    const allLabels = [...new Set(spec.series.flatMap(series => series.points.map(point => point.label)))];
+    const yearLike = allLabels.every(label => /^\d{4}$/.test(label));
+    const xAxisSetup = yearLike
+      ? [
+          `xmin=${Math.min(...allLabels.map(Number)) - 0.5},`,
+          `xmax=${Math.max(...allLabels.map(Number)) + 0.5},`,
+          `xtick={${allLabels.join(', ')}},`,
+          'x tick label style={/pgf/number format/fixed, /pgf/number format/1000 sep={}},',
+        ].join('\n    ')
+      : [
+          `symbolic x coords={${allLabels.map(escapeLatexLabel).join(', ')}},`,
+          'xtick=data,',
+          'x tick label style={rotate=0, anchor=north},',
+        ].join('\n    ');
+
+    const seriesLatex = spec.series.map(series => {
+      const coords = series.points
+        .map(point => `(${yearLike ? point.label : escapeLatexLabel(point.label)}, ${point.value})`)
+        .join(' ');
+      return [
+        '\\addplot[',
+        '  thick,',
+        '  mark=*,',
+        '] coordinates {',
+        `  ${coords}`,
+        '};',
+        `\\addlegendentry{${escapeLatexLabel(series.name)}}`,
+      ].join('\n');
+    }).join('\n\n');
+
+    return [
+      '\\documentclass[tikz,border=16pt]{standalone}',
+      '\\usepackage[utf8]{inputenc}',
+      '\\usepackage[T1]{fontenc}',
+      '\\usepackage{pgfplots}',
+      '\\usepackage{xcolor}',
+      '\\pgfplotsset{compat=1.18}',
+      '\\begin{document}',
+      '\\begin{tikzpicture}',
+      '\\begin{axis}[',
+      '    drekee premium,',
+      `    title={\\textbf{${title}}},`,
+      `    xlabel={\\textbf{${xLabel}}},`,
+      `    ylabel={\\textbf{${yLabel}}},`,
+      `    ${xAxisSetup}`,
+      '    extra y ticks={0},',
+      '    extra y tick style={grid=major, grid style={dashed, draw=graph_grid}},',
+      ']',
+      seriesLatex,
+      '\\end{axis}',
+      '\\end{tikzpicture}',
+      '\\end{document}',
+    ].join('\n');
+  }
+
+  if (chartType === 'composition') {
+    const points = spec.series[0]?.points || [];
+    const total = points.reduce((sum, point) => sum + point.value, 0);
+    const xMax = total > 0 ? Math.ceil(total * 1.1) : 100;
+    const addplots = points.map((point, index) => [
+      '\\addplot+[xbar stacked] coordinates {',
+      `  (${point.value}, ${escapeLatexLabel(spec.series[0].name || 'Composicao')})`,
+      '};',
+      `\\addlegendentry{${escapeLatexLabel(point.label)}}`,
+    ].join('\n')).join('\n\n');
+
+    return [
+      '\\documentclass[tikz,border=16pt]{standalone}',
+      '\\usepackage[utf8]{inputenc}',
+      '\\usepackage[T1]{fontenc}',
+      '\\usepackage{pgfplots}',
+      '\\usepackage{xcolor}',
+      '\\pgfplotsset{compat=1.18}',
+      '\\begin{document}',
+      '\\begin{tikzpicture}',
+      '\\begin{axis}[',
+      '    drekee premium,',
+      '    xbar stacked,',
+      `    title={\\textbf{${title}}},`,
+      `    xlabel={\\textbf{${yLabel}}},`,
+      '    ytick=data,',
+      `    symbolic y coords={${escapeLatexLabel(spec.series[0].name || 'Composicao')}},`,
+      '    xmin=0,',
+      `    xmax=${xMax},`,
+      '    nodes near coords,',
+      ']',
+      addplots,
+      '\\end{axis}',
+      '\\end{tikzpicture}',
+      '\\end{document}',
+    ].join('\n');
+  }
+
+  const categories = [...new Set(spec.series.flatMap(series => series.points.map(point => point.label)))];
+  const addplots = spec.series.map(series => {
+    const coords = series.points
+      .map(point => `(${escapeLatexLabel(point.label)}, ${point.value})`)
+      .join(' ');
+    return [
+      '\\addplot+[ybar] coordinates {',
+      `  ${coords}`,
+      '};',
+      `\\addlegendentry{${escapeLatexLabel(series.name)}}`,
+    ].join('\n');
+  }).join('\n\n');
+
+  return [
+    '\\documentclass[tikz,border=16pt]{standalone}',
+    '\\usepackage[utf8]{inputenc}',
+    '\\usepackage[T1]{fontenc}',
+    '\\usepackage{pgfplots}',
+    '\\usepackage{xcolor}',
+    '\\pgfplotsset{compat=1.18}',
+    '\\begin{document}',
+    '\\begin{tikzpicture}',
+    '\\begin{axis}[',
+    '    drekee premium,',
+    '    ybar,',
+    `    title={\\textbf{${title}}},`,
+    `    xlabel={\\textbf{${xLabel}}},`,
+    `    ylabel={\\textbf{${yLabel}}},`,
+    `    symbolic x coords={${categories.map(escapeLatexLabel).join(', ')}},`,
+    '    xtick=data,',
+    ']',
+    addplots,
+    '\\end{axis}',
+    '\\end{tikzpicture}',
+    '\\end{document}',
+  ].join('\n');
+}
+
+function buildGraphBlockFromSpec(spec = {}) {
+  return [
+    `[LATEX_GRAPH_TITLE: ${String(spec.title || 'Grafico informativo').trim()}]`,
+    '[LATEX_GRAPH_CODE]',
+    renderStructuredGraphLatex(spec),
+    '[/LATEX_GRAPH_CODE]',
+  ].join('\n');
+}
+
+async function buildStructuredMindMapSpec(response = '', sources = [], userQuestion = '', logs = []) {
+  const sourceDigest = (sources || [])
+    .slice(0, 8)
+    .map(source => `${source.id}: ${source.label} - ${source.detail}`)
+    .join('\n');
+
+  const prompt = `Você é um extrator confiável para mapas mentais científicos.
+
+Transforme a resposta abaixo em uma estrutura de mapa mental radial. Não invente relações.
+
+PERGUNTA:
+${userQuestion}
+
+RESPOSTA:
+${stripLatexGraphBlocks(response)}
+
+FONTES DISPONÍVEIS:
+${sourceDigest}
+
+RETORNE APENAS JSON VÁLIDO:
+{
+  "title": "titulo curto",
+  "center": "tema central curto",
+  "branches": [
+    { "label": "ramo curto", "subtopics": ["subtopico curto 1", "subtopico curto 2"] }
+  ]
+}
+
+REGRAS:
+1. Use 3 a 5 ramos principais.
+2. Cada ramo pode ter no maximo 3 subtópicos.
+3. Todos os rótulos devem ser curtos, idealmente até 2 ou 3 palavras.
+4. Não invente causa, consequência ou relação não sustentada pela resposta/fonte.
+5. Se não houver base suficiente, retorne {"title":"","center":"","branches":[]}
+6. Não use markdown.
+`;
+
+  return extractJsonObject(await callGemini(prompt, logs));
+}
+
+function validateStructuredMindMapSpec(spec = {}) {
+  const normalized = {
+    title: String(spec?.title || 'Mapa mental').trim(),
+    center: String(spec?.center || '').trim(),
+    branches: Array.isArray(spec?.branches) ? spec.branches.map(branch => ({
+      label: String(branch?.label || '').trim(),
+      subtopics: Array.isArray(branch?.subtopics) ? branch.subtopics.map(item => String(item || '').trim()).filter(Boolean).slice(0, 3) : [],
+    })).filter(branch => branch.label) : [],
+  };
+  const issues = [];
+
+  if (!normalized.center) issues.push('Centro do mapa mental ausente.');
+  if (normalized.branches.length < 3) issues.push('Mapa mental precisa de ao menos 3 ramos principais.');
+  if (normalized.branches.length > 5) issues.push('Mapa mental precisa de no maximo 5 ramos principais.');
+  if (normalized.branches.some(branch => branch.label.length > 24)) issues.push('Ramo principal com rotulo longo demais.');
+  if (normalized.branches.some(branch => branch.subtopics.some(item => item.length > 24))) issues.push('Subtopico longo demais para template radial.');
+
+  return { issues, spec: normalized };
+}
+
+function detectSensitiveConceptualTopic(userQuestion = '', response = '') {
+  const text = `${userQuestion}\n${stripLatexGraphBlocks(response)}`.toLowerCase();
+  return /\b(etnia|ra[cç]a|g[eê]nero|sexo|relig[ií]ao|pol[ií]tica|viol[eê]ncia|sa[uú]de mental|diagn[oó]stico|doen[cç]a|c[aâ]ncer|vacina|mortalidade|defici[eê]ncia|pobreza|desigualdade)\b/.test(text);
+}
+
+async function auditMindMapSemantics(spec = {}, response = '', sources = [], userQuestion = '', logs = []) {
+  const sourceDigest = (sources || [])
+    .slice(0, 8)
+    .map(source => `${source.id}: ${source.label} - ${source.detail}`)
+    .join('\n');
+
+  const prompt = `Você é um auditor semântico de mapas mentais científicos.
+
+Verifique se cada ramo do mapa mental abaixo veio da resposta/fonte, não inventa relação causal e não simplifica demais um tema sensível.
+
+PERGUNTA:
+${userQuestion}
+
+RESPOSTA BASE:
+${stripLatexGraphBlocks(response)}
+
+FONTES DISPONÍVEIS:
+${sourceDigest}
+
+MAPA MENTAL ESTRUTURADO:
+${JSON.stringify(spec, null, 2)}
+
+RETORNE APENAS JSON VÁLIDO:
+{
+  "approved": true,
+  "issues": ["problema 1"],
+  "sensitiveTopic": true,
+  "branchChecks": [
+    { "label": "ramo", "supported": true, "causalLeak": false, "oversimplified": false }
+  ]
+}
+
+REGRAS:
+1. Marque supported=false se o ramo não puder ser rastreado de volta à resposta/fonte.
+2. Marque causalLeak=true se o ramo introduzir causa, consequência, impacto ou relação forte não sustentada.
+3. Marque oversimplified=true se o ramo reduzir demais um tema sensível ou ambíguo.
+4. approved só pode ser true se todos os ramos estiverem sustentados e sem vazamento causal.
+5. Em tema sensível, approved deve ser false se houver simplificação excessiva relevante.
+6. Não use markdown.
+`;
+
+  const audit = extractJsonObject(await callGemini(prompt, logs)) || {};
+  const branchChecks = Array.isArray(audit.branchChecks) ? audit.branchChecks : [];
+  const issues = Array.isArray(audit.issues) ? audit.issues.map(item => String(item || '').trim()).filter(Boolean) : [];
+  const unsupportedBranch = branchChecks.some(item => item?.supported === false);
+  const causalLeak = branchChecks.some(item => item?.causalLeak === true);
+  const oversimplified = branchChecks.some(item => item?.oversimplified === true);
+  const sensitiveTopic = audit.sensitiveTopic === true || detectSensitiveConceptualTopic(userQuestion, response);
+  const approved = audit.approved === true && !unsupportedBranch && !causalLeak && !(sensitiveTopic && oversimplified);
+
+  if (unsupportedBranch && !issues.some(issue => /ramo|suporte|fonte/i.test(issue))) {
+    issues.push('Um ou mais ramos do mapa mental nao puderam ser rastreados de volta a resposta/fonte.');
+  }
+  if (causalLeak && !issues.some(issue => /causal|causa|consequ/i.test(issue))) {
+    issues.push('O mapa mental introduziu relacao causal ou consequencia sem sustentacao suficiente.');
+  }
+  if (sensitiveTopic && oversimplified && !issues.some(issue => /sens[ií]vel|simpl/i.test(issue))) {
+    issues.push('O mapa mental simplificou demais um tema sensivel.');
+  }
+
+  return { approved, issues, sensitiveTopic, branchChecks };
+}
+
+function renderStructuredMindMapLatex(spec = {}) {
+  const positions = [
+    { main: 'right=4.6cm of center', subs: ['above right=0.95cm and 1.8cm of branch1', 'right=2.0cm of branch1', 'below right=0.95cm and 1.8cm of branch1'], anchor: 'east' },
+    { main: 'left=4.6cm of center', subs: ['above left=0.95cm and 1.8cm of branch2', 'left=2.0cm of branch2', 'below left=0.95cm and 1.8cm of branch2'], anchor: 'west' },
+    { main: 'above=3.3cm of center', subs: ['above left=0.8cm and 0.7cm of branch3', 'above=1.8cm of branch3', 'above right=0.8cm and 0.7cm of branch3'], anchor: 'north' },
+    { main: 'below=3.3cm of center', subs: ['below left=0.8cm and 0.7cm of branch4', 'below=1.8cm of branch4', 'below right=0.8cm and 0.7cm of branch4'], anchor: 'south' },
+    { main: 'above right=2.7cm and 3.5cm of center', subs: ['above right=0.8cm and 1.2cm of branch5', 'right=1.8cm of branch5', 'below right=0.8cm and 1.2cm of branch5'], anchor: 'north east' },
+  ];
+
+  const branchNodes = spec.branches.map((branch, branchIndex) => {
+    const position = positions[branchIndex];
+    const branchName = `branch${branchIndex + 1}`;
+    const lines = [
+      `\\node[main, ${position.main}] (${branchName}) {${escapeLatexLabel(branch.label)}};`,
+      `\\draw (center.${position.anchor}) -- (${branchName});`,
+    ];
+
+    branch.subtopics.slice(0, 3).forEach((subtopic, subIndex) => {
+      const subName = `${branchName}s${subIndex + 1}`;
+      lines.push(`\\node[sub, ${position.subs[subIndex]}] (${subName}) {${escapeLatexLabel(subtopic)}};`);
+      lines.push(`\\draw (${branchName}) -- (${subName});`);
+    });
+
+    return lines.join('\n');
+  }).join('\n\n');
+
+  return [
+    '\\documentclass[tikz,border=14pt]{standalone}',
+    '\\usepackage[utf8]{inputenc}',
+    '\\usepackage[T1]{fontenc}',
+    '\\usepackage{xcolor}',
+    '\\usetikzlibrary{positioning,shapes.geometric,arrows.meta,calc}',
+    '\\begin{document}',
+    '\\begin{tikzpicture}[',
+    '  >=Stealth,',
+    '  line width=1.1pt,',
+    '  draw=gray!60,',
+    '  base/.style={align=center, inner sep=8pt, font=\\sffamily\\bfseries, text width=3.3cm},',
+    '  root/.style={base, ellipse, fill=blue!4, draw=blue!70, minimum width=4.4cm, minimum height=1.7cm, text width=4.1cm},',
+    '  main/.style={base, rectangle, rounded corners=10pt, fill=gray!5, draw=gray!80, minimum width=3.2cm, minimum height=1.05cm, text width=3.0cm},',
+    '  sub/.style={base, rectangle, rounded corners=5pt, fill=white, draw=gray!45, font=\\sffamily\\small, minimum width=2.5cm, text width=2.6cm}',
+    ']',
+    `\\node[root] (center) {${escapeLatexLabel(spec.center)}};`,
+    branchNodes,
+    '\\end{tikzpicture}',
+    '\\end{document}',
+  ].join('\n');
+}
+
+function buildMindMapBlockFromSpec(spec = {}) {
+  return [
+    `[MINDMAP_TITLE: ${String(spec.title || 'Mapa mental').trim()}]`,
+    '[MINDMAP_CODE]',
+    renderStructuredMindMapLatex(spec),
+    '[/MINDMAP_CODE]',
+  ].join('\n');
 }
 
 function countCitationTags(text = '') {
@@ -2814,82 +3339,31 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
     if (confidence === 'LOW') {
       logs.push('🛑 Mapa mental removido: confiabilidade textual insuficiente para sustentar a visualizacao.');
       return {
-        response: stripMindMap(),
+        response: appendVisualSafetyNotice(stripMindMap(), 'o mapa mental foi ocultado porque a confiabilidade textual ficou baixa para sustentar essa sintese visual.'),
         confidence,
       };
     }
 
-    const mindMap = mindMapBlocks[0];
-    const mindMapAudit = analyzeMindMapCode(mindMap.code);
-    if (mindMapAudit.issues.length === 0) {
-      logs.push(`🧠 Mapa mental mantido com confiabilidade ${confidence}.`);
-      return { response, confidence };
+    const structuredMindMap = await buildStructuredMindMapSpec(response, sources, userQuestion, logs);
+    const mindMapValidation = validateStructuredMindMapSpec(structuredMindMap);
+    if (mindMapValidation.issues.length === 0) {
+      const semanticAudit = await auditMindMapSemantics(mindMapValidation.spec, response, sources, userQuestion, logs);
+      if (!semanticAudit.approved) {
+        logs.push(`🛑 Mapa mental removido: auditoria semantica reprovou a estrutura (${semanticAudit.issues.join(' | ')}).`);
+        return {
+          response: appendVisualSafetyNotice(stripMindMap(), 'o mapa mental foi removido porque alguns ramos nao puderam ser confirmados com seguranca a partir da resposta e das fontes.'),
+          confidence,
+        };
+      }
+      logs.push('🧠 Mapa mental reconstruido a partir de estrutura validada do Drekee.');
+      return {
+        response: replaceFirstMindMapBlock(response, buildMindMapBlockFromSpec(mindMapValidation.spec)),
+        confidence,
+      };
     }
-
-    logs.push(`🧠 Revisando mapa mental para evitar fluxograma e melhorar a sintese (${confidence})...`);
-
-    const sourceDigest = (sources || [])
-      .slice(0, 8)
-      .map(source => `${source.id}: ${source.label} - ${source.detail}`)
-      .join('\n');
-
-    const mindMapPrompt = `Você é um revisor de mapas mentais científicos em LaTeX/TikZ.
-
-Sua tarefa é corrigir o mapa mental abaixo para que ele tenha o MESMO nível de confiabilidade da resposta textual e aparência real de mapa mental.
-
-PERGUNTA DO USUÁRIO:
-${userQuestion}
-
-RESPOSTA TEXTUAL JÁ REVISADA:
-${stripLatexGraphBlocks(response)}
-
-FONTES DISPONÍVEIS:
-${sourceDigest}
-
-PROBLEMAS DETECTADOS NO MAPA MENTAL ATUAL:
-${mindMapAudit.issues.map((issue, index) => `${index + 1}. ${issue}`).join('\n')}
-
-MAPA MENTAL ATUAL:
-[MINDMAP_TITLE: ${mindMap.title || 'Mapa mental'}]
-[MINDMAP_CODE]
-${mindMap.code}
-[/MINDMAP_CODE]
-
-REGRAS OBRIGATÓRIAS:
-1. Nunca invente conceitos, relações, causas, exemplos ou subtópicos que não estejam sustentados pela resposta/fonte.
-2. O resultado deve parecer um mapa mental real, não um fluxograma vertical.
-3. Use um nó central claro e 3 a 5 ramos principais distribuídos em múltiplas direções.
-4. Cada ramo principal pode ter 1 a 3 subtópicos curtos.
-5. Prefira layout radial ou simétrico, com nós compactos e legíveis.
-6. Evite texto longo dentro dos nós. Use rótulos curtos.
-7. Gere um documento LaTeX completo, compilável, com TikZ e bibliotecas necessárias já declaradas.
-8. Não use markdown fences.
-9. Se não for possível montar um mapa mental confiável e claro, retorne apenas [NO_MINDMAP].
-10. Retorne APENAS um bloco corrigido no formato [MINDMAP_TITLE] + [MINDMAP_CODE] ou APENAS [NO_MINDMAP].
-11. Não inclua explicações fora do bloco.
-`;
-
-    const repaired = String(await callGemini(mindMapPrompt, logs) || '').trim();
-    if (/^\[NO_MINDMAP\]$/i.test(repaired) || !/\[MINDMAP_TITLE:/i.test(repaired)) {
-      logs.push('🛑 Mapa mental removido: nao foi possivel garantir uma estrutura realmente clara e confiavel.');
-      return { response: stripMindMap(), confidence };
-    }
-
-    const repairedBlock = extractMindMapBlocks(repaired)[0];
-    if (!repairedBlock) {
-      logs.push('🛑 Mapa mental removido: bloco corrigido invalido.');
-      return { response: stripMindMap(), confidence };
-    }
-
-    const repairedAudit = analyzeMindMapCode(repairedBlock.code);
-    if (repairedAudit.issues.length > 0) {
-      logs.push('🛑 Mapa mental removido: a revisao automatica ainda detectou estrutura ruim.');
-      return { response: stripMindMap(), confidence };
-    }
-
-    logs.push('✅ Mapa mental revisado e alinhado ao nivel de confiabilidade da resposta.');
+    logs.push(`🛑 Mapa mental removido: a estrutura validada nao fechou (${mindMapValidation.issues.join(' | ')}).`);
     return {
-      response: replaceFirstMindMapBlock(response, repairedBlock.raw),
+      response: appendVisualSafetyNotice(stripMindMap(), 'o mapa mental nao foi exibido porque a estrutura extraida nao passou na validacao de clareza e fidelidade.'),
       confidence,
     };
   }
@@ -2900,83 +3374,24 @@ REGRAS OBRIGATÓRIAS:
   const confidence = assessResponseReliability(response, sources);
   if (confidence === 'LOW') {
     logs.push('🛑 Grafico removido: confiabilidade textual insuficiente para sustentar visualizacao numerica.');
-    return { response: stripLatexGraphBlocks(response), confidence };
+    return {
+      response: appendVisualSafetyNotice(stripLatexGraphBlocks(response), 'o grafico foi ocultado porque a confiabilidade textual ficou baixa para sustentar uma visualizacao numerica segura.'),
+      confidence,
+    };
   }
 
-  const graph = graphBlocks[0];
-  const graphAudit = analyzeLatexGraph(graph.code, { userQuestion, response });
-  if (graphAudit.issues.length === 0) {
-    return { response, confidence };
+  const structuredGraph = await buildStructuredGraphSpec(response, sources, userQuestion, logs);
+  const graphValidation = validateStructuredGraphSpec(structuredGraph, { userQuestion, response });
+  if (graphValidation.issues.length === 0) {
+    logs.push('✅ Grafico reconstruido a partir de tabela estruturada validada do Drekee.');
+    return {
+      response: replaceFirstLatexGraphBlock(response, buildGraphBlockFromSpec(graphValidation.spec)),
+      confidence,
+    };
   }
-
-  logs.push(`📈 Revisando grafico LaTeX para manter coerencia com a resposta (${confidence})...`);
-
-  const sourceDigest = (sources || [])
-    .slice(0, 8)
-    .map(source => `${source.id}: ${source.label} - ${source.detail}`)
-    .join('\n');
-
-  const graphPrompt = `Você é um revisor de gráficos científicos em LaTeX/PGFPlots.
-
-Sua tarefa é alinhar o gráfico abaixo ao MESMO nível de confiabilidade da resposta textual.
-
-PERGUNTA DO USUÁRIO:
-${userQuestion}
-
-RESPOSTA TEXTUAL JÁ REVISADA:
-${stripLatexGraphBlocks(response)}
-
-FONTES DISPONÍVEIS:
-${sourceDigest}
-
-PROBLEMAS DETECTADOS NO GRÁFICO ATUAL:
-${graphAudit.issues.map((issue, index) => `${index + 1}. ${issue}`).join('\n')}
-
-GRÁFICO ATUAL:
-[LATEX_GRAPH_TITLE: ${graph.title || 'Grafico informativo'}]
-[LATEX_GRAPH_CODE]
-${graph.code}
-[/LATEX_GRAPH_CODE]
-
-REGRAS OBRIGATÓRIAS:
-1. Nunca invente valores, ordem de grandeza, eixos ou categorias.
-2. O gráfico só pode usar números claramente sustentados pela resposta/fonte. Se isso não for possível, retorne apenas [NO_GRAPH].
-3. Em série temporal, use gráfico de linha com escala proporcional real no eixo Y e rótulo técnico com unidade/referência.
-4. Em comparação entre categorias discretas, países ou grupos, use gráfico de barras e alinhe cada valor exatamente ao respectivo rótulo no eixo X.
-5. Se houver symbolic x coords, os pontos devem usar esses mesmos rótulos; não misture rótulos simbólicos com coordenadas numéricas soltas.
-6. Se faltar dado para algum ano/categoria, omita esse ponto e não substitua por 0. A resposta textual deve mencionar quais anos/categorias ficaram sem dado localizado.
-7. Antes de plotar, monte internamente uma tabela ano/categoria -> valor e confira se os coordinates batem exatamente com ela.
-8. Se encontrar três ou mais valores consecutivos idênticos em contexto improvável, revalide. Se não conseguir confirmar, retorne [NO_GRAPH].
-9. Em gráficos de variação percentual, inclua uma referência visual clara para y=0.
-10. Quando houver escolha entre valor absoluto e porcentagem, prefira o valor absoluto oficial.
-11. Se o período pedido estiver incompleto, não desenhe linha contínua entre anos distantes; use barras apenas para os anos confirmados ou retorne [NO_GRAPH].
-12. Não use cunha, área preenchida, triângulo visual, distorção de escala ou atalhos artísticos.
-13. Se a pergunta tratar de matriz elétrica vs matriz energética, preserve essa distinção e não troque uma pela outra.
-14. Retorne APENAS um bloco corrigido no formato [LATEX_GRAPH_TITLE] + [LATEX_GRAPH_CODE] ou APENAS [NO_GRAPH].
-15. Não inclua explicações fora do bloco.
-`;
-
-  const repaired = String(await callGemini(graphPrompt, logs) || '').trim();
-  if (/^\[NO_GRAPH\]$/i.test(repaired) || !/\[LATEX_GRAPH_TITLE:/i.test(repaired)) {
-    logs.push('🛑 Grafico removido: nao foi possivel garantir fidelidade cientifica suficiente.');
-    return { response: stripLatexGraphBlocks(response), confidence };
-  }
-
-  const repairedBlock = extractLatexGraphBlocks(repaired)[0];
-  if (!repairedBlock) {
-    logs.push('🛑 Grafico removido: bloco corrigido invalido.');
-    return { response: stripLatexGraphBlocks(response), confidence };
-  }
-
-  const repairedAudit = analyzeLatexGraph(repairedBlock.code, { userQuestion, response });
-  if (repairedAudit.issues.length > 0) {
-    logs.push('🛑 Grafico removido: revisao automatica ainda encontrou incoerencias visuais.');
-    return { response: stripLatexGraphBlocks(response), confidence };
-  }
-
-  logs.push('✅ Grafico revisado e alinhado ao nivel de confiabilidade da resposta.');
+  logs.push(`🛑 Grafico removido: a tabela estruturada nao passou na validacao (${graphValidation.issues.join(' | ')}).`);
   return {
-    response: replaceFirstLatexGraphBlock(response, repairedBlock.raw),
+    response: appendVisualSafetyNotice(stripLatexGraphBlocks(response), 'o grafico nao foi exibido porque os dados extraidos nao passaram na validacao numerica e temporal.'),
     confidence,
   };
 }
