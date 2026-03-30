@@ -60,7 +60,7 @@ TOTAL DE APIs INTEGRADAS: 81
 54. STRING Interaction - Redes de interações proteína-proteína.
 55. PubChem Bioassay - Resultados de testes biológicos químicos.
 56. OpenFDA - Dados oficiais sobre fármacos e alimentos (EUA).
-57. OMIM Genetics - Catálogo de genes e distúrbios humanos.
+57. Wolfram Alpha - Motor computacional para matemática, física e álgebra simbólica.
 58. ClinVar Variations - Relação entre variações genéticas e saúde.
 59. COSMIC Cancer - Mutações somáticas em câncer humano.
 60. Johns Hopkins COVID-19 - Dados históricos da pandemia global.
@@ -84,4 +84,4 @@ TOTAL DE APIs INTEGRADAS: 81
 78. Libras Online - Recursos de Língua Brasileira de Sinais.
 79. Sketchfab 3D - Busca de modelos 3D interativos.
 80. Google Earth Timelapse - Evolução do planeta em vídeo temporal.
-81. BrasilAPI (Extra) - Serviços de CEP e dados públicos unificados.
+81. NASA Horizons - Efemérides astronômicas com posição atual de planetas e satélites.

@@ -735,7 +735,6 @@ const SUPPORTED_CONNECTORS = new Set([
   'kepler',
   'numberempire',
   'pubchem-bio',
-  'omim',
   'clinvar',
   'cosmic',
   'sentinel',
@@ -2163,7 +2162,7 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(gene|genoma|dna|rna|ensembl|mygene|mutação)\b/.test(normalizedText)) autoDetectedConnectors.push('ensembl', 'mygene');
   if (/\b(proteína|aminoácido|uniprot|interação|string)\b/.test(normalizedText)) autoDetectedConnectors.push('uniprot', 'string-db', 'reactome');
   if (/\b(saúde|médico|fda|datasus|sus|hospital|vacina)\b/.test(normalizedText)) autoDetectedConnectors.push('openfda', 'datasus', 'covid-jhu');
-  if (/\b(genética|heran|omim|clinvar|câncer|cosmic)\b/.test(normalizedText)) autoDetectedConnectors.push('omim', 'clinvar', 'cosmic');
+  if (/\b(genética|heran|clinvar|câncer|cosmic)\b/.test(normalizedText)) autoDetectedConnectors.push('clinvar', 'cosmic');
   if (/\b(clima|aquecimento|mudança climática|worldbank|noaa)\b/.test(normalizedText)) autoDetectedConnectors.push('noaa-climate', 'worldbank-climate');
   if (/\b(água|rio|usgs|recurso hídrico|seca|enchente)\b/.test(normalizedText)) autoDetectedConnectors.push('usgs-water');
   if (/\b(queimada|fogo|incêndio|firms|fumaça)\b/.test(normalizedText)) autoDetectedConnectors.push('firms');
@@ -2537,16 +2536,6 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       context += `\n\n☀️ Atividade Solar (SDO):\nDados de monitoramento solar em tempo real disponíveis.\n`;
       addSource('SDO-1', 'Solar Dynamics Observatory', 'sdo', 'Monitoramento da atividade solar NASA.', 'https://sdo.gsfc.nasa.gov/');
       logs.push('✅ Dados solares coletados');
-    }
-  }
-
-  if (selectedConnectors.includes('omim')) {
-    logs.push(`🧬 Buscando genética humana (OMIM): "${queryParaBuscar}"`);
-    const omim = await buscarOMIM(queryParaBuscar);
-    if (omim) {
-      context += `\n\n🧬 Dados Genéticos (OMIM):\nResultados de pesquisa genômica integrados.\n`;
-      addSource('OMIM-1', 'OMIM Genetics', 'omim', 'Catálogo de genes e distúrbios humanos.', 'https://www.omim.org/');
-      logs.push('✅ Dados genéticos coletados');
     }
   }
 
@@ -4344,7 +4333,6 @@ ${serializedHistory}`;
 const CONNECTOR_REQUIRES_KEYS = {
   tavily: ['TAVILY_API_KEY'],
   wolfram: ['WOLFRAM_APP_ID'],
-  omim: ['OMIM_API_KEY'],
 };
 
 const AUTO_DETECTED_CONNECTORS = new Set([
@@ -4353,7 +4341,7 @@ const AUTO_DETECTED_CONNECTORS = new Set([
   'codata', 'open-meteo', 'openfoodfacts', 'picsum', 'openuniverse', 'esa', 'stellarium',
   'ligo', 'sdo', 'horizons', 'exoplanets', 'kepler', 'mathjs', 'wolfram', 'pubchem',
   'pubchem-bio', 'ensembl', 'mygene', 'uniprot', 'string-db', 'reactome', 'openfda',
-  'datasus', 'covid-jhu', 'omim', 'clinvar', 'cosmic', 'noaa-climate', 'worldbank-climate',
+  'datasus', 'covid-jhu', 'clinvar', 'cosmic', 'noaa-climate', 'worldbank-climate',
   'usgs-water', 'firms', 'edx', 'mit-ocw', 'mec-ejovem', 'educ4share', 'tcu', 'transparencia',
   'metmuseum', 'getty', 'libras', 'sketchfab', 'timelapse', 'arxiv', 'scielo', 'ibge',
   'pubmed', 'wikipedia', 'wikidata', 'rcsb', 'newton', 'nasa', 'spacex'
@@ -4406,7 +4394,6 @@ const CONNECTOR_PROBE_QUERIES = {
   kepler: 'Kepler-22 b',
   numberempire: 'sin(x)',
   'pubchem-bio': 'ibuprofen',
-  omim: 'BRCA1',
   clinvar: 'BRCA1',
   cosmic: 'TP53',
   sentinel: 'amazon rainforest',
@@ -4540,7 +4527,6 @@ async function probeConnector(key, options = {}) {
       case 'kepler': data = await buscarKeplerTess(query); break;
       case 'numberempire': data = await buscarNumberEmpire(query); break;
       case 'pubchem-bio': data = await buscarPubChemBio(query); break;
-      case 'omim': data = await buscarOMIM(query); break;
       case 'clinvar': data = await buscarClinVar(query); break;
       case 'cosmic': data = await buscarCosmic(query); break;
       case 'sentinel': data = await buscarSentinel(query); break;
@@ -4665,7 +4651,6 @@ async function getAdminDiagnostics() {
       testGeminiKey('GEMINI_API_KEY'),
       testGeminiKey('GEMINI_API_KEY_2'),
       testTavilyKey(),
-      testOptionalKey('OMIM_API_KEY', () => buscarOMIM('BRCA1')),
       testOptionalKey('WOLFRAM_APP_ID', () => buscarWolframAlpha('2+2')),
     ]),
     connectors: supportedConnectors.map(key => ({
