@@ -420,7 +420,7 @@
     border-radius: 0;
     width: 100%;
     max-width: 100%;
-    font-size: 0.92rem; line-height: 1.7;
+    font-size: 0.99rem; line-height: 1.8;
   }
   .agent-live-card {
     background: linear-gradient(180deg, rgba(15,23,42,0.94), rgba(8,15,30,0.96));
@@ -694,14 +694,19 @@
 
   .embedded-media-card { margin: 0.75rem 0 0.75rem 0; background: rgba(28, 45, 69, 0.8); border: 1px solid rgba(99,102,241,0.25); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; gap: 0.45rem; }
   .embedded-media-card img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 6px; display: block; }
+  .embedded-media-card-inline { width: min(100%, 440px); max-width: 440px; margin: 0.9rem auto 0.95rem 0; border-radius: 16px; padding: 0.65rem; box-shadow: 0 16px 34px rgba(2, 6, 23, 0.18); }
+  .embedded-media-card-inline img { max-height: 200px; }
   .embedded-media-card-title { font-size: 0.76rem; font-weight: 700; color: #cbd5e1; }
   .embedded-media-card-caption { font-size: 0.72rem; color: #94a3b8; line-height: 1.35; }
   .embedded-media-card-nasa { background: transparent; border: none; padding: 0.1rem 0; gap: 0.55rem; }
   .embedded-media-card-frame { position: relative; overflow: hidden; border-radius: 1rem; }
   .embedded-media-card-frame img { width: 100%; max-height: 320px; object-fit: cover; border-radius: inherit; background: #020617; }
+  .embedded-media-card-inline .embedded-media-card-frame img { max-height: 185px; object-fit: cover; }
   .embedded-media-card-nasa .embedded-media-card-frame { padding: 1px; background: linear-gradient(135deg, rgba(125,211,252,0.95), rgba(59,130,246,0.16) 35%, rgba(15,23,42,0.06) 58%, rgba(56,189,248,0.82)); box-shadow: 0 18px 42px rgba(15,23,42,0.28), 0 0 0 1px rgba(125,211,252,0.06); }
   .embedded-media-card-nasa .embedded-media-card-frame::after { content: ''; position: absolute; inset: -24%; border-radius: inherit; pointer-events: none; background: radial-gradient(circle, rgba(125,211,252,0.24), transparent 62%); filter: blur(24px); opacity: 0.7; mix-blend-mode: screen; }
   .embedded-media-card-nasa .embedded-media-card-frame img { border-radius: calc(1rem - 1px); }
+  .embedded-media-card-inline.embedded-media-card-nasa .embedded-media-card-frame { border-radius: 0.9rem; box-shadow: 0 12px 26px rgba(15,23,42,0.2), 0 0 0 1px rgba(125,211,252,0.05); }
+  .embedded-media-card-inline.embedded-media-card-nasa .embedded-media-card-frame img { border-radius: calc(0.9rem - 1px); }
   .embedded-media-card-nasa .embedded-media-card-title { color: #e2e8f0; }
   .embedded-media-card-nasa .embedded-media-card-caption { color: rgba(203,213,225,0.78); padding: 0 0.15rem; }
   .embedded-media-card-caption.is-collapsed { display: none; }
@@ -711,7 +716,7 @@
   .logs-content { padding: 0.75rem 1rem; max-height: 180px; overflow-y: auto; font-family: 'Space Mono', monospace; font-size: 0.75rem; }
   .log-line { color: #cbd5e1; margin: 0.3rem 0; line-height: 1.4; }
 
-  .ai-response { margin-bottom: 1rem; white-space: pre-wrap; word-break: break-word; }
+  .ai-response { margin-bottom: 1rem; white-space: pre-wrap; word-break: break-word; font-size: 1.02rem; line-height: 1.88; color: #e5eefb; }
   .ai-response-dark-table { white-space: normal; margin-bottom: 0.35rem; }
 
   .citation-tag { display: inline-block; max-width: 100%; background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.4); border-radius: 3px; padding: 0.12rem 0.34rem; font-size: 0.7rem; font-weight: 600; color: #3b82f6; margin: 0 0.2rem; cursor: pointer; transition: background 0.2s ease; vertical-align: baseline; white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
@@ -744,7 +749,7 @@
   /* ── Split Layout ── */
   .ai-split-container {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) clamp(270px, 28vw, 360px);
+    grid-template-columns: minmax(0, 1fr) clamp(245px, 25vw, 320px);
     gap: 1.35rem;
     width: 100%;
     margin-bottom: 1rem;
@@ -827,7 +832,7 @@
   }
 
   @media (max-width: 1200px) {
-    .ai-split-container { grid-template-columns: minmax(0, 1fr) clamp(240px, 30vw, 320px); gap: 1rem; }
+    .ai-split-container { grid-template-columns: minmax(0, 1fr) clamp(225px, 30vw, 290px); gap: 1rem; }
   }
 
   @media (max-width: 768px) {
@@ -2634,7 +2639,7 @@
     bubble.appendChild(card);
     wrapper.appendChild(bubble);
     messagesContainer.appendChild(wrapper);
-    scrollToBottom();
+    scrollToBottom({ force: true });
 
     async function flushLogQueue() {
       if (queueRunning) return;
@@ -3907,7 +3912,7 @@
     }
 
     const directChild = getDirectChildWithin(responseContainer, tag);
-    if (!directChild) return responseContainer.lastChild;
+    if (!directChild) return responseContainer.lastElementChild || responseContainer.lastChild;
 
     const siblings = [...responseContainer.childNodes];
     const startIndex = siblings.indexOf(directChild);
@@ -4139,7 +4144,7 @@
     if (!anchorNode) return;
 
     const block = document.createElement('div');
-    block.className = 'embedded-media-card';
+    block.className = 'embedded-media-card embedded-media-card-inline';
     block.dataset.sourceId = source.id;
     if ((source.type || '').toLowerCase() === 'nasa') {
       block.classList.add('embedded-media-card-nasa');
@@ -4180,7 +4185,7 @@
       block.appendChild(caption);
     }
 
-    insertNodeAfter(anchorNode, block);
+    insertNodeAfter(anchorNode || tag.closest('p, li, div, blockquote') || responseContainer.lastElementChild, block);
   }
 
   function embedImagesInResponse(responseContainer, sources) {
@@ -4476,7 +4481,7 @@
 
     wrapper.appendChild(inner);
     messagesContainer.appendChild(wrapper);
-    scrollToBottom();
+    scrollToBottom({ force: true });
 
     addCitationHoverListeners(responseContainer, parsedResponse.citations);
     embedImagesInResponse(responseContainer, sources);
@@ -5105,15 +5110,39 @@
   // ── Scroll ────────────────────────────────────────────────
   const chatArea  = document.getElementById('chatArea');
   const scrollBtn = document.getElementById('scrollToBottomBtn');
+  let userPinnedAwayFromBottom = false;
+  let programmaticScrollActive = false;
+  let scrollReleaseTimer = null;
 
-  function scrollToBottom() {
-    setTimeout(() => chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' }), 80);
+  function isNearChatBottom(threshold = 160) {
+    return chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight < threshold;
+  }
+
+  function scrollToBottom(options = {}) {
+    const force = options.force === true;
+    const behavior = options.behavior || 'smooth';
+    if (!force && userPinnedAwayFromBottom) return;
+
+    clearTimeout(scrollReleaseTimer);
+    setTimeout(() => {
+      programmaticScrollActive = true;
+      chatArea.scrollTo({ top: chatArea.scrollHeight, behavior });
+      scrollReleaseTimer = setTimeout(() => {
+        programmaticScrollActive = false;
+      }, behavior === 'smooth' ? 420 : 120);
+    }, 80);
   }
   chatArea.addEventListener('scroll', () => {
-    const nearBottom = chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight < 160;
+    const nearBottom = isNearChatBottom();
+    if (!programmaticScrollActive) {
+      userPinnedAwayFromBottom = !nearBottom;
+    }
     scrollBtn.classList.toggle('show', !nearBottom && chatArea.scrollTop > 100);
   });
-  scrollBtn.addEventListener('click', scrollToBottom);
+  scrollBtn.addEventListener('click', () => {
+    userPinnedAwayFromBottom = false;
+    scrollToBottom({ force: true });
+  });
 
   // ── User Context: Geolocation + Date/Time ──
   window._userContext = {
