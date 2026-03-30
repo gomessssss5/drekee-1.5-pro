@@ -4591,6 +4591,93 @@
     { key: 'sketchfab',       label: 'Sketchfab 3D',        icon: 'view_in_ar',    description: 'Busca de modelos 3D e visualizações interativas.' },
     { key: 'timelapse',       label: 'Earth Timelapse',     icon: 'history',       description: 'Evolução temporal do planeta via Google Earth Engine.' },
   ];
+  const supportedConnectors = new Set([
+    'tavily',
+    'wikipedia',
+    'arxiv',
+    'scielo',
+    'newton',
+    'spacex',
+    'ibge',
+    'open-meteo',
+    'nasa',
+    'openlibrary',
+    'gbif',
+    'usgs',
+    'brasilapi',
+    'camara',
+    'iss',
+    'sunrise',
+    'dictionary-en',
+    'universities',
+    'poetry',
+    'phet',
+    'pubmed',
+    'wikidata',
+    'rcsb',
+    'antweb',
+    'periodictable',
+    'fishwatch',
+    'gutenberg',
+    'bible',
+    'openaq',
+    'solarsystem',
+    'quotes',
+    'dogapi',
+    'celestrak',
+    'codata',
+    'quotes-free',
+    'openfoodfacts',
+    'picsum',
+    'esa',
+    'stellarium',
+    'ligo',
+    'noaa-space',
+    'exoplanets',
+    'mathjs',
+    'pubchem',
+    'ensembl',
+    'mygene',
+    'uniprot',
+    'reactome',
+    'string-db',
+    'openfda',
+    'covid-jhu',
+    'noaa-climate',
+    'worldbank-climate',
+    'usgs-water',
+    'metmuseum',
+    'sketchfab',
+    'osf',
+    'timelapse',
+    'spacedevs',
+    'openuniverse',
+    'sdo',
+    'kepler',
+    'numberempire',
+    'pubchem-bio',
+    'omim',
+    'clinvar',
+    'cosmic',
+    'sentinel',
+    'firms',
+    'edx',
+    'mit-ocw',
+    'mec-ejovem',
+    'educ4share',
+    'modis',
+    'tcu',
+    'transparencia',
+    'datasus',
+    'seade',
+    'getty',
+    'libras',
+  ]);
+  const connectorsInMaintenance = new Set(
+    connectorOptions
+      .map(opt => opt.key)
+      .filter(key => !supportedConnectors.has(key))
+  );
 
   connectorsBtn.addEventListener('click', e => {
     e.stopPropagation();
@@ -4629,10 +4716,11 @@
     connectorOptions
       .filter(opt => !query || opt.label.toLowerCase().includes(query))
       .forEach(opt => {
+        const isMaintenance = connectorsInMaintenance.has(opt.key);
         const isChecked = !connectorAuto && selectedConnectors.includes(opt.key);
 
         const item = document.createElement('div');
-        item.className = 'connector-item' + (isChecked ? ' checked' : '') + (connectorAuto ? ' disabled' : '');
+        item.className = 'connector-item' + (isChecked ? ' checked' : '') + (connectorAuto || isMaintenance ? ' disabled' : '');
 
         const iconContainer = document.createElement('div');
         iconContainer.style.position = 'relative';
@@ -4671,7 +4759,9 @@
 
         const desc = document.createElement('div');
         desc.className = 'connector-item-desc';
-        desc.textContent = opt.description;
+        desc.textContent = isMaintenance
+          ? `${opt.description} Em manutencao no momento.`
+          : opt.description;
 
         content.appendChild(title);
         content.appendChild(desc);
@@ -4684,7 +4774,7 @@
         const toggleInput = document.createElement('input');
         toggleInput.type = 'checkbox';
         toggleInput.checked = isChecked;
-        toggleInput.disabled = connectorAuto; // se auto, não permite toggle manual
+        toggleInput.disabled = connectorAuto || isMaintenance; // se auto ou manutencao, nao permite toggle manual
 
         const toggleSlider = document.createElement('span');
         toggleSlider.className = 'toggle-slider';
@@ -4695,7 +4785,7 @@
         // Handler — stopPropagation em todos os eventos para nunca fechar o card
         const handleToggle = (e) => {
           e.stopPropagation();
-          if (connectorAuto) return; // bloqueado enquanto Auto estiver ativo
+          if (connectorAuto || isMaintenance) return; // bloqueado enquanto Auto estiver ativo ou manutencao
           const nowChecked = toggleInput.checked;
           if (nowChecked) {
             selectedConnectors = [...new Set([...selectedConnectors, opt.key])];
@@ -4712,7 +4802,7 @@
 
         item.addEventListener('click', e => {
           e.stopPropagation(); // ← crítico: impede o document click de fechar o card
-          if (connectorAuto) return; // bloqueado enquanto Auto estiver ativo
+          if (connectorAuto || isMaintenance) return; // bloqueado enquanto Auto estiver ativo ou manutencao
           toggleInput.checked = !toggleInput.checked;
           const nowChecked = toggleInput.checked;
           if (nowChecked) {

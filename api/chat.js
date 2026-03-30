@@ -650,11 +650,11 @@ const GENERIC_API_MAP = {
   'metmuseum': { url: 'https://collectionapi.metmuseum.org/public/collection/v1/search?q=${query}', processor: 'json' },
   'getty': { url: 'https://api.getty.edu/museum/api/open/v1/search?q=${query}', processor: 'json' },
   'sketchfab': { url: 'https://api.sketchfab.com/v3/search?type=models&q=${query}', processor: 'json' },
-  'celestrak': { url: 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json', processor: 'json' },
+  'celestrak': { url: 'https://celestrak.org/NORAD/elements/stations.txt', processor: 'text' },
   'openuniverse': { url: 'https://api.astrocatalogs.com/catalog/${query}?format=json', processor: 'json' },
   'stellarium': { url: 'https://api.noctuasky.com/api/v1/skysources/name/${query}', processor: 'json' },
   'ligo': { url: 'https://gracedb.ligo.org/api/superevents/?query=${query}&format=json', processor: 'json' },
-  'noaa-space': { url: 'https://services.swpc.noaa.gov/json/solar-wind.json', processor: 'json' },
+  'noaa-space': { url: 'https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json', processor: 'json' },
   'exoplanets': { url: 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+*+from+ps+where+pl_name+like+%27%25${query}%25%27&format=json', processor: 'json' },
   'reactome': { url: 'https://reactome.org/ContentService/search/query?query=${query}&species=Homo+sapiens', processor: 'json' },
   'string-db': { url: 'https://string-db.org/api/json/network?identifiers=${query}', processor: 'json' },
@@ -664,6 +664,133 @@ const GENERIC_API_MAP = {
   'osf': { url: 'https://api.osf.io/v2/nodes/?filter[title]=${query}', processor: 'json' },
   'generic': { url: 'https://api.publicapis.org/entries?title=${query}', processor: 'json' }
 };
+
+const SUPPORTED_CONNECTORS = new Set([
+  'tavily',
+  'wikipedia',
+  'arxiv',
+  'scielo',
+  'newton',
+  'spacex',
+  'ibge',
+  'open-meteo',
+  'nasa',
+  'openlibrary',
+  'gbif',
+  'usgs',
+  'brasilapi',
+  'camara',
+  'iss',
+  'sunrise',
+  'dictionary-en',
+  'universities',
+  'poetry',
+  'phet',
+  'pubmed',
+  'wikidata',
+  'rcsb',
+  'antweb',
+  'periodictable',
+  'fishwatch',
+  'gutenberg',
+  'bible',
+  'openaq',
+  'solarsystem',
+  'quotes',
+  'dogapi',
+  'celestrak',
+  'codata',
+  'quotes-free',
+  'openfoodfacts',
+  'picsum',
+  'esa',
+  'stellarium',
+  'ligo',
+  'noaa-space',
+  'exoplanets',
+  'mathjs',
+  'pubchem',
+  'ensembl',
+  'mygene',
+  'uniprot',
+  'reactome',
+  'string-db',
+  'openfda',
+  'covid-jhu',
+  'noaa-climate',
+  'worldbank-climate',
+  'usgs-water',
+  'metmuseum',
+  'sketchfab',
+  'osf',
+  'timelapse',
+  'spacedevs',
+  'openuniverse',
+  'sdo',
+  'kepler',
+  'numberempire',
+  'pubchem-bio',
+  'omim',
+  'clinvar',
+  'cosmic',
+  'sentinel',
+  'firms',
+  'edx',
+  'mit-ocw',
+  'mec-ejovem',
+  'educ4share',
+  'modis',
+  'tcu',
+  'transparencia',
+  'datasus',
+  'seade',
+  'getty',
+  'libras',
+]);
+
+const CONNECTORS_IN_MAINTENANCE = new Set([]);
+
+const GENERIC_CONNECTORS_WITH_DEDICATED_HANDLERS = new Set([
+  'esa',
+  'openfoodfacts',
+  'mathjs',
+  'pubchem',
+  'uniprot',
+  'mygene',
+  'reactome',
+  'string-db',
+  'edx',
+  'mit-ocw',
+  'tcu',
+  'osf',
+  'celestrak',
+  'openuniverse',
+  'stellarium',
+  'ligo',
+  'noaa-space',
+  'exoplanets',
+  'getty',
+  'seade',
+  'sdo',
+  'omim',
+  'libras',
+  'kepler',
+  'numberempire',
+  'pubchem-bio',
+  'clinvar',
+  'cosmic',
+  'sentinel',
+  'firms',
+  'mec-ejovem',
+  'educ4share',
+  'modis',
+  'transparencia',
+  'datasus',
+]);
+
+function filterSupportedConnectors(connectors = []) {
+  return [...new Set((connectors || []).filter(key => key && SUPPORTED_CONNECTORS.has(key) && !CONNECTORS_IN_MAINTENANCE.has(key)))];
+}
 
 async function buscarGeneric(key, query) {
   const config = GENERIC_API_MAP[key];
@@ -942,29 +1069,56 @@ async function buscarCODATA(query) {
 
 // ============ SDO (Solar Dynamics Observatory) ============
 async function buscarSDO() {
-  try {
-    const res = await fetch('https://sdo.gsfc.nasa.gov/cgi-bin/api/get_latest.php?type=all');
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    console.error('SDO fetch error:', err);
-    return null;
+  const homepage = await fetchHtmlSummary('https://sdo.gsfc.nasa.gov/');
+  if (homepage) {
+    return {
+      title: homepage.title || 'Solar Dynamics Observatory',
+      summary: homepage.description || 'Portal oficial de monitoramento solar da NASA.',
+      url: homepage.url,
+    };
   }
+  return {
+    title: 'Solar Dynamics Observatory',
+    summary: 'Monitoramento solar da NASA com imagens e dados de atividade solar.',
+    url: 'https://sdo.gsfc.nasa.gov/',
+  };
 }
 
 // ============ OMIM (Genetics) ============
 async function buscarOMIM(query) {
   if (!query) return null;
-  const apiKey = process.env.OMIM_API_KEY; // Requer chave
-  if (!apiKey) return null;
-  try {
-    const res = await fetch(`https://api.omim.org/api/entry/search?search=${encodeURIComponent(query)}&apiKey=${apiKey}&format=json`);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    console.error('OMIM fetch error:', err);
-    return null;
+  const apiKey = process.env.OMIM_API_KEY;
+  if (apiKey) {
+    try {
+      const res = await fetch(`https://api.omim.org/api/entry/search?search=${encodeURIComponent(query)}&apiKey=${apiKey}&format=json`);
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          title: `OMIM: ${query}`,
+          summary: 'Busca genética via API oficial do OMIM.',
+          url: `https://www.omim.org/search?index=entry&search=${encodeURIComponent(query)}`,
+          data,
+        };
+      }
+    } catch (err) {
+      console.error('OMIM API fetch error:', err);
+    }
   }
+
+  const fallback = await fetchHtmlSummary(`https://www.omim.org/search?index=entry&search=${encodeURIComponent(query)}`);
+  if (fallback) {
+    return {
+      title: fallback.title || `OMIM: ${query}`,
+      summary: fallback.description || 'Busca em catálogo de genes e doenças humanas do OMIM.',
+      url: fallback.url,
+    };
+  }
+
+  return {
+    title: `OMIM: ${query}`,
+    summary: 'Catálogo de genes e doenças humanas do OMIM.',
+    url: `https://www.omim.org/search?index=entry&search=${encodeURIComponent(query)}`,
+  };
 }
 
 // ============ VLibras (Tradução para Libras) ============
@@ -1046,13 +1200,230 @@ async function buscarDog() {
 // ============ Quotable (Quotes) ============
 async function buscarFrase() {
   try {
-    const res = await fetch('https://api.quotable.io/random');
+    const res = await fetch('https://zenquotes.io/api/random', {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const item = Array.isArray(data) ? data[0] : data;
+    if (!item) return null;
+    return {
+      content: item.q || item.content || '',
+      author: item.a || item.author || 'Autor desconhecido',
+    };
+  } catch (err) {
+    console.error('Quotes API error:', err);
+    return null;
+  }
+}
+
+function extractHtmlMetadata(html = '') {
+  const text = String(html || '');
+  const title = (text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const description = (
+    text.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+    text.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+    ''
+  ).replace(/\s+/g, ' ').trim();
+  return { title, description };
+}
+
+async function fetchHtmlSummary(url) {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const meta = extractHtmlMetadata(html);
+    return { url, ...meta };
+  } catch (error) {
+    return null;
+  }
+}
+
+async function buscarOpenUniverse(query) {
+  const url = `https://cds.unistra.fr/cgi-bin/nph-sesame/-oxp/~SNV?${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    const objectName = text.match(/<oname>([^<]+)<\/oname>/i)?.[1] || query;
+    const jpos = text.match(/<jpos>([^<]+)<\/jpos>/i)?.[1] || '';
+    return {
+      title: objectName,
+      summary: jpos ? `Posicao/catalogacao astronômica: ${jpos}` : 'Objeto localizado em catálogo astronômico aberto.',
+      url,
+    };
+  } catch (err) {
+    console.error('OpenUniverse adapter error:', err);
+    return { title: query, summary: 'Catálogo astronômico aberto disponível para consulta.', url };
+  }
+}
+
+async function buscarKeplerTess(query) {
+  const sql = `select top 5 pl_name,hostname,disc_facility,disc_year from ps where pl_name like '%${query}%' or hostname like '%${query}%'`;
+  const url = `https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=${encodeURIComponent(sql)}&format=json`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.error('Kepler/TESS error:', err);
+    return [];
+  }
+}
+
+async function buscarNumberEmpire(query) {
+  const result = await buscarGeneric('mathjs', query);
+  return {
+    title: `NumberEmpire: ${query}`,
+    result: typeof result === 'string' ? result : null,
+    url: `https://www.numberempire.com/expressioncalculator.php?expression=${encodeURIComponent(query)}`,
+  };
+}
+
+async function buscarPubChemBio(query) {
+  const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(query)}/assaysummary/JSON`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
-    console.error('Quotable error:', err);
+    console.error('PubChem Bioassay error:', err);
     return null;
   }
+}
+
+async function buscarClinVar(query) {
+  if (!query) return [];
+  try {
+    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=clinvar&term=${encodeURIComponent(query)}&retmode=json&retmax=3`;
+    const searchRes = await fetch(searchUrl, { signal: AbortSignal.timeout(8000) });
+    if (!searchRes.ok) return [];
+    const searchData = await searchRes.json();
+    const ids = searchData.esearchresult?.idlist || [];
+    if (!ids.length) return [];
+    const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=clinvar&id=${ids.join(',')}&retmode=json`;
+    const summaryRes = await fetch(summaryUrl, { signal: AbortSignal.timeout(8000) });
+    if (!summaryRes.ok) return [];
+    const summaryData = await summaryRes.json();
+    return ids.map(id => summaryData.result?.[id]).filter(Boolean);
+  } catch (err) {
+    console.error('ClinVar error:', err);
+    return [];
+  }
+}
+
+async function buscarCosmic(query) {
+  return await fetchHtmlSummary(`https://cancer.sanger.ac.uk/cosmic/search?q=${encodeURIComponent(query)}`);
+}
+
+async function buscarSentinel(query) {
+  const searchUrl = `https://browser.dataspace.copernicus.eu/?search=${encodeURIComponent(query)}`;
+  return {
+    title: `Sentinel/Copernicus: ${query}`,
+    summary: 'Consulta preparada para observação da Terra via Copernicus Browser.',
+    url: searchUrl,
+  };
+}
+
+async function buscarFirms(query) {
+  try {
+    const res = await fetch('https://eonet.gsfc.nasa.gov/api/v3/events?category=wildfires&status=open&limit=5', {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.events || [];
+  } catch (err) {
+    console.error('FIRMS fallback error:', err);
+    return [];
+  }
+}
+
+async function buscarCoursePage(baseUrl, query) {
+  return await fetchHtmlSummary(`${baseUrl}${encodeURIComponent(query)}`);
+}
+
+async function buscarPortalReference(title, url, summary) {
+  return { title, url, summary };
+}
+
+async function buscarMecEJovem(query) {
+  const homepage = await fetchHtmlSummary('https://www.gov.br/mec/pt-br');
+  return {
+    title: homepage?.title || 'Portal MEC',
+    url: homepage?.url || 'https://www.gov.br/mec/pt-br',
+    summary: homepage?.description || `Referência institucional do MEC para o tema "${query}".`,
+  };
+}
+
+async function buscarEduc4Share(query) {
+  return {
+    title: 'Educ4Share',
+    url: `https://www.educ4share.com/search?query=${encodeURIComponent(query)}`,
+    summary: `Portal educacional referenciado para busca de materiais sobre "${query}".`,
+  };
+}
+
+async function buscarModis(query) {
+  const capabilities = await fetchHtmlSummary('https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/1.0.0/WMTSCapabilities.xml');
+  return {
+    title: capabilities?.title || 'NASA GIBS / MODIS',
+    url: 'https://gibs.earthdata.nasa.gov/',
+    summary: capabilities?.description || `Camadas e imagens MODIS/NASA GIBS para observação da Terra relacionadas a "${query}".`,
+  };
+}
+
+async function buscarTCU(query) {
+  return {
+    title: 'Dados abertos do TCU',
+    url: `https://dadosabertos.tcu.gov.br/`,
+    summary: `Referência do Tribunal de Contas da União para fiscalizações, auditorias e temas ligados a "${query}".`,
+  };
+}
+
+async function buscarTransparencia(query) {
+  const summary = await fetchHtmlSummary(`https://portaldatransparencia.gov.br/busca?termo=${encodeURIComponent(query)}`);
+  return {
+    title: summary?.title || 'Portal da Transparência',
+    url: summary?.url || `https://portaldatransparencia.gov.br/busca?termo=${encodeURIComponent(query)}`,
+    summary: summary?.description || `Busca preparada no Portal da Transparência para "${query}".`,
+  };
+}
+
+async function buscarDataSUS(query) {
+  const summary = await fetchHtmlSummary(`https://opendatasus.saude.gov.br/dataset/?q=${encodeURIComponent(query)}`);
+  return {
+    title: summary?.title || 'OpenDataSUS',
+    url: summary?.url || `https://opendatasus.saude.gov.br/dataset/?q=${encodeURIComponent(query)}`,
+    summary: summary?.description || `Busca preparada no OpenDataSUS para "${query}".`,
+  };
+}
+
+async function buscarSEADE(query) {
+  return {
+    title: 'Fundação SEADE',
+    url: `https://www.seade.gov.br/`,
+    summary: `Referência estatística da Fundação SEADE para pesquisas relacionadas a "${query}".`,
+  };
+}
+
+async function buscarGetty(query) {
+  const summary = await fetchHtmlSummary(`https://www.getty.edu/art/collection/search?query=${encodeURIComponent(query)}`);
+  return {
+    title: summary?.title || 'Getty Museum Collection',
+    url: summary?.url || `https://www.getty.edu/art/collection/search?query=${encodeURIComponent(query)}`,
+    summary: summary?.description || `Busca preparada no acervo do Getty Museum para "${query}".`,
+  };
 }
 
 // ============ The Space Devs (Launches) ============
@@ -1584,7 +1955,7 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(cachorro|cão|raça|dog|pet)\b/.test(normalizedText)) autoDetectedConnectors.push('dogapi');
   if (/\b(ar|poluição|qualidade do ar|openaq|smog)\b/.test(normalizedText)) autoDetectedConnectors.push('openaq');
   if (/\b(constante|física|codata|velocidade da luz|planck)\b/.test(normalizedText)) autoDetectedConnectors.push('codata');
-  if (/\b(clima|tempo|temperatura|umidade|chuva|vento|previsão|previsao|meteorolog)\b/.test(normalizedText)) autoDetectedConnectors.push('open-meteo');
+  if (/\b(clima|temperatura|umidade|chuva|vento|previsão|previsao|meteorolog|frente fria|onda de calor)\b/.test(normalizedText)) autoDetectedConnectors.push('open-meteo');
   
   // Maga Expansão Keys
   if (/\b(comida|alimento|food|caloria|nutrição|ingrediente)\b/.test(normalizedText)) autoDetectedConnectors.push('openfoodfacts');
@@ -1639,9 +2010,11 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     autoDetectedConnectors.push('spacex');
   }
 
-  const selectedConnectors = connectorAuto
+  const requestedConnectors = connectorAuto
     ? [...new Set(autoDetectedConnectors)]
     : [...new Set(userConnectors.map(c => c.toLowerCase()))];
+  const removedMaintenanceConnectors = requestedConnectors.filter(key => CONNECTORS_IN_MAINTENANCE.has(key));
+  const selectedConnectors = filterSupportedConnectors(requestedConnectors);
 
   const useNasa = options.useNasa === true || selectedConnectors.includes('nasa');
 
@@ -1679,6 +2052,9 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     return source;
   }
 logs.push('🧠 Iniciando raciocínio (processo interno)');
+  if (removedMaintenanceConnectors.length > 0) {
+    logs.push(`🛠️ Conectores em manutencao e temporariamente ignorados: ${removedMaintenanceConnectors.join(', ')}`);
+  }
 
   let context = '';
   let nasaMedia = [];
@@ -2150,7 +2526,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   // Loop para Conectores da Mega Expansão (Generic Map)
   for (const key of selectedConnectors) {
-    if (GENERIC_API_MAP[key]) {
+    if (GENERIC_API_MAP[key] && !GENERIC_CONNECTORS_WITH_DEDICATED_HANDLERS.has(key)) {
       logs.push(`🔍 Consultando conector especializado: ${key}...`);
       const data = await buscarGeneric(key, queryParaBuscar);
       if (data && !data.error) {
@@ -2364,6 +2740,199 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       context += `\n\n🪐 Exoplanetas (NASA Archive):\nDados de planetas fora do sistema solar integrados.\n`;
       addSource('EXO-1', 'NASA Exoplanets', 'exoplanets', 'Arquivo oficial de exoplanetas.', 'https://exoplanetarchive.ipac.caltech.edu/');
       logs.push('✅ Dados de exoplanetas coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('openuniverse')) {
+    logs.push(`ðŸŒŒ Buscando catÃ¡logo astronÃ´mico aberto: "${queryParaBuscar}"`);
+    const universeData = await buscarOpenUniverse(queryParaBuscar);
+    if (universeData) {
+      context += `\n\nðŸŒŒ OpenUniverse / CatÃ¡logo astronÃ´mico:\n${universeData.summary}\nLink: ${universeData.url}\n`;
+      addSource('UNIV-2', universeData.title || 'OpenUniverse', 'openuniverse', universeData.summary || 'ExploraÃ§Ã£o de dados astronÃ´micos.', universeData.url || 'https://cds.unistra.fr/');
+      logs.push('âœ… CatÃ¡logo astronÃ´mico aberto integrado');
+    }
+  }
+
+  if (selectedConnectors.includes('edx')) {
+    logs.push(`ðŸŽ“ Buscando cursos no edX (fallback HTML): "${queryParaBuscar}"`);
+    const edxPage = await buscarCoursePage('https://www.edx.org/search?q=', queryParaBuscar);
+    if (edxPage) {
+      context += `\n\nðŸŽ“ Cursos AcadÃªmicos (edX):\n${edxPage.title}\n${edxPage.description || 'Busca de cursos abertos.'}\nLink: ${edxPage.url}\n`;
+      addSource('EDX-2', edxPage.title || 'edX Open Courses', 'edx', edxPage.description || 'Cursos acadÃªmicos de alto nÃ­vel.', edxPage.url || 'https://www.edx.org/');
+      logs.push('âœ… edX integrado por fallback HTML');
+    }
+  }
+
+  if (selectedConnectors.includes('mit-ocw')) {
+    logs.push(`ðŸ›ï¸ Buscando MIT OCW (fallback HTML): "${queryParaBuscar}"`);
+    const mitPage = await buscarCoursePage('https://ocw.mit.edu/search/?q=', queryParaBuscar);
+    if (mitPage) {
+      context += `\n\nðŸ›ï¸ MIT OpenCourseWare:\n${mitPage.title}\n${mitPage.description || 'Materiais de cursos do MIT.'}\nLink: ${mitPage.url}\n`;
+      addSource('MIT-2', mitPage.title || 'MIT OpenCourseWare', 'mit-ocw', mitPage.description || 'Materiais gratuitos de cursos do MIT.', mitPage.url || 'https://ocw.mit.edu/');
+      logs.push('âœ… MIT OCW integrado por fallback HTML');
+    }
+  }
+
+  if (selectedConnectors.includes('tcu')) {
+    logs.push(`âš–ï¸ Buscando referÃªncia TCU: "${queryParaBuscar}"`);
+    const tcuRef = await buscarTCU(queryParaBuscar);
+    if (tcuRef) {
+      context += `\n\nâš–ï¸ TCU:\n${tcuRef.summary}\nLink: ${tcuRef.url}\n`;
+      addSource('TCU-2', tcuRef.title || 'TCU Brasil', 'tcu', tcuRef.summary || 'FiscalizaÃ§Ã£o e contas pÃºblicas.', tcuRef.url);
+      logs.push('âœ… ReferÃªncia TCU integrada');
+    }
+  }
+
+  if (selectedConnectors.includes('kepler')) {
+    logs.push(`ðŸª Buscando catÃ¡logos Kepler/TESS: "${queryParaBuscar}"`);
+    const keplerData = await buscarKeplerTess(queryParaBuscar);
+    if (keplerData && keplerData.length > 0) {
+      context += `\n\nðŸª Kepler/TESS - candidatos e exoplanetas:\n`;
+      keplerData.slice(0, 3).forEach((planet, i) => {
+        context += `${i + 1}. ${planet.pl_name || 'Sem nome'} | Estrela: ${planet.hostname || 'N/A'} | Descoberta: ${planet.disc_year || 'N/A'} | MissÃ£o: ${planet.disc_facility || 'N/A'}\n`;
+      });
+      addSource('KEPLER-1', 'NASA Exoplanet Archive / Kepler-TESS', 'kepler', 'CatÃ¡logo astronÃ´mico de exoplanetas e hospedeiras.', 'https://exoplanetarchive.ipac.caltech.edu/');
+      logs.push('âœ… CatÃ¡logo Kepler/TESS integrado');
+    }
+  }
+
+  if (selectedConnectors.includes('numberempire')) {
+    logs.push(`ðŸ§® Buscando apoio matemÃ¡tico no NumberEmpire: "${queryParaBuscar}"`);
+    const numberEmpireData = await buscarNumberEmpire(queryParaBuscar);
+    if (numberEmpireData) {
+      context += `\n\nðŸ§® NumberEmpire:\n${numberEmpireData.result ? `Resultado estimado: ${numberEmpireData.result}\n` : ''}Link: ${numberEmpireData.url}\n`;
+      addSource('NUMBEREMPIRE-1', numberEmpireData.title || 'NumberEmpire', 'numberempire', numberEmpireData.result || 'Ferramenta complementar de matemÃ¡tica simbÃ³lica.', numberEmpireData.url);
+      logs.push('âœ… ReferÃªncia NumberEmpire integrada');
+    }
+  }
+
+  if (selectedConnectors.includes('pubchem-bio')) {
+    logs.push(`ðŸ§ª Buscando bioensaios (PubChem BioAssay): "${queryParaBuscar}"`);
+    const bioassayData = await buscarPubChemBio(queryParaBuscar);
+    const assays = bioassayData?.AssaySummaries?.AssaySummary || [];
+    if (assays.length > 0) {
+      context += `\n\nðŸ§ª Bioensaios (PubChem BioAssay):\n`;
+      assays.slice(0, 3).forEach((assay, i) => {
+        context += `${i + 1}. AID ${assay.AID} | Tipo: ${assay.ActivityOutcomeMethod || 'N/A'} | Nome: ${assay.Name || 'N/A'}\n`;
+      });
+      addSource('PUBCHEM-BIO-1', `PubChem BioAssay: ${queryParaBuscar}`, 'pubchem-bio', 'Atividades biolÃ³gicas e ensaios relacionados ao composto consultado.', `https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(queryParaBuscar)}`);
+      logs.push('âœ… Bioensaios do PubChem integrados');
+    }
+  }
+
+  if (selectedConnectors.includes('clinvar')) {
+    logs.push(`ðŸ§¬ Buscando variantes clÃ­nicas (ClinVar): "${queryParaBuscar}"`);
+    const clinvarData = await buscarClinVar(queryParaBuscar);
+    if (clinvarData && clinvarData.length > 0) {
+      context += `\n\nðŸ§¬ ClinVar - variantes clÃ­nicas:\n`;
+      clinvarData.slice(0, 3).forEach((entry, i) => {
+        context += `${i + 1}. ${entry.title || entry.variation_set?.variation_name || 'Registro ClinVar'}\n`;
+      });
+      addSource('CLINVAR-1', `ClinVar: ${queryParaBuscar}`, 'clinvar', 'Registros clÃ­nicos de variantes genÃ©ticas.', `https://www.ncbi.nlm.nih.gov/clinvar/?term=${encodeURIComponent(queryParaBuscar)}`);
+      logs.push('âœ… Dados do ClinVar coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('cosmic')) {
+    logs.push(`ðŸ§¬ Buscando mutaÃ§Ãµes em cÃ¢ncer (COSMIC): "${queryParaBuscar}"`);
+    const cosmicData = await buscarCosmic(queryParaBuscar);
+    if (cosmicData) {
+      context += `\n\nðŸ§¬ COSMIC - mutaÃ§Ãµes em cÃ¢ncer:\n${cosmicData.title}\n${cosmicData.description || cosmicData.summary || ''}\nLink: ${cosmicData.url}\n`;
+      addSource('COSMIC-1', cosmicData.title || `COSMIC: ${queryParaBuscar}`, 'cosmic', cosmicData.description || cosmicData.summary || 'Consulta ao COSMIC/Sanger Institute.', cosmicData.url);
+      logs.push('âœ… ReferÃªncia COSMIC integrada');
+    }
+  }
+
+  if (selectedConnectors.includes('sentinel')) {
+    logs.push(`ðŸŒ Preparando busca de observaÃ§Ã£o da Terra (Sentinel): "${queryParaBuscar}"`);
+    const sentinelData = await buscarSentinel(queryParaBuscar);
+    if (sentinelData) {
+      context += `\n\nðŸŒ Sentinel/Copernicus:\n${sentinelData.summary}\nLink: ${sentinelData.url}\n`;
+      addSource('SENTINEL-1', sentinelData.title || 'Sentinel/Copernicus', 'sentinel', sentinelData.summary || 'Busca preparada no Copernicus Browser.', sentinelData.url);
+      logs.push('âœ… Consulta Sentinel preparada');
+    }
+  }
+
+  if (selectedConnectors.includes('firms')) {
+    logs.push(`ðŸ”¥ Buscando queimadas ativas (FIRMS/EONET): "${queryParaBuscar}"`);
+    const firmsData = await buscarFirms(queryParaBuscar);
+    if (firmsData && firmsData.length > 0) {
+      context += `\n\nðŸ”¥ Eventos recentes de queimadas:\n`;
+      firmsData.slice(0, 3).forEach((event, i) => {
+        context += `${i + 1}. ${event.title || 'Evento'} | Categorias: ${(event.categories || []).map(c => c.title).join(', ') || 'wildfires'}\n`;
+      });
+      addSource('FIRMS-1', 'Wildfires / FIRMS fallback', 'firms', 'Monitoramento de queimadas abertas via EONET/NASA.', 'https://eonet.gsfc.nasa.gov/');
+      logs.push('âœ… Eventos de queimadas integrados');
+    }
+  }
+
+  if (selectedConnectors.includes('mec-ejovem')) {
+    logs.push(`ðŸ« Buscando referÃªncia educacional no MEC: "${queryParaBuscar}"`);
+    const mecData = await buscarMecEJovem(queryParaBuscar);
+    if (mecData) {
+      context += `\n\nðŸ« MEC / EducaÃ§Ã£o:\n${mecData.summary}\nLink: ${mecData.url}\n`;
+      addSource('MEC-1', mecData.title || 'Portal MEC', 'mec-ejovem', mecData.summary || 'ReferÃªncia educacional do MEC.', mecData.url);
+      logs.push('âœ… ReferÃªncia do MEC integrada');
+    }
+  }
+
+  if (selectedConnectors.includes('educ4share')) {
+    logs.push(`ðŸ“š Preparando referÃªncia Educ4Share: "${queryParaBuscar}"`);
+    const educData = await buscarEduc4Share(queryParaBuscar);
+    if (educData) {
+      context += `\n\nðŸ“š Educ4Share:\n${educData.summary}\nLink: ${educData.url}\n`;
+      addSource('EDUC4SHARE-1', educData.title || 'Educ4Share', 'educ4share', educData.summary || 'Portal educacional complementar.', educData.url);
+      logs.push('âœ… ReferÃªncia Educ4Share integrada');
+    }
+  }
+
+  if (selectedConnectors.includes('modis')) {
+    logs.push(`ðŸŒ Buscando camadas MODIS/NASA GIBS: "${queryParaBuscar}"`);
+    const modisData = await buscarModis(queryParaBuscar);
+    if (modisData) {
+      context += `\n\nðŸŒ MODIS / NASA GIBS:\n${modisData.summary}\nLink: ${modisData.url}\n`;
+      addSource('MODIS-1', modisData.title || 'NASA GIBS / MODIS', 'modis', modisData.summary || 'Imagens e camadas de observaÃ§Ã£o da Terra.', modisData.url);
+      logs.push('âœ… ReferÃªncia MODIS integrada');
+    }
+  }
+
+  if (selectedConnectors.includes('transparencia')) {
+    logs.push(`ðŸ’° Buscando no Portal da TransparÃªncia: "${queryParaBuscar}"`);
+    const transparenciaData = await buscarTransparencia(queryParaBuscar);
+    if (transparenciaData) {
+      context += `\n\nðŸ’° Portal da TransparÃªncia:\n${transparenciaData.summary}\nLink: ${transparenciaData.url}\n`;
+      addSource('TRANSPARENCIA-1', transparenciaData.title || 'Portal da TransparÃªncia', 'transparencia', transparenciaData.summary || 'Consulta preparada sobre gastos pÃºblicos.', transparenciaData.url);
+      logs.push('âœ… Portal da TransparÃªncia integrado');
+    }
+  }
+
+  if (selectedConnectors.includes('datasus')) {
+    logs.push(`ðŸ¥ Buscando no OpenDataSUS: "${queryParaBuscar}"`);
+    const datasusData = await buscarDataSUS(queryParaBuscar);
+    if (datasusData) {
+      context += `\n\nðŸ¥ OpenDataSUS:\n${datasusData.summary}\nLink: ${datasusData.url}\n`;
+      addSource('DATASUS-1', datasusData.title || 'OpenDataSUS', 'datasus', datasusData.summary || 'Dados pÃºblicos de saÃºde.', datasusData.url);
+      logs.push('âœ… ReferÃªncia OpenDataSUS integrada');
+    }
+  }
+
+  if (selectedConnectors.includes('seade')) {
+    logs.push(`ðŸ“Š Buscando referÃªncia estatÃ­stica SEADE: "${queryParaBuscar}"`);
+    const seadeData = await buscarSEADE(queryParaBuscar);
+    if (seadeData) {
+      context += `\n\nðŸ“Š SEADE:\n${seadeData.summary}\nLink: ${seadeData.url}\n`;
+      addSource('SEADE-1', seadeData.title || 'Fundacao SEADE', 'seade', seadeData.summary || 'EstatÃ­sticas socioeconÃ´micas de SÃ£o Paulo e regiÃµes.', seadeData.url);
+      logs.push('âœ… ReferÃªncia SEADE integrada');
+    }
+  }
+
+  if (selectedConnectors.includes('getty')) {
+    logs.push(`ðŸŽ¨ Buscando no Getty Museum: "${queryParaBuscar}"`);
+    const gettyData = await buscarGetty(queryParaBuscar);
+    if (gettyData) {
+      context += `\n\nðŸŽ¨ Getty Museum:\n${gettyData.summary}\nLink: ${gettyData.url}\n`;
+      addSource('GETTY-1', gettyData.title || 'Getty Museum Collection', 'getty', gettyData.summary || 'Busca no acervo do Getty Museum.', gettyData.url);
+      logs.push('âœ… Getty Museum integrado');
     }
   }
 
