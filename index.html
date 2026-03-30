@@ -718,15 +718,28 @@
   .citation-tag:hover { background: rgba(59,130,246,0.4); }
   .highlight-yellow { background-color: rgba(255, 193, 7, 0.3); border-radius: 2px; transition: background-color 0.2s ease; }
 
-  .sources-section { margin-top: 1.5rem; background: rgba(15,23,42,0.8); border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); overflow: hidden; }
-  .sources-header { background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15)); padding: 0.75rem 1rem; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid rgba(99,102,241,0.2); }
-  .sources-grid { display: grid; grid-template-columns: 1fr; gap: 0.6rem; padding: 1rem; }
-  .source-item { background: rgba(30,41,59,0.5); border-radius: 4px; padding: 0.75rem; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: transform 0.15s ease, background 0.15s ease; }
-  .source-item:hover { transform: translateY(-1px); background: rgba(44,59,84,0.75); }
-  .source-label { font-weight: 700; font-size: 0.82rem; color: #60a5fa; margin-bottom: 0.25rem; }
-  .source-detail { font-size: 0.73rem; color: #cbd5e1; line-height: 1.35; max-height: 3.6rem; overflow: hidden; text-overflow: ellipsis; }
-  .source-link { display: inline-block; margin-top: 0.4rem; font-size: 0.7rem; color: #60a5fa; text-decoration: none; }
+  .sources-section { margin-top: 1.5rem; background: linear-gradient(180deg, rgba(13,22,41,0.96), rgba(10,16,30,0.9)); border-radius: 20px; border: 1px solid rgba(96,165,250,0.14); overflow: hidden; box-shadow: 0 18px 40px rgba(2,6,23,0.2); }
+  .sources-header { display: flex; align-items: center; justify-content: space-between; gap: 0.85rem; padding: 0.95rem 1.1rem 0.9rem; font-weight: 700; font-size: 0.84rem; letter-spacing: 0.04em; text-transform: uppercase; color: #dbeafe; border-bottom: 1px solid rgba(96,165,250,0.12); background: linear-gradient(135deg, rgba(37,99,235,0.18), rgba(14,165,233,0.08) 54%, rgba(15,23,42,0.1)); }
+  .sources-header-copy { display: flex; flex-direction: column; gap: 0.18rem; min-width: 0; }
+  .sources-header-title { color: #e0f2fe; font-size: 0.82rem; }
+  .sources-header-subtitle { color: rgba(191,219,254,0.74); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.02em; text-transform: none; }
+  .sources-counter { flex-shrink: 0; min-width: 42px; padding: 0.34rem 0.55rem; border-radius: 999px; border: 1px solid rgba(125,211,252,0.2); background: rgba(8,47,73,0.35); color: #bae6fd; font-size: 0.72rem; text-align: center; }
+  .sources-grid { display: grid; grid-template-columns: 1fr; gap: 0.72rem; padding: 1rem; }
+  .source-item { background: linear-gradient(180deg, rgba(30,41,59,0.92), rgba(15,23,42,0.98)); border-radius: 16px; padding: 0.9rem 0.95rem; border: 1px solid rgba(148,163,184,0.12); cursor: pointer; transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02); }
+  .source-item:hover { transform: translateY(-1px); background: linear-gradient(180deg, rgba(38,52,75,0.95), rgba(15,23,42,1)); border-color: rgba(96,165,250,0.22); box-shadow: 0 12px 24px rgba(2,6,23,0.22); }
+  .source-item-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.85rem; }
+  .source-item-copy { min-width: 0; }
+  .source-index { flex-shrink: 0; width: 1.65rem; height: 1.65rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: rgba(59,130,246,0.14); border: 1px solid rgba(96,165,250,0.22); color: #93c5fd; font-size: 0.72rem; font-weight: 700; }
+  .source-label { font-weight: 700; font-size: 0.84rem; color: #dbeafe; margin-bottom: 0.28rem; line-height: 1.3; }
+  .source-detail { font-size: 0.74rem; color: rgba(203,213,225,0.9); line-height: 1.45; max-height: 4.2rem; overflow: hidden; text-overflow: ellipsis; }
+  .source-link { display: inline-flex; align-items: center; gap: 0.32rem; margin-top: 0.65rem; font-size: 0.72rem; color: #7dd3fc; text-decoration: none; font-weight: 700; }
   .source-link:hover { text-decoration: underline; }
+  .sidebar-scrollable-body { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: rgba(96,165,250,0.34) rgba(15,23,42,0.14); }
+  .sidebar-scrollable-body::-webkit-scrollbar { width: 8px; }
+  .sidebar-scrollable-body::-webkit-scrollbar-track { background: rgba(15,23,42,0.16); border-radius: 999px; }
+  .sidebar-scrollable-body::-webkit-scrollbar-thumb { background: rgba(96,165,250,0.3); border-radius: 999px; border: 2px solid rgba(15,23,42,0.16); }
+  .sidebar-card-soft-clamped { position: relative; }
+  .sidebar-card-soft-clamped::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 28px; pointer-events: none; background: linear-gradient(180deg, rgba(8,15,30,0), rgba(8,15,30,0.92)); }
 
   /* ── Split Layout ── */
   .ai-split-container {
@@ -751,8 +764,9 @@
   .ai-right-column .sources-section,
   .ai-right-column .embedded-videos-section {
     margin-top: 0 !important;
-    background: rgba(15,23,42,0.4);
-    border: 1px solid rgba(255,255,255,0.05);
+    background: linear-gradient(180deg, rgba(15,23,42,0.72), rgba(10,16,30,0.9));
+    border: 1px solid rgba(148,163,184,0.09);
+    border-radius: 20px;
     position: relative;
     overflow: hidden;
     transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -3553,9 +3567,14 @@
   function renderSources(sources) {
     return sources.map(source => `
       <div class="source-item" data-source-id="${source.id}">
-        <div class="source-label">${escapeHtml(source.label || source.id)}</div>
-        <div class="source-detail">${escapeHtml(truncateText(source.detail || 'Sem detalhes', 120))}</div>
-        ${source.url ? `<a class="source-link" href="${source.url}" target="_blank" rel="noopener">Ver link</a>` : ''}
+        <div class="source-item-main">
+          <div class="source-item-copy">
+            <div class="source-label">${escapeHtml(source.label || source.id)}</div>
+            <div class="source-detail">${escapeHtml(truncateText(source.detail || 'Sem detalhes', 160))}</div>
+            ${source.url ? `<a class="source-link" href="${source.url}" target="_blank" rel="noopener">Abrir fonte</a>` : ''}
+          </div>
+          <div class="source-index">${escapeHtml(String(source.id || '').slice(0, 2).toUpperCase() || 'F')}</div>
+        </div>
       </div>
     `).join('');
   }
@@ -3989,6 +4008,72 @@
     return true;
   }
 
+  function applySidebarPaneBalance(leftCol, rightCol, sourcesContainer, mediaContainer, embeddedVideosContainer) {
+    if (!leftCol || !rightCol || window.innerWidth <= 768) {
+      [sourcesContainer, mediaContainer].forEach(card => {
+        if (!card) return;
+        card.classList.remove('sidebar-card-soft-clamped');
+        card.style.removeProperty('max-height');
+        const body = card.querySelector('.sidebar-scrollable-body');
+        if (body) body.style.removeProperty('max-height');
+      });
+      return;
+    }
+
+    const responseHeight = Math.max(leftCol.offsetHeight, 0);
+    if (responseHeight < 120) return;
+
+    const gap = 20;
+    const tolerance = 48;
+    const videoHeight = embeddedVideosContainer && embeddedVideosContainer.parentNode === rightCol ? embeddedVideosContainer.offsetHeight : 0;
+    const scrollableCards = [sourcesContainer, mediaContainer].filter(Boolean).filter(card => card.parentNode === rightCol);
+
+    scrollableCards.forEach(card => {
+      card.classList.remove('sidebar-card-soft-clamped');
+      card.style.removeProperty('max-height');
+      const body = card.querySelector('.sidebar-scrollable-body');
+      if (body) body.style.removeProperty('max-height');
+    });
+
+    if (!scrollableCards.length) return;
+    if (rightCol.offsetHeight <= responseHeight + tolerance) return;
+
+    const availableForScrollable = Math.max(220, responseHeight - videoHeight - (videoHeight > 0 ? gap : 0) + tolerance);
+    const minHeights = new Map();
+    let fixedBudget = 0;
+
+    scrollableCards.forEach(card => {
+      const header = card.firstElementChild;
+      const headerHeight = header ? header.offsetHeight : 0;
+      const minHeight = card.classList.contains('sources-section') ? 220 : 200;
+      minHeights.set(card, { headerHeight, minHeight });
+      fixedBudget += headerHeight + minHeight;
+    });
+
+    const totalGap = Math.max(0, (scrollableCards.length - 1) * gap);
+    const distributable = Math.max(0, availableForScrollable - totalGap - fixedBudget);
+    const naturalBodies = scrollableCards.map(card => {
+      const body = card.querySelector('.sidebar-scrollable-body');
+      return body ? body.scrollHeight : 0;
+    });
+    const totalNaturalBody = naturalBodies.reduce((sum, value) => sum + value, 0) || 1;
+
+    scrollableCards.forEach((card, index) => {
+      const body = card.querySelector('.sidebar-scrollable-body');
+      if (!body) return;
+      const { headerHeight, minHeight } = minHeights.get(card);
+      const natural = naturalBodies[index];
+      const extra = distributable > 0 ? Math.round(distributable * (natural / totalNaturalBody)) : 0;
+      const targetBodyHeight = Math.min(natural, minHeight + extra);
+      const targetCardHeight = headerHeight + targetBodyHeight;
+      const shouldClamp = natural + headerHeight > targetCardHeight + 4;
+
+      card.style.maxHeight = `${targetCardHeight}px`;
+      body.style.maxHeight = `${targetBodyHeight}px`;
+      if (shouldClamp) card.classList.add('sidebar-card-soft-clamped');
+    });
+  }
+
   function addCitationHoverListeners(container, citations) {
     const sourceMap = new Map(currentSources.map(s => [s.id, s]));
     container.querySelectorAll('.citation-tag').forEach(tag => {
@@ -4191,7 +4276,7 @@
     else if (hasDogs && !hasNasa) galleryTitle = '🐶 Galeria Pet';
     else if (hasAnts && !hasNasa) galleryTitle = '🐜 Galeria Entomológica';
 
-    mediaContainer.innerHTML = `<div class="media-header">${galleryTitle}</div><div class="media-grid"></div>`;
+    mediaContainer.innerHTML = `<div class="media-header">${galleryTitle}</div><div class="media-grid sidebar-scrollable-body"></div>`;
     if (hasNasa && !hasDogs && !hasAnts) {
       mediaContainer.classList.add('media-results-nasa');
     }
@@ -4199,7 +4284,7 @@
     const sourcesContainer = document.createElement('div');
     sourcesContainer.className = 'sources-section agent-pane-reveal';
     sourcesContainer.style.setProperty('--reveal-delay', instant ? '0s' : '0.08s');
-    sourcesContainer.innerHTML = `<div class="sources-header">📚 Fontes Utilizadas</div><div class="sources-grid">${renderSources(textSources)}</div>`;
+    sourcesContainer.innerHTML = `<div class="sources-header"><div class="sources-header-copy"><div class="sources-header-title">Fontes Utilizadas</div><div class="sources-header-subtitle">Base documental consultada para esta resposta</div></div><div class="sources-counter">${textSources.length}</div></div><div class="sources-grid sidebar-scrollable-body">${renderSources(textSources)}</div>`;
 
     if (textSources.length > 0) {
       rightCol.appendChild(sourcesContainer);
@@ -4412,6 +4497,13 @@
       });
     };
     if (media.length > 0) renderMedia();
+    requestAnimationFrame(() => applySidebarPaneBalance(leftCol, rightCol, sourcesContainer, mediaContainer, embeddedVideosContainer));
+    setTimeout(() => applySidebarPaneBalance(leftCol, rightCol, sourcesContainer, mediaContainer, embeddedVideosContainer), 280);
+    rightCol.querySelectorAll('img, iframe, video').forEach(node => {
+      const rebalance = () => applySidebarPaneBalance(leftCol, rightCol, sourcesContainer, mediaContainer, embeddedVideosContainer);
+      node.addEventListener('load', rebalance, { once: true });
+      node.addEventListener('loadedmetadata', rebalance, { once: true });
+    });
 
     // -- LÓGICA DE COLAPSAR SIDEBAR/GALEIRA --
     const isMobile = window.innerWidth <= 768;
@@ -4422,13 +4514,13 @@
       card.classList.contains('media-results')
     );
     
-    if (isMobile) {
+    if (false && isMobile) {
       cards.forEach(card => {
         if (card.classList.contains('media-results') && card.offsetHeight > 450) {
           collapseSidebarCard(card);
         }
       });
-    } else if (leftH > 50 && rightCol.children.length > 0) {
+    } else if (false && leftH > 50 && rightCol.children.length > 0) {
       const collapseOrder = [...cards].reverse();
       while (rightCol.offsetHeight > leftH && collapseOrder.length > 0) {
         collapseSidebarCard(collapseOrder.shift());
@@ -4460,6 +4552,8 @@
         card.appendChild(expandBtn);
       }
     });
+
+    applySidebarPaneBalance(leftCol, rightCol, sourcesContainer, mediaContainer, embeddedVideosContainer);
 
     if (!instant) {
       await delay(50);
