@@ -428,16 +428,61 @@ async function buscarUSGS() {
 // ============ Wikipedia Integration ============
 async function buscarWikipedia(termo) {
   if (!termo) return null;
-  const apiUrl = `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(termo)}`;
-
   try {
-    const res = await fetch(apiUrl);
-    if (!res.ok) return null;
-    const data = await res.json();
+    const headers = {
+      'User-Agent': 'DrekeeAI/1.6 (science assistant; admin diagnostics)',
+      'Accept': 'application/json',
+    };
+    const normalizedTerm = String(termo || '').trim();
+    const restUrl = `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(normalizedTerm)}`;
+    const restRes = await fetch(restUrl, { headers, signal: AbortSignal.timeout(10000) });
+
+    if (restRes.ok) {
+      const data = await restRes.json();
+      if (data?.extract) {
+        return {
+          title: data.title || null,
+          extract: data.extract || null,
+          url: data.content_urls?.desktop?.page || data.content_urls?.mobile?.page || null,
+        };
+      }
+    }
+
+    const queryUrl = `https://pt.wikipedia.org/w/api.php?action=query&prop=extracts|info&exintro=1&explaintext=1&inprop=url&redirects=1&format=json&origin=*&titles=${encodeURIComponent(normalizedTerm)}`;
+    const queryRes = await fetch(queryUrl, { headers, signal: AbortSignal.timeout(10000) });
+    if (queryRes.ok) {
+      const data = await queryRes.json();
+      const pages = Object.values(data?.query?.pages || {});
+      const page = pages.find(item => item && !item.missing && item.extract);
+      if (page) {
+        return {
+          title: page.title || normalizedTerm,
+          extract: page.extract || null,
+          url: page.fullurl || `https://pt.wikipedia.org/wiki/${encodeURIComponent(page.title || normalizedTerm)}`,
+        };
+      }
+    }
+
+    const searchUrl = `https://pt.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(normalizedTerm)}&utf8=1&format=json&origin=*`;
+    const searchRes = await fetch(searchUrl, { headers, signal: AbortSignal.timeout(10000) });
+    if (!searchRes.ok) return null;
+    const searchData = await searchRes.json();
+    const first = searchData?.query?.search?.[0];
+    if (!first?.title) return null;
+
+    const fallbackTitle = first.title;
+    const fallbackQueryUrl = `https://pt.wikipedia.org/w/api.php?action=query&prop=extracts|info&exintro=1&explaintext=1&inprop=url&redirects=1&format=json&origin=*&titles=${encodeURIComponent(fallbackTitle)}`;
+    const fallbackRes = await fetch(fallbackQueryUrl, { headers, signal: AbortSignal.timeout(10000) });
+    if (!fallbackRes.ok) return null;
+    const fallbackData = await fallbackRes.json();
+    const fallbackPages = Object.values(fallbackData?.query?.pages || {});
+    const fallbackPage = fallbackPages.find(item => item && !item.missing);
+    if (!fallbackPage) return null;
+
     return {
-      title: data.title || null,
-      extract: data.extract || null,
-      url: data.content_urls?.desktop?.page || data.content_urls?.mobile?.page || null,
+      title: fallbackPage.title || fallbackTitle,
+      extract: fallbackPage.extract || first.snippet?.replace(/<[^>]+>/g, '') || null,
+      url: fallbackPage.fullurl || `https://pt.wikipedia.org/wiki/${encodeURIComponent(fallbackPage.title || fallbackTitle)}`,
     };
   } catch (err) {
     console.error('Wikipedia fetch error:', err);
