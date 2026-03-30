@@ -1616,7 +1616,7 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     if (/\b(scielo|brasil|português|tese)\b/.test(normalizedText)) autoDetectedConnectors.push('scielo');
   }
   
-  if (/\b(brasil|ibge|demografia|população|estado|cidade|saneamento|município)\b/.test(normalizedText)) {
+  if (/\b(brasil|ibge|demografia|população|estado|cidade|saneamento|município|censo|pib|desemprego|inflacao|inflação|renda|domic[ií]lio|domicilio|economia brasileira|indicador social)\b/.test(normalizedText)) {
     autoDetectedConnectors.push('ibge');
   }
 
@@ -1700,11 +1700,11 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   const isSunQuery = selectedConnectors.includes('sunrise') &&
     /sol|sunrise|sunset|nascer|pôr|por do sol/i.test(userQuestion);
 
-  // Tavily só roda se:
-  // 1. Modo Auto E o plano pede busca E não é query de dado em tempo real
-  // 2. OU modo manual E o usuário EXPLICITAMENTE selecionou 'tavily'
+  // Tavily:
+  // 1. Em modo auto, roda por padrão como camada principal de contexto geral
+  // 2. Em modo manual, só roda se o usuário selecionar explicitamente 'tavily'
   const podeBuscarWeb = connectorAuto
-    ? (actionPlan?.precisa_busca_web && !isEarthquakeQuery && !isSunQuery)
+    ? !isEarthquakeQuery && !isSunQuery
     : selectedConnectors.includes('tavily');
 
   if (podeBuscarWeb) {
