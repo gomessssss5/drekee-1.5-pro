@@ -564,3 +564,74 @@ Compare as camadas da atmosfera por altitude e gere um grafico informativo em La
 Mostre a participacao aproximada de nitrogenio, oxigenio e argonio no ar e gere um grafico coerente com esses valores.
 
 Explique a Lei de Ohm e gere um grafico simples comparando a corrente para resistores de 2, 4 e 8 ohms sob 12 V.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+oi. td bem? ent, preciso da sua ajuda. vc vai ser minha nova programadora, e vai me ajudar a programar minha IA, o Drekee AI 1.5 Pro. ok? quero q vc leia TODOS os arquivos, e fique por dentro de tudo: como eu trabalho, o que é minha IA, como ela funciona, detalhes, as 81 APIs, etc. ok? dps me retorne p eu te passar sua primeira tarefa. criei essa IA pra competir no prêmio jovem cientista 2026. o objetivo dessa IA, é levar a ciência pra escolas públicas aonde n tem acesso a ciência - tanto laboratórios de ciência, tanto nas aulas mesmo, sendo um verdadeiro assistente tanto pros alunos, tanto pros professores tbm, ok?
+
+
+
+
+
+
+
+
+
+
+
+ent mas foi bom esses 2 entrar pois eles dois é de conhecimento geral! ai pode ajudar. entendeu? essas fontes gerais n tem problema, é até bom p ter mais fontes. mas, as aleatórias não, entende? fiz uma conversinha c o GPT, e ele me enviou uma bomba de melhoras pra nossa IA: Sugestões de APIs para Simulação:
+
+Área
+API Sugerida
+O que ela faz para a Drekee
+Química
+PubChem PUG REST
+Permite puxar estruturas moleculares reais, massas e propriedades. A Drekee pode gerar um "Card de Elemento" completo.
+Astronomia
+NASA Horizons API
+Fornece a posição exata de planetas e satélites agora. A Drekee pode dizer: "Olhe para o céu, Marte está a X km de você neste momento".
+Cálculo/Física
+Wolfram Alpha API
+É o motor de conhecimento computacional. Pode resolver equações complexas de física e gerar gráficos de funções em tempo real.
+Geociências
+USGS Earthquake API
+Dados em tempo real sobre sismos. Ótimo para aulas de geografia sobre placas tectônicas.
+Biologia
+GBIF API
+Acesso a dados de biodiversidade global. Pode mostrar quais espécies existem na região do aluno.
+
+
+
+Exemplo de Fluxo de Experimento Virtual:
+
+•
+Pergunta do Aluno: "O que acontece se eu misturar Vinagre e Bicarbonato?"
+
+•
+Ação Drekee: Chama a API da PubChem para pegar a reação química -> Gera uma animação em texto ou gráfico da liberação de CO2 -> Sugere o experimento real com garrafa PET.
+
+Conector de Realidade Local: Use a API de geolocalização para adaptar a resposta. "Aqui em [Cidade do Aluno], o clima hoje afeta a vegetação local da seguinte forma...". Isso cria uma conexão emocional com o estudante.
+
+Refinar o "Tom de Voz": Menos enciclopédia, mais mentor.
+
+2.
+Integrar Wolfram Alpha: Para dar superpoderes matemáticos e físicos à Drekee.
+
+3.
+Criar o "Modo Experimento": Uma seção fixa em cada resposta que sugere algo prático.
