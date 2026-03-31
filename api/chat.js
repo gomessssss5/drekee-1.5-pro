@@ -3562,9 +3562,18 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   logs.push('🧠 Processando e raciocinando...');
 
+  const graphIntent = detectTimeSeriesIntent(userQuestion, '') || detectCategoryComparisonIntent(userQuestion, '');
+  const conceptualIntent = detectConceptualVisualIntent(userQuestion);
+  const visualGuidance = graphIntent
+    ? '\nSINAL VISUAL: esta pergunta pede comparacao, ranking ou tendencia. Se houver dados confiaveis no contexto, gere um grafico LaTeX apropriado.\n'
+    : (conceptualIntent
+      ? '\nSINAL VISUAL: esta pergunta e conceitual ou explicativa. Se isso realmente ajudar a sintese, voce pode usar mapa mental LaTeX.\n'
+      : '\nSINAL VISUAL: priorize texto puro. So gere visual se ficar realmente necessario.\n');
+
   const executionPrompt = `${SCIENCE_SYSTEM_PROMPT}
 
 ${dataAuthorityWarning}
+${visualGuidance}
 
 CONTEXTO PESQUISADO (FONTES REAIS):
 ${context || 'Nenhum contexto externo necessário'}
@@ -4307,6 +4316,10 @@ function detectExplicitVisualRequest(userQuestion = '') {
   return /\b(grafico|gráfico|mapa mental|diagrama|esquema|visualiza[cç][aã]o|visual)\b/i.test(String(userQuestion || ''));
 }
 
+function detectConceptualVisualIntent(userQuestion = '') {
+  return /\b(o que e|o que Ã©|como funciona|explique|explica|resuma|organize|vis[aÃ£]o geral|panorama|relacione|etapas|processo|diferen[cÃ§]a)\b/i.test(String(userQuestion || ''));
+}
+
 function countResponseCitations(response = '') {
   return (String(response || '').match(/\[ID-DA-FONTE:\s*[^\]]+\]/gi) || []).length;
 }
@@ -4340,6 +4353,30 @@ function shouldKeepAnalyticalVisual(response = '', sources = [], userQuestion = 
   if (mindMapBlocks.length > 0) {
     if (!explicitVisual && !conceptualIntent) return false;
     if (!explicitVisual && (sourceCount < 2 || citationCount < 3)) return false;
+  }
+
+  return true;
+}
+
+function shouldKeepAnalyticalVisualCalibrated(response = '', sources = [], userQuestion = '') {
+  const graphBlocks = extractLatexGraphBlocks(response);
+  const mindMapBlocks = extractMindMapBlocks(response);
+  if (graphBlocks.length === 0 && mindMapBlocks.length === 0) return true;
+
+  const explicitVisual = detectExplicitVisualRequest(userQuestion);
+  const sourceCount = Array.isArray(sources) ? sources.length : 0;
+  const citationCount = countResponseCitations(response);
+  const graphIntent = detectTimeSeriesIntent(userQuestion, response) || detectCategoryComparisonIntent(userQuestion, response);
+  const conceptualIntent = detectConceptualVisualIntent(userQuestion);
+
+  if (graphBlocks.length > 0) {
+    if (!explicitVisual && !graphIntent) return false;
+    if (!explicitVisual && graphIntent && (sourceCount < 1 || citationCount < 2)) return false;
+  }
+
+  if (mindMapBlocks.length > 0) {
+    if (!explicitVisual && !conceptualIntent) return false;
+    if (!explicitVisual && conceptualIntent && (sourceCount < 1 || citationCount < 2)) return false;
   }
 
   return true;
@@ -4456,7 +4493,7 @@ function analyzeLatexGraph(code = '', context = {}) {
 
 async function alignGraphWithResponseReliability(response = '', sources = [], userQuestion = '', logs = []) {
   response = enforceSingleVisualChoice(response, userQuestion);
-  if (!shouldKeepAnalyticalVisual(response, sources, userQuestion)) {
+  if (!shouldKeepAnalyticalVisualCalibrated(response, sources, userQuestion)) {
     logs.push('🛑 Visual removido: a pergunta nao exigia grafico/mapa mental com clareza suficiente.');
     return { response: stripAllVisualBlocks(response), confidence: assessResponseReliability(response, sources) };
   }
