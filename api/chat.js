@@ -2125,6 +2125,7 @@ Dica de Autodetecção:
 - "usgs": busca terremotos e sismicidade (termos: terremoto, sismo, tremor, abalo, vulcão).
 
 REGRA IMPORTANTE: Se a pergunta for sobre terremotos, sismos, sol (nascer/pôr), localização em tempo real, posição da ISS, ou qualquer dado ao vivo já coletado pelos conectores ativos, defina "precisa_busca_web" como false. Esses dados já estão disponíveis e são mais precisos do que a web.
+REGRA IMPORTANTE 2: Se a pergunta for astronômica e puder ser respondida por fontes primárias como NASA, Horizons, Solar System, Exoplanet Archive, Kepler/TESS ou ESA, prefira essas fontes e evite busca web genérica. Nesse caso, "precisa_busca_web" deve tender a false.
 
 Retorne APENAS JSON válido (sem markdown):
 
@@ -2417,6 +2418,13 @@ function sanitizeFinalResponse(response = '') {
   );
 }
 
+function isAstronomyPrimaryQuery(userQuestion = '', selectedConnectors = []) {
+  const text = String(userQuestion || '').toLowerCase();
+  const astronomyTopic = /\b(marte|mars|terra|earth|venus|v[eê]nus|j[uú]piter|jupiter|saturno|mercurio|merc[uú]rio|netuno|neptune|urano|uranus|plut[aã]o|plutao|lua|moon|sol|sun|planeta|astronomia|sistema solar|exoplaneta|kepler|tess|gal[aá]xia|estrela|orbita|órbita)\b/.test(text);
+  const primaryAstronomyConnector = selectedConnectors.some(key => ['nasa', 'horizons', 'solarsystem', 'exoplanets', 'kepler', 'esa', 'stellarium', 'sdo'].includes(key));
+  return astronomyTopic && primaryAstronomyConnector;
+}
+
 // ============ STEP 2: Execute Research & Reasoning ============
 async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const connectorAuto = options.connectorAuto !== false;
@@ -2609,11 +2617,12 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   // Tavily:
   // 1. Em modo auto, roda por padrão como camada principal de contexto geral
   // 2. Em modo manual, só roda se o usuário selecionar explicitamente 'tavily'
+  const isAstronomyPrimary = isAstronomyPrimaryQuery(userQuestion, selectedConnectors);
   const forcedTavilyByRecovery = recoveryMode && selectedConnectors.includes('tavily');
   const podeBuscarWeb = forcedTavilyByRecovery
     ? true
     : connectorAuto
-      ? !isEarthquakeQuery && !isSunQuery
+      ? !isEarthquakeQuery && !isSunQuery && !isAstronomyPrimary
       : selectedConnectors.includes('tavily');
 
   if (podeBuscarWeb) {
@@ -2645,6 +2654,10 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
 
   logs.push(`🔌 Conectores habilitados para esta pergunta: ${selectedConnectors.join(', ') || 'nenhum'}`);
+
+  if (!podeBuscarWeb && isAstronomyPrimary) {
+    logs.push('Astronomia: priorizando fontes espaciais primarias em vez de web generica.');
+  }
 
   // Data de cada conector
   
