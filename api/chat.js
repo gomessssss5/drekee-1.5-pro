@@ -2408,6 +2408,8 @@ function sanitizeFinalResponse(response = '') {
       .replace(/\\documentclass(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
       .replace(/\\usepackage(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
       .replace(/\\begin\{document\}|\\end\{document\}/gi, ' ')
+      .replace(/\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\}/gi, ' ')
+      .replace(/\\begin\{axis\}[\s\S]*?\\end\{axis\}/gi, ' ')
       .replace(/\\pgfplotsset\{[^}]+\}/gi, ' ')
       .replace(/\n{3,}/g, '\n\n')
       .replace(/[ \t]{2,}/g, ' ')
@@ -3662,7 +3664,11 @@ Seja honesto. Não invente. Use as fontes.`;
 }
 
 // ============ STEP 3: Audit with Gemini / Polish with Groq ============
-async function reviewResponse(response) {
+async function reviewResponse(response, { userQuestion = '', sources = [] } = {}) {
+  const sourceDigest = (sources || [])
+    .slice(0, 12)
+    .map(source => `${source.id}: ${source.label} - ${source.detail}`)
+    .join('\n');
   const reviewPrompt = `Você é um revisor científico experiente. Recebeu a resposta abaixo para revisão.
 
 Objetivo:
@@ -3681,6 +3687,14 @@ REGRAS CRUCIAIS (RESPEITE 100%):
 5) Se não for possível afirmar com certeza, seja honesto e explique por que.
 6) IMPORTANTE: NÃO REMOVA as tags [ID-DA-FONTE: ID_EXATO] presentes no texto original. Se o texto estiver afirmando informações sem as tags apropriadas originais, ADICIONE tags no mesmo formato exato [ID-DA-FONTE: ID_EXATO]. Nunca use [FONTE: nome] nem rótulos livres. É vital manter o rastreio das fontes.
 7) PRESERVE integralmente, se existirem, os blocos [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE] e [MINDMAP_TITLE: ...][MINDMAP_CODE]...[/MINDMAP_CODE], além de [PHET:...] e [PDB:...]. Você pode melhorar o texto ao redor, mas não corrompa essas tags.
+8) Se a pergunta pedir propriedades físicas, astronômicas, geográficas ou quantitativas, prefira trazer valor absoluto + comparação relativa quando as fontes sustentarem isso.
+9) Se houver fontes disponíveis, a resposta final deve sair com boa densidade de citações, especialmente nas frases numéricas e comparativas.
+
+PERGUNTA DO USUÁRIO:
+${userQuestion}
+
+FONTES DISPONÍVEIS:
+${sourceDigest || 'Sem fontes registradas'}
 
 RESPOSTA A REVISAR:
 ${response}
@@ -3907,6 +3921,8 @@ REGRAS:
 4. Se algum ponto continuar sem confirmação, diga isso de forma objetiva e curta.
 5. Use o plano do agente para fechar lacunas, não para abrir assunto novo.
 6. Retorne APENAS a resposta final ao usuário.
+7. Se a pergunta envolver propriedades físicas ou astronômicas, priorize valores absolutos (ex: km, kg, m/s², Pa ou mbar) e só depois acrescente comparação relativa com a Terra quando isso ajudar.
+8. Não gere gráfico nem mapa mental a menos que a pergunta peça explicitamente ou que haja necessidade visual muito clara e sustentada por várias citações.
 
 PERGUNTA DO USUÁRIO:
 ${userQuestion}
@@ -4697,6 +4713,15 @@ function detectConceptualVisualIntent(userQuestion = '') {
   return /\b(o que e|o que Ã©|como funciona|explique|explica|resuma|organize|vis[aÃ£]o geral|panorama|relacione|etapas|processo|diferen[cÃ§]a)\b/i.test(String(userQuestion || ''));
 }
 
+function detectCompactMetricComparisonIntent(userQuestion = '', response = '') {
+  const text = `${userQuestion}\n${stripLatexGraphBlocks(response)}`.toLowerCase();
+  const hasPhysicalMetric = /\b(massa|gravidade|diametro|diâmetro|raio|pressao atmosferica|pressão atmosférica|densidade|temperatura|velocidade de escape)\b/.test(text);
+  const hasCelestialContext = /\b(marte|terra|venus|vênus|jupiter|júpiter|saturno|mercurio|mercúrio|lua|planeta|astronomia)\b/.test(text);
+  const hasCompactCompare = /\b(compare|compar[ae]|comparando|comparativo|em rela[cç][aã]o|versus|vs\.?)\b/.test(text);
+  const hasBroadCategorySet = /\b(estados?|pa[ií]ses|fontes de energia|setores?|categorias?|anos?)\b/.test(text);
+  return hasPhysicalMetric && hasCelestialContext && hasCompactCompare && !hasBroadCategorySet;
+}
+
 function countResponseCitations(response = '') {
   return (String(response || '').match(/\[ID-DA-FONTE:\s*[^\]]+\]/gi) || []).length;
 }
@@ -4745,8 +4770,10 @@ function shouldKeepAnalyticalVisualCalibrated(response = '', sources = [], userQ
   const citationCount = countResponseCitations(response);
   const graphIntent = detectTimeSeriesIntent(userQuestion, response) || detectCategoryComparisonIntent(userQuestion, response);
   const conceptualIntent = detectConceptualVisualIntent(userQuestion);
+  const compactMetricComparison = detectCompactMetricComparisonIntent(userQuestion, response);
 
   if (graphBlocks.length > 0) {
+    if (!explicitVisual && compactMetricComparison) return false;
     if (!explicitVisual && !graphIntent) return false;
     if (!explicitVisual && graphIntent && (sourceCount < 1 || citationCount < 2)) return false;
   }
@@ -5623,7 +5650,10 @@ async function handler(req, res) {
     const responseDraft = !audit.approved && recoveryAttempted
       ? `${buildPostRecoveryIntegrityNote(audit)}\n\n${finalExec.response}`
       : finalExec.response;
-    let response = await reviewResponse(responseDraft);
+    let response = await reviewResponse(responseDraft, {
+      userQuestion,
+      sources: finalExec.sources || [],
+    });
     logs.push('✅ Resposta revisada e validada');
 
     response = ensureInteractiveTags(response, userQuestion, finalExec.selectedConnectors || []);
