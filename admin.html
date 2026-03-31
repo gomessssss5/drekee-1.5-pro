@@ -313,11 +313,11 @@
   }
 
   function statusClass(status) {
-    return ['active', 'error', 'missing', 'missing_key', 'untested', 'present_only'].includes(status) ? status : 'idle';
+    return ['active', 'error', 'configured_error', 'missing', 'missing_key', 'untested', 'present_only'].includes(status) ? status : 'idle';
   }
 
   function statusLabel(status) {
-    const labels = { active: 'Ativo', error: 'Erro', missing: 'Sem chave', missing_key: 'Sem chave', untested: 'Não testado', present_only: 'Só presente' };
+    const labels = { active: 'Ativo', error: 'Erro', configured_error: 'Chave com erro', missing: 'Sem chave', missing_key: 'Sem chave', untested: 'Não testado', present_only: 'Só presente' };
     return labels[status] || status || 'Indefinido';
   }
 

@@ -2419,6 +2419,13 @@ function sanitizeFinalResponse(response = '') {
 async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const connectorAuto = options.connectorAuto !== false;
   const userConnectors = Array.isArray(options.connectors) ? options.connectors : [];
+  const recoveryMode = options.recoveryMode === true;
+  const overrideQuery = String(options.overrideQuery || '').trim();
+  const overrideRequiredConnectors = filterSupportedConnectors(options.overrideRequiredConnectors || []);
+  const overrideOptionalConnectors = filterSupportedConnectors(options.overrideOptionalConnectors || []);
+  const overrideForbiddenConnectors = new Set(filterSupportedConnectors(options.overrideForbiddenConnectors || []));
+  const baseRecoveryConnectors = filterSupportedConnectors(options.baseConnectors || []);
+  const focusFacts = Array.isArray(options.focusFacts) ? options.focusFacts.map(item => String(item || '').trim()).filter(Boolean) : [];
 
   const autoDetectedConnectors = [];
   const normalizedText = (userQuestion || '').toLowerCase();
@@ -2500,24 +2507,36 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
 
   let requestedConnectors;
   if (connectorAuto) {
-    const routingAnalysis = await analyzeConnectorRouting(userQuestion, autoDetectedConnectors, actionPlan, options.history || [], logs);
-    if (routingAnalysis) {
-      const heuristicSet = new Set(autoDetectedConnectors);
-      routingAnalysis.connectors_forbidden.forEach(key => heuristicSet.delete(key));
-      routingAnalysis.connectors_required.forEach(key => heuristicSet.add(key));
-      routingAnalysis.connectors_optional.forEach(key => heuristicSet.add(key));
+    if (recoveryMode) {
+      const heuristicSet = new Set([...autoDetectedConnectors, ...baseRecoveryConnectors]);
+      overrideForbiddenConnectors.forEach(key => heuristicSet.delete(key));
+      overrideRequiredConnectors.forEach(key => heuristicSet.add(key));
+      overrideOptionalConnectors.forEach(key => heuristicSet.add(key));
       requestedConnectors = [...heuristicSet];
-      if (routingAnalysis.area || routingAnalysis.intent) {
-        logs.push(`🧭 Roteador Groq: ${routingAnalysis.area || 'area não definida'} / ${routingAnalysis.intent || 'intenção não definida'}`);
-      }
-      if (routingAnalysis.reasoning) {
-        logs.push(`🧭 Critério do roteador: ${routingAnalysis.reasoning}`);
-      }
-      if (routingAnalysis.needs_visual && routingAnalysis.visual_type !== 'none') {
-        logs.push(`📈 Sinal visual do roteador: ${routingAnalysis.visual_type}`);
+      logs.push(`🤖 Recuperação autônoma: conectores reajustados (${requestedConnectors.join(', ') || 'nenhum'})`);
+      if (focusFacts.length > 0) {
+        logs.push(`🎯 Fatos-alvo da recuperação: ${focusFacts.join('; ')}`);
       }
     } else {
-      requestedConnectors = [...new Set(autoDetectedConnectors)];
+      const routingAnalysis = await analyzeConnectorRouting(userQuestion, autoDetectedConnectors, actionPlan, options.history || [], logs);
+      if (routingAnalysis) {
+        const heuristicSet = new Set(autoDetectedConnectors);
+        routingAnalysis.connectors_forbidden.forEach(key => heuristicSet.delete(key));
+        routingAnalysis.connectors_required.forEach(key => heuristicSet.add(key));
+        routingAnalysis.connectors_optional.forEach(key => heuristicSet.add(key));
+        requestedConnectors = [...heuristicSet];
+        if (routingAnalysis.area || routingAnalysis.intent) {
+          logs.push(`🧭 Roteador Groq: ${routingAnalysis.area || 'area não definida'} / ${routingAnalysis.intent || 'intenção não definida'}`);
+        }
+        if (routingAnalysis.reasoning) {
+          logs.push(`🧭 Critério do roteador: ${routingAnalysis.reasoning}`);
+        }
+        if (routingAnalysis.needs_visual && routingAnalysis.visual_type !== 'none') {
+          logs.push(`📈 Sinal visual do roteador: ${routingAnalysis.visual_type}`);
+        }
+      } else {
+        requestedConnectors = [...new Set(autoDetectedConnectors)];
+      }
     }
   } else {
     requestedConnectors = [...new Set(userConnectors.map(c => c.toLowerCase()))];
@@ -2570,7 +2589,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   const media = [];
   const phetSuggestion = detectPhetSimulation(userQuestion, '', selectedConnectors);
   
-  const queryParaBuscar = actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion;
+  const queryParaBuscar = overrideQuery || (actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion);
 
   if (phetSuggestion) {
     const phetTitle = formatPhetTitle(phetSuggestion.slug);
@@ -2588,9 +2607,12 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   // Tavily:
   // 1. Em modo auto, roda por padrão como camada principal de contexto geral
   // 2. Em modo manual, só roda se o usuário selecionar explicitamente 'tavily'
-  const podeBuscarWeb = connectorAuto
-    ? !isEarthquakeQuery && !isSunQuery
-    : selectedConnectors.includes('tavily');
+  const forcedTavilyByRecovery = recoveryMode && selectedConnectors.includes('tavily');
+  const podeBuscarWeb = forcedTavilyByRecovery
+    ? true
+    : connectorAuto
+      ? !isEarthquakeQuery && !isSunQuery
+      : selectedConnectors.includes('tavily');
 
   if (podeBuscarWeb) {
     logs.push(`🌐 Buscando na web: "${queryParaBuscar}"`);
@@ -3665,6 +3687,184 @@ ${response}
 `;
 
   return await callGemini(reviewPrompt);
+}
+
+async function auditResponseWithGemini({ userQuestion = '', response = '', sources = [], logs = [] } = {}) {
+  const sourceDigest = (sources || [])
+    .slice(0, 12)
+    .map(source => `${source.id}: ${source.label} - ${source.detail}`)
+    .join('\n');
+
+  const prompt = `Voce e um auditor cientifico do Drekee AI.
+
+Sua tarefa e decidir se a resposta abaixo esta suficientemente completa e consistente para ser entregue ao usuario, ou se falta dado central e vale uma rodada automatica de recuperacao.
+
+Retorne APENAS JSON valido:
+{
+  "approved": true,
+  "retry_worthy": false,
+  "issues": [],
+  "missing_facts": [],
+  "reasoning": "motivo curto",
+  "recommended_focus": "foco curto"
+}
+
+Regras:
+- approved=false apenas se houver problema real de conteudo, consistencia, cobertura ou fato-chave ausente
+- retry_worthy=true apenas quando uma nova pesquisa puder plausivelmente melhorar a resposta
+- nao marque retry_worthy por meros ajustes de estilo
+- use issues curtos como: missing_key_fact, insufficient_content, weak_coverage, factual_gap, unsupported_claim
+- missing_facts deve listar fatos centrais ausentes, se existirem
+- se a resposta estiver boa o suficiente, aprove
+
+Pergunta do usuario: ${JSON.stringify(String(userQuestion || ''))}
+
+Fontes disponiveis:
+${sourceDigest || 'Sem fontes registradas'}
+
+Resposta para auditar:
+${String(response || '')}`;
+
+  const raw = await callGemini(prompt, logs);
+  const parsed = extractJsonObject(raw) || {};
+  return {
+    approved: parsed.approved !== false,
+    retry_worthy: parsed.retry_worthy === true,
+    issues: Array.isArray(parsed.issues) ? parsed.issues.map(item => String(item || '').trim()).filter(Boolean) : [],
+    missing_facts: Array.isArray(parsed.missing_facts) ? parsed.missing_facts.map(item => String(item || '').trim()).filter(Boolean) : [],
+    reasoning: String(parsed.reasoning || '').trim(),
+    recommended_focus: String(parsed.recommended_focus || '').trim(),
+  };
+}
+
+async function buildRecoveryPlanWithGroqAgent({
+  userQuestion = '',
+  actionPlan = {},
+  initialResponse = '',
+  audit = {},
+  selectedConnectors = [],
+  sources = [],
+  history = [],
+  logs = [],
+} = {}) {
+  const apiKey = process.env.GROQ_AGENT_API_KEY;
+  if (!apiKey) return null;
+
+  const sourceDigest = (sources || [])
+    .slice(0, 12)
+    .map(source => ({
+      id: source.id,
+      label: source.label,
+      type: source.type,
+      detail: String(source.detail || '').slice(0, 220),
+      url: source.url || '',
+    }));
+  const compactHistory = Array.isArray(history)
+    ? history.slice(-4).map(item => ({
+        role: item?.role || item?.type || 'user',
+        content: String(item?.content || item?.payload?.response || '').slice(0, 260),
+      })).filter(item => item.content)
+    : [];
+
+  const prompt = `Voce e o agente de recuperacao autonoma do Drekee AI.
+
+Voce NAO responde ao usuario.
+Voce decide como a segunda rodada de pesquisa deve ser feita para preencher lacunas factuais centrais.
+
+Retorne APENAS JSON valido:
+{
+  "should_retry": true,
+  "goal": "preencher lacunas factuais centrais",
+  "search_query": "massa gravidade marte nasa jpl",
+  "connectors_required": ["nasa"],
+  "connectors_optional": ["tavily"],
+  "connectors_forbidden": ["ibge"],
+  "focus_facts": ["massa de Marte"],
+  "reasoning": "motivo curto"
+}
+
+Regras:
+- use apenas conectores permitidos
+- priorize conectores primarios antes de Tavily
+- use Tavily apenas se fontes especializadas puderem precisar de apoio
+- nao aumente escopo alem da lacuna apontada
+- should_retry=true apenas se a segunda rodada tiver boa chance de melhorar a resposta
+- connectors_forbidden deve bloquear conectores irrelevantes para este retry
+
+Pergunta do usuario: ${JSON.stringify(String(userQuestion || ''))}
+Plano inicial: ${JSON.stringify(actionPlan || {})}
+Conectores usados antes: ${JSON.stringify(selectedConnectors || [])}
+Auditoria Gemini: ${JSON.stringify(audit || {})}
+Historico recente: ${JSON.stringify(compactHistory)}
+Fontes ja obtidas: ${JSON.stringify(sourceDigest)}
+Resposta inicial: ${JSON.stringify(String(initialResponse || '').slice(0, 4000))}
+Conectores permitidos: ${JSON.stringify([...SUPPORTED_CONNECTORS].sort())}`;
+
+  try {
+    const raw = await callGroq(
+      [{ role: 'user', content: prompt }],
+      'GROQ_AGENT_API_KEY',
+      { model: 'llama-3.1-8b-instant', maxTokens: 900, temperature: 0.1 }
+    );
+    const parsed = extractJsonObject(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      logs.push('⚠️ GROQ Agent nao retornou JSON valido; retry autonomo abortado.');
+      return null;
+    }
+
+    return {
+      should_retry: parsed.should_retry === true,
+      goal: String(parsed.goal || '').trim(),
+      search_query: String(parsed.search_query || '').trim(),
+      connectors_required: filterSupportedConnectors(parsed.connectors_required || []),
+      connectors_optional: filterSupportedConnectors(parsed.connectors_optional || []),
+      connectors_forbidden: filterSupportedConnectors(parsed.connectors_forbidden || []),
+      focus_facts: Array.isArray(parsed.focus_facts) ? parsed.focus_facts.map(item => String(item || '').trim()).filter(Boolean) : [],
+      reasoning: String(parsed.reasoning || '').trim(),
+    };
+  } catch (error) {
+    logs.push(`⚠️ GROQ Agent indisponivel: ${error.message}`);
+    return null;
+  }
+}
+
+function mergeUniqueSources(...sourceGroups) {
+  const merged = [];
+  sourceGroups.flat().filter(Boolean).forEach(source => {
+    if (!source?.id) return;
+    const duplicate = merged.find(item =>
+      item.id === source.id ||
+      (
+        item.label === source.label &&
+        item.type === source.type &&
+        item.detail === source.detail &&
+        item.url === source.url
+      )
+    );
+    if (!duplicate) {
+      merged.push({ ...source });
+    }
+  });
+  return merged;
+}
+
+function mergeExecutionResults(primary = {}, secondary = {}) {
+  return {
+    response: secondary.response || primary.response,
+    media: [...(primary.media || []), ...(secondary.media || [])],
+    sources: mergeUniqueSources(primary.sources || [], secondary.sources || []),
+    selectedConnectors: [...new Set([...(primary.selectedConnectors || []), ...(secondary.selectedConnectors || [])])],
+  };
+}
+
+function buildPostRecoveryIntegrityNote(audit = {}) {
+  const missingFacts = Array.isArray(audit?.missing_facts)
+    ? audit.missing_facts.map(item => String(item || '').trim()).filter(Boolean)
+    : [];
+  const factSnippet = missingFacts.length > 0
+    ? ` Os pontos que ainda nao consegui confirmar com seguranca foram: ${missingFacts.join(', ')}.`
+    : '';
+  return `Revisei novamente fontes especializadas para esta pergunta antes de concluir a resposta e mantive abaixo apenas o que consegui confirmar com seguranca.${factSnippet}`;
 }
 
 function extractLatexGraphBlocks(response = '') {
@@ -5136,6 +5336,7 @@ async function getAdminDiagnostics() {
       testGroqKey('GROQ_API_KEY_1'),
       testGroqKey('GROQ_API_KEY_2'),
       testGroqKey('GROQ_ANALISE_API_KEY'),
+      testGroqKey('GROQ_AGENT_API_KEY'),
       testGeminiKey('GEMINI_API_KEY'),
       testGeminiKey('GEMINI_API_KEY_2'),
       testTavilyKey(),
@@ -5267,15 +5468,89 @@ async function handler(req, res) {
     const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext, userContext });
     exec.response = normalizeResponseCitations(exec.response, exec.sources || []);
 
-    logs.push('👁️ Revisando resposta com Gemini...');
-    let response = await reviewResponse(exec.response);
+    logs.push('🧪 Auditando a resposta inicial com Gemini...');
+    let finalExec = exec;
+    let recoveryAttempted = false;
+    let audit = await auditResponseWithGemini({
+      userQuestion,
+      response: exec.response,
+      sources: exec.sources || [],
+      logs,
+    });
+    logs.push(audit.approved ? '✅ Auditoria Gemini aprovou a resposta inicial.' : `⚠️ Auditoria Gemini detectou lacunas: ${(audit.issues || []).join(', ') || 'cobertura insuficiente'}`);
+
+    if (!audit.approved && audit.retry_worthy) {
+      logs.push('🤖 GROQ Agent acionado para organizar uma recuperação autônoma.');
+      const recoveryPlan = await buildRecoveryPlanWithGroqAgent({
+        userQuestion,
+        actionPlan,
+        initialResponse: exec.response,
+        audit,
+        selectedConnectors: exec.selectedConnectors || [],
+        sources: exec.sources || [],
+        history,
+        logs,
+      });
+
+      if (recoveryPlan?.should_retry) {
+        recoveryAttempted = true;
+        logs.push(`🧠 Plano de recuperação: ${recoveryPlan.goal || 'preencher lacunas factuais'}`);
+        if (recoveryPlan.reasoning) {
+          logs.push(`🧠 Motivo do retry: ${recoveryPlan.reasoning}`);
+        }
+        const recoveryActionPlan = {
+          ...(actionPlan || {}),
+          termo_de_busca: recoveryPlan.search_query || actionPlan?.termo_de_busca || userQuestion,
+        };
+        const recoveryVisionContext = `${visionContext}\n[CONTEXTO CONFIRMADO DA PRIMEIRA RODADA]\n${stripLatexGraphBlocks(exec.response).slice(0, 2200)}\n`;
+        const retryExec = await executeAgentPlan(userQuestion, recoveryActionPlan, logs, {
+          connectorAuto: true,
+          connectors: exec.selectedConnectors || [],
+          useNasa: body?.nasa,
+          history,
+          visionContext: recoveryVisionContext,
+          userContext,
+          recoveryMode: true,
+          baseConnectors: exec.selectedConnectors || [],
+          overrideQuery: recoveryPlan.search_query,
+          overrideRequiredConnectors: recoveryPlan.connectors_required || [],
+          overrideOptionalConnectors: recoveryPlan.connectors_optional || [],
+          overrideForbiddenConnectors: recoveryPlan.connectors_forbidden || [],
+          focusFacts: recoveryPlan.focus_facts || [],
+        });
+        retryExec.response = normalizeResponseCitations(retryExec.response, retryExec.sources || []);
+        finalExec = mergeExecutionResults(exec, retryExec);
+        finalExec.response = retryExec.response || exec.response;
+
+        logs.push('🧪 Auditando a resposta recuperada com Gemini...');
+        audit = await auditResponseWithGemini({
+          userQuestion,
+          response: finalExec.response,
+          sources: finalExec.sources || [],
+          logs,
+        });
+        logs.push(audit.approved ? '✅ Auditoria Gemini aprovou a resposta recuperada.' : '⚠️ Ainda restaram lacunas após a recuperação autônoma.');
+      } else {
+        logs.push('⚠️ GROQ Agent concluiu que uma nova rodada não aumentaria a confiabilidade.');
+      }
+    }
+
+    if (!audit.approved) {
+      logs.push('📝 A resposta final vai manter honestidade factual e evitar invenção de dados ausentes.');
+    }
+
+    logs.push('👁️ Revisando texto final com Gemini...');
+    const responseDraft = !audit.approved && recoveryAttempted
+      ? `${buildPostRecoveryIntegrityNote(audit)}\n\n${finalExec.response}`
+      : finalExec.response;
+    let response = await reviewResponse(responseDraft);
     logs.push('✅ Resposta revisada e validada');
 
-    response = ensureInteractiveTags(response, userQuestion, exec.selectedConnectors || []);
-    response = normalizeResponseCitations(response, exec.sources || []);
+    response = ensureInteractiveTags(response, userQuestion, finalExec.selectedConnectors || []);
+    response = normalizeResponseCitations(response, finalExec.sources || []);
     response = removeUnsupportedAnalyticalParagraphs(response);
     response = sanitizeFinalResponse(response);
-    const alignment = await alignGraphWithResponseReliability(response, exec.sources || [], userQuestion, logs);
+    const alignment = await alignGraphWithResponseReliability(response, finalExec.sources || [], userQuestion, logs);
     response = sanitizeFinalResponse(alignment.response);
     const displayResponse = response;
     logs.push(`🧪 Confiabilidade final da resposta: ${alignment.confidence}`);
@@ -5288,8 +5563,8 @@ async function handler(req, res) {
       thinking,
       confidence: alignment.confidence,
       logs,
-      media: exec.media || [],
-      sources: exec.sources || [],
+      media: finalExec.media || [],
+      sources: finalExec.sources || [],
     };
     if (wantsStream) {
       writeAgentEvent(res, 'final', payload);
