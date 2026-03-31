@@ -2498,9 +2498,30 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     autoDetectedConnectors.push('spacex');
   }
 
-  const requestedConnectors = connectorAuto
-    ? [...new Set(autoDetectedConnectors)]
-    : [...new Set(userConnectors.map(c => c.toLowerCase()))];
+  let requestedConnectors;
+  if (connectorAuto) {
+    const routingAnalysis = await analyzeConnectorRouting(userQuestion, autoDetectedConnectors, actionPlan, options.history || [], logs);
+    if (routingAnalysis) {
+      const heuristicSet = new Set(autoDetectedConnectors);
+      routingAnalysis.connectors_forbidden.forEach(key => heuristicSet.delete(key));
+      routingAnalysis.connectors_required.forEach(key => heuristicSet.add(key));
+      routingAnalysis.connectors_optional.forEach(key => heuristicSet.add(key));
+      requestedConnectors = [...heuristicSet];
+      if (routingAnalysis.area || routingAnalysis.intent) {
+        logs.push(`🧭 Roteador Groq: ${routingAnalysis.area || 'area não definida'} / ${routingAnalysis.intent || 'intenção não definida'}`);
+      }
+      if (routingAnalysis.reasoning) {
+        logs.push(`🧭 Critério do roteador: ${routingAnalysis.reasoning}`);
+      }
+      if (routingAnalysis.needs_visual && routingAnalysis.visual_type !== 'none') {
+        logs.push(`📈 Sinal visual do roteador: ${routingAnalysis.visual_type}`);
+      }
+    } else {
+      requestedConnectors = [...new Set(autoDetectedConnectors)];
+    }
+  } else {
+    requestedConnectors = [...new Set(userConnectors.map(c => c.toLowerCase()))];
+  }
   const removedMaintenanceConnectors = requestedConnectors.filter(key => CONNECTORS_IN_MAINTENANCE.has(key));
   const selectedConnectors = filterSupportedConnectors(requestedConnectors);
 
@@ -3725,19 +3746,103 @@ function analyzeMindMapCode(code = '') {
 }
 
 function extractJsonObject(raw = '') {
-  const text = String(raw || '')
-    .trim()
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/i, '');
+  const text = String(raw || '').trim();
+  if (!text) return null;
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const candidate = fenced ? fenced[1] : text;
+  try {
+    return JSON.parse(candidate);
+  } catch (error) {}
 
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) return null;
+  const firstBrace = candidate.indexOf('{');
+  const lastBrace = candidate.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(candidate.slice(firstBrace, lastBrace + 1));
+    } catch (error) {}
+  }
+  return null;
+}
+
+async function analyzeConnectorRouting(userQuestion, heuristicConnectors = [], actionPlan = {}, history = [], logs = []) {
+  const apiKey = process.env.GROQ_ANALISE_API_KEY;
+  if (!apiKey) {
+    return null;
+  }
+
+  const compactHistory = Array.isArray(history)
+    ? history.slice(-4).map(item => ({
+        role: item?.role || item?.type || 'user',
+        content: String(item?.content || item?.payload?.response || '').slice(0, 280),
+      })).filter(item => item.content)
+    : [];
+
+  const prompt = `Voce e um roteador tecnico de conectores do Drekee AI.
+
+Tarefa:
+- analisar a pergunta do usuario
+- escolher quais conectores DEVEM ser usados
+- sugerir conectores opcionais
+- bloquear conectores irrelevantes
+- decidir se a resposta provavelmente precisa de visual
+
+Retorne APENAS JSON valido, sem comentarios.
+
+Formato:
+{
+  "area": "string curta",
+  "intent": "string curta",
+  "connectors_required": ["ibge"],
+  "connectors_optional": ["tavily"],
+  "connectors_forbidden": ["nasa"],
+  "needs_visual": false,
+  "visual_type": "none",
+  "reasoning": "motivo curto"
+}
+
+Regras:
+- use apenas conectores da lista permitida
+- seja conservador com conectores irrelevantes
+- para comparacoes estatisticas/geograficas, priorize bases oficiais
+- para astronomia, priorize conectores espaciais
+- para ciencia, priorize conectores cientificos primarios
+- visual_type deve ser "graph", "mindmap" ou "none"
+- needs_visual true apenas quando isso realmente ajudar
+
+Pergunta do usuario: ${JSON.stringify(String(userQuestion || ''))}
+Plano de busca atual: ${JSON.stringify({
+  objetivo: actionPlan?.objetivo || '',
+  area: actionPlan?.area || '',
+  termo_de_busca: actionPlan?.termo_de_busca || '',
+})}
+Heuristica atual: ${JSON.stringify(heuristicConnectors)}
+Historico recente: ${JSON.stringify(compactHistory)}
+Conectores permitidos: ${JSON.stringify([...SUPPORTED_CONNECTORS].sort())}`;
 
   try {
-    return JSON.parse(text.slice(start, end + 1));
+    const raw = await callGroq(
+      [{ role: 'user', content: prompt }],
+      'GROQ_ANALISE_API_KEY',
+      { model: 'llama-3.1-8b-instant', maxTokens: 700, temperature: 0.1 }
+    );
+    const parsed = extractJsonObject(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      logs.push('⚠️ Roteador Groq não retornou JSON válido; mantendo heurística local.');
+      return null;
+    }
+
+    return {
+      area: String(parsed.area || '').trim(),
+      intent: String(parsed.intent || '').trim(),
+      connectors_required: filterSupportedConnectors(parsed.connectors_required || []),
+      connectors_optional: filterSupportedConnectors(parsed.connectors_optional || []),
+      connectors_forbidden: filterSupportedConnectors(parsed.connectors_forbidden || []),
+      needs_visual: parsed.needs_visual === true,
+      visual_type: ['graph', 'mindmap', 'none'].includes(parsed.visual_type) ? parsed.visual_type : 'none',
+      reasoning: String(parsed.reasoning || '').trim(),
+    };
   } catch (error) {
+    logs.push(`⚠️ Roteador Groq indisponível: ${error.message}`);
     return null;
   }
 }
@@ -5030,6 +5135,7 @@ async function getAdminDiagnostics() {
     keys: await Promise.all([
       testGroqKey('GROQ_API_KEY_1'),
       testGroqKey('GROQ_API_KEY_2'),
+      testGroqKey('GROQ_ANALISE_API_KEY'),
       testGeminiKey('GEMINI_API_KEY'),
       testGeminiKey('GEMINI_API_KEY_2'),
       testTavilyKey(),
