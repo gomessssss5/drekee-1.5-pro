@@ -562,14 +562,17 @@
     color: #e0f2fe;
     border-color: rgba(56,189,248,0.38);
     box-shadow: 0 0 0 5px rgba(14,165,233,0.08);
+    animation: agentLiveDotGlow 2.1s ease-in-out infinite;
   }
   .agent-live-step.is-done .agent-live-step-dot {
     color: #4ade80;
     border-color: rgba(74,222,128,0.3);
+    animation: none;
   }
   .agent-live-step.is-error .agent-live-step-dot {
     color: #fda4af;
     border-color: rgba(248,113,113,0.34);
+    animation: none;
   }
   .agent-live-step-body {
     min-width: 0;
@@ -581,6 +584,8 @@
   .agent-live-step.is-active .agent-live-step-body {
     background: linear-gradient(135deg, rgba(15,23,42,0.82), rgba(22,45,86,0.62));
     border-color: rgba(96,165,250,0.16);
+    box-shadow: 0 10px 24px rgba(8, 47, 73, 0.16);
+    animation: agentLiveStepBreath 2.4s ease-in-out infinite;
   }
   .agent-live-step-title {
     font-size: 0.8rem;
@@ -605,6 +610,14 @@
       opacity: 1;
       transform: translateY(0) scale(1);
     }
+  }
+  @keyframes agentLiveStepBreath {
+    0%, 100% { transform: translateY(0); box-shadow: 0 10px 24px rgba(8, 47, 73, 0.12); }
+    50% { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(8, 47, 73, 0.2); }
+  }
+  @keyframes agentLiveDotGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(14,165,233,0.12); }
+    50% { box-shadow: 0 0 0 7px rgba(14,165,233,0.04); }
   }
   .agent-pane-reveal {
     opacity: 0;
@@ -2639,9 +2652,11 @@
 
     const seenLogs = new Set();
     const pendingLogs = [];
-    const MIN_STEP_VISIBILITY_MS = 1500;
+    const MIN_STEP_VISIBILITY_MS = 420;
     let displayedStepCount = 1;
     let queueRunning = false;
+    let fastForwardMode = false;
+    let finalized = false;
     let activeStepStartedAt = Date.now();
     let activeStep = createAgentLiveStep('Preparando o agente e abrindo o fluxo de pesquisa.', 'active', 'Aguardando os primeiros eventos do backend');
     steps.appendChild(activeStep);
@@ -2660,7 +2675,7 @@
       while (pendingLogs.length > 0) {
         const nextMessage = pendingLogs.shift();
         const elapsed = Date.now() - activeStepStartedAt;
-        if (elapsed < MIN_STEP_VISIBILITY_MS) {
+        if (!fastForwardMode && elapsed < MIN_STEP_VISIBILITY_MS) {
           await delay(MIN_STEP_VISIBILITY_MS - elapsed);
         }
 
@@ -2686,41 +2701,59 @@
       flushLogQueue();
     }
 
+    async function settleQueueForCompletion(finalState, finalText) {
+      fastForwardMode = true;
+      await flushLogQueue();
+
+      while (queueRunning || pendingLogs.length > 0) {
+        await delay(30);
+      }
+
+      if (!seenLogs.has('Análise do tema concluída.')) {
+        if (activeStep) setAgentLiveStepState(activeStep, finalState === 'error' ? 'error' : 'done');
+        displayedStepCount += 1;
+        const closingStep = createAgentLiveStep(
+          'Análise do tema concluída.',
+          finalState === 'error' ? 'error' : 'done',
+          `Passo ${displayedStepCount}`
+        );
+        steps.appendChild(closingStep);
+        activeStep = closingStep;
+        seenLogs.add('Análise do tema concluída.');
+      } else if (activeStep) {
+        setAgentLiveStepState(activeStep, finalState === 'error' ? 'error' : 'done');
+      }
+
+      subtitle.textContent = finalText;
+      steps.scrollTop = steps.scrollHeight;
+      fastForwardMode = false;
+    }
+
     return {
       addLog(message) {
+        if (finalized) return;
         enqueueLog(message);
       },
       setSubtitle(text) {
+        if (finalized) return;
         const clean = String(text || '').trim();
         if (clean) subtitle.textContent = clean;
       },
       async complete(text) {
-        while (queueRunning || pendingLogs.length > 0) {
-          await delay(80);
-        }
-        const elapsed = Date.now() - activeStepStartedAt;
-        if (elapsed < MIN_STEP_VISIBILITY_MS) {
-          await delay(MIN_STEP_VISIBILITY_MS - elapsed);
-        }
-        if (activeStep) setAgentLiveStepState(activeStep, 'done');
+        if (finalized) return;
+        finalized = true;
+        await settleQueueForCompletion('done', text || 'Resposta pronta para leitura.');
         card.classList.remove('is-error');
         card.classList.add('is-complete');
         badge.textContent = 'Concluído';
-        subtitle.textContent = text || 'Resposta pronta para leitura.';
       },
       async fail(text) {
-        while (queueRunning || pendingLogs.length > 0) {
-          await delay(80);
-        }
-        const elapsed = Date.now() - activeStepStartedAt;
-        if (elapsed < MIN_STEP_VISIBILITY_MS) {
-          await delay(MIN_STEP_VISIBILITY_MS - elapsed);
-        }
-        if (activeStep) setAgentLiveStepState(activeStep, 'error');
+        if (finalized) return;
+        finalized = true;
+        await settleQueueForCompletion('error', text || 'O agente encontrou um erro durante a execução.');
         card.classList.remove('is-complete');
         card.classList.add('is-error');
         badge.textContent = 'Falhou';
-        subtitle.textContent = text || 'O agente encontrou um erro durante a execução.';
       },
       remove() {
         wrapper.remove();
@@ -2779,7 +2812,7 @@
           liveCard.addLog(parsed.data.message);
         } else if (parsed.event === 'error') {
           streamError = parsed.data?.message || 'Erro no fluxo do agente.';
-          liveCard.fail(streamError);
+          void liveCard.fail(streamError);
         } else if (parsed.event === 'final') {
           finalPayload = parsed.data;
         }
@@ -5103,9 +5136,9 @@
       };
 
       if (json?.error) {
-        liveCard.fail(json.error);
+        await liveCard.fail(json.error);
       } else {
-        liveCard.complete(metadata.thinking || 'Resposta pronta para leitura.');
+        await liveCard.complete(metadata.thinking || 'Resposta pronta para leitura.');
       }
 
       addMessage('ai', aiText, metadata);
@@ -5113,7 +5146,7 @@
 
     } catch (err) {
       console.error(err);
-      liveCard.fail(err?.message || String(err));
+      await liveCard.fail(err?.message || String(err));
     } finally {
       document.getElementById('thinkingIndicator').classList.remove('show');
     }
