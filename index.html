@@ -932,6 +932,18 @@
     border: none;
     box-shadow: none;
   }
+  .inline-visual-section {
+    width: min(100%, 560px);
+    margin: 1rem auto 1rem 0;
+    padding-top: 0;
+    border-radius: 18px;
+    box-shadow: 0 14px 34px rgba(2, 6, 23, 0.18);
+  }
+  .inline-visual-section .latex-graph-body { padding: 0.65rem; }
+  .inline-visual-section .latex-graph-image { max-height: 340px; }
+  .inline-visual-section .latex-graph-viewport { max-height: 360px; }
+  .inline-visual-section .latex-graph-footer { padding-top: 0.55rem; }
+  .inline-visual-slot { display: block; width: 100%; }
   .latex-graph-btn {
     display: inline-flex;
     align-items: center;
@@ -3509,6 +3521,9 @@
       .replace(/(?:<br\s*\/?>\s*){3,}/gi, '<br/><br/>')
       .replace(/^(?:<br\s*\/?>\s*)+/i, '')
       .replace(/(?:<br\s*\/?>\s*)+$/i, '');
+    html = html
+      .replace(/\bDREKEE_GRAPH_SLOT_(\d+)\b/g, (_, index) => `<div class="inline-visual-slot" data-inline-visual="graph-${index}"></div>`)
+      .replace(/\bDREKEE_MINDMAP_SLOT_(\d+)\b/g, (_, index) => `<div class="inline-visual-slot" data-inline-visual="mindmap-${index}"></div>`);
 
     // 5. Citações (Rodar após o markdown para segurança)
     html = html.replace(/\[([^\]]+)\]/gi, (match, rawReference) => {
@@ -3624,16 +3639,18 @@
     working = working.replace(
       /\[MINDMAP_TITLE:\s*([^\]]+?)\s*\]\s*\[MINDMAP_CODE\]\s*([\s\S]*?)\s*\[\/MINDMAP_CODE\]/gi,
       (match, rawTitle, rawCode) => {
+        const index = mindMaps.length;
         pushMindMap(rawTitle, rawCode);
-        return ' ';
+        return ` DREKEE_MINDMAP_SLOT_${index} `;
       }
     );
 
     working = working.replace(
       /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi,
       (match, rawTitle, rawCode) => {
+        const index = graphs.length;
         pushGraph(rawTitle, rawCode);
-        return ' ';
+        return ` DREKEE_GRAPH_SLOT_${index} `;
       }
     );
 
@@ -3662,7 +3679,9 @@
     );
 
     const cleanedResponse = working
+      .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+\]/gi, ' ')
       .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
+      .replace(/\[MINDMAP_TITLE:\s*[^\]]+\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_CODE\]|\[\/LATEX_GRAPH_CODE\]/gi, ' ')
       .replace(/\[\/MINDMAP_TITLE\]/gi, ' ')
       .replace(/\[MINDMAP_CODE\]|\[\/MINDMAP_CODE\]/gi, ' ')
@@ -3791,12 +3810,12 @@
     return panzoom;
   }
 
-  function createLatexGraphSection(graphSpec, visualKind = 'graph') {
+  function createLatexGraphSection(graphSpec, visualKind = 'graph', displayMode = 'full') {
     const isMindMap = visualKind === 'mindmap';
     const visualLabel = isMindMap ? 'mapa mental' : 'grafico';
     const visualTitle = isMindMap ? 'Mapa mental' : 'Grafico informativo';
     const section = document.createElement('div');
-    section.className = `ai-full-width-section latex-graph-section${isMindMap ? ' latex-mindmap-section' : ''}`;
+    section.className = `ai-full-width-section latex-graph-section${isMindMap ? ' latex-mindmap-section' : ''}${displayMode === 'inline' ? ' inline-visual-section' : ''}`;
 
     const body = document.createElement('div');
     body.className = 'latex-graph-body';
@@ -3874,8 +3893,8 @@
     return section;
   }
 
-  function createMindMapSection(graphSpec) {
-    return createLatexGraphSection(graphSpec, 'mindmap');
+  function createMindMapSection(graphSpec, displayMode = 'full') {
+    return createLatexGraphSection(graphSpec, 'mindmap', displayMode);
   }
 
   function isNasaLike(entry) {
@@ -4198,6 +4217,20 @@
     });
   }
 
+  function mountInlineVisuals(responseContainer, visuals = [], kind = 'graph') {
+    const mountedIndexes = new Set();
+    visuals.forEach((spec, index) => {
+      const slot = responseContainer.querySelector(`[data-inline-visual="${kind}-${index}"]`);
+      if (!slot) return;
+      const section = kind === 'mindmap'
+        ? createMindMapSection(spec, 'inline')
+        : createLatexGraphSection(spec, 'graph', 'inline');
+      slot.replaceWith(section);
+      mountedIndexes.add(index);
+    });
+    return mountedIndexes;
+  }
+
   async function renderAgentSequence(payload, options = {}) {
     const instant = options.instant === true;
     const { logs=[], media=[], response, sources=[], userQuestion='', offlineDocument=null } = payload;
@@ -4362,14 +4395,20 @@
     }
 
     if (Array.isArray(parsedResponse.mindMaps) && parsedResponse.mindMaps.length > 0) {
-      parsedResponse.mindMaps.forEach(mapSpec => {
-        inner.appendChild(createMindMapSection(mapSpec));
+      const mountedMindMaps = mountInlineVisuals(responseContainer, parsedResponse.mindMaps, 'mindmap');
+      parsedResponse.mindMaps.forEach((mapSpec, index) => {
+        if (!mountedMindMaps.has(index)) {
+          inner.appendChild(createMindMapSection(mapSpec));
+        }
       });
     }
 
     if (Array.isArray(parsedResponse.latexGraphs) && parsedResponse.latexGraphs.length > 0) {
-      parsedResponse.latexGraphs.forEach(graphSpec => {
-        inner.appendChild(createLatexGraphSection(graphSpec));
+      const mountedGraphs = mountInlineVisuals(responseContainer, parsedResponse.latexGraphs, 'graph');
+      parsedResponse.latexGraphs.forEach((graphSpec, index) => {
+        if (!mountedGraphs.has(index)) {
+          inner.appendChild(createLatexGraphSection(graphSpec));
+        }
       });
     }
 

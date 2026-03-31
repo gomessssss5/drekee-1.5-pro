@@ -82,7 +82,7 @@ async function searchTavily(query) {
       body: JSON.stringify({
         api_key: apiKey,
         query,
-        max_results: 5,
+        max_results: 7,
         include_answer: true,
       }),
     });
@@ -92,7 +92,7 @@ async function searchTavily(query) {
     return {
       query,
       answer: data.answer,
-      results: data.results?.slice(0, 3).map(r => ({
+      results: data.results?.slice(0, 5).map(r => ({
         title: r.title,
         url: r.url,
         snippet: r.snippet,
@@ -3583,7 +3583,7 @@ INSTRUÇÕES FINAIS:
 5. Cite TODAS as afirmações factuais com o formato exato [ID-DA-FONTE: ID_EXATO].
 6. Nunca use formatos como [FONTE: nome] ou rótulos livres no lugar do ID.
 7. Mantenha o tom didático e amigável, mas seja direto nos dados.
-8. Se houver comparações, percentuais, composição, ranking, escalas ou 3 ou mais itens numéricos comparáveis, prefira incluir um gráfico LaTeX no final.
+8. Só inclua gráfico ou mapa mental quando isso for claramente necessário para entender melhor a resposta. Se a pergunta puder ser respondida bem em texto, NÃO gere visual.
 9. Nunca acrescente impactos indiretos, consequências econômicas/setoriais ou interpretações laterais sem fonte explícita.
 10. Se o gráfico for uma série temporal, use apenas line chart com escala proporcional real; não use área, cunha ou números hipotéticos fora da ordem de grandeza real.
 11. Se a pergunta comparar categorias discretas (ex: Brasil vs média mundial, fontes de energia, estados, países), use barras e alinhe cada valor exatamente ao seu rótulo no eixo X.
@@ -3593,6 +3593,8 @@ INSTRUÇÕES FINAIS:
 15. Em variação percentual, inclua referência visual de y=0 no gráfico.
 16. Quando houver escolha entre valor absoluto e porcentagem, priorize primeiro o valor absoluto da base oficial.
 17. Se o usuário pedir um período completo e você só tiver parte dele, não use linha sugerindo continuidade. Prefira barras apenas para os anos realmente disponíveis e avise no texto quais anos ficaram sem dado.
+18. NÃO gere gráfico para listas factuais simples, respostas curtas, enumeração de descobertas, definição direta ou perguntas que não peçam comparação/tendência/organização visual.
+19. NÃO gere mapa mental a menos que o pedido seja conceitual, explicativo ou explicitamente peça organização visual.
 
 Seja honesto. Não invente. Use as fontes.`;
 
@@ -4301,6 +4303,48 @@ function enforceSingleVisualChoice(response = '', userQuestion = '') {
   return String(response || '').replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ').trim();
 }
 
+function detectExplicitVisualRequest(userQuestion = '') {
+  return /\b(grafico|gráfico|mapa mental|diagrama|esquema|visualiza[cç][aã]o|visual)\b/i.test(String(userQuestion || ''));
+}
+
+function countResponseCitations(response = '') {
+  return (String(response || '').match(/\[ID-DA-FONTE:\s*[^\]]+\]/gi) || []).length;
+}
+
+function stripAllVisualBlocks(response = '') {
+  return String(response || '')
+    .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
+    .replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ')
+    .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\]/gi, ' ')
+    .replace(/\[MINDMAP_TITLE:\s*[^\]]+?\]/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function shouldKeepAnalyticalVisual(response = '', sources = [], userQuestion = '') {
+  const graphBlocks = extractLatexGraphBlocks(response);
+  const mindMapBlocks = extractMindMapBlocks(response);
+  if (graphBlocks.length === 0 && mindMapBlocks.length === 0) return true;
+
+  const explicitVisual = detectExplicitVisualRequest(userQuestion);
+  const sourceCount = Array.isArray(sources) ? sources.length : 0;
+  const citationCount = countResponseCitations(response);
+  const graphIntent = detectTimeSeriesIntent(userQuestion, response) || detectCategoryComparisonIntent(userQuestion, response);
+  const conceptualIntent = /\b(o que e|o que é|como funciona|explique|explica|resuma|organize|vis[aã]o geral|panorama|relacione|etapas|processo|diferen[cç]a)\b/i.test(String(userQuestion || ''));
+
+  if (graphBlocks.length > 0) {
+    if (!explicitVisual && !graphIntent) return false;
+    if (!explicitVisual && (sourceCount < 3 || citationCount < 4)) return false;
+  }
+
+  if (mindMapBlocks.length > 0) {
+    if (!explicitVisual && !conceptualIntent) return false;
+    if (!explicitVisual && (sourceCount < 2 || citationCount < 3)) return false;
+  }
+
+  return true;
+}
+
 function findLongestRepeatedNumericRun(values = []) {
   let longest = 1;
   let current = 1;
@@ -4412,6 +4456,10 @@ function analyzeLatexGraph(code = '', context = {}) {
 
 async function alignGraphWithResponseReliability(response = '', sources = [], userQuestion = '', logs = []) {
   response = enforceSingleVisualChoice(response, userQuestion);
+  if (!shouldKeepAnalyticalVisual(response, sources, userQuestion)) {
+    logs.push('🛑 Visual removido: a pergunta nao exigia grafico/mapa mental com clareza suficiente.');
+    return { response: stripAllVisualBlocks(response), confidence: assessResponseReliability(response, sources) };
+  }
   const graphBlocks = extractLatexGraphBlocks(response);
   const mindMapBlocks = extractMindMapBlocks(response);
   if (graphBlocks.length === 0 && mindMapBlocks.length > 0) {
