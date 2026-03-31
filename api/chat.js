@@ -3661,7 +3661,7 @@ Seja honesto. Não invente. Use as fontes.`;
   return { response, media: [...media, ...nasaMedia], sources, selectedConnectors };
 }
 
-// ============ STEP 3: Review with Gemini ============
+// ============ STEP 3: Audit with Gemini / Polish with Groq ============
 async function reviewResponse(response) {
   const reviewPrompt = `Você é um revisor científico experiente. Recebeu a resposta abaixo para revisão.
 
@@ -3686,7 +3686,11 @@ RESPOSTA A REVISAR:
 ${response}
 `;
 
-  return await callGemini(reviewPrompt);
+  return await callGroq(
+    [{ role: 'user', content: reviewPrompt }],
+    'GROQ_API_KEY_1',
+    { maxTokens: 5000, temperature: 0.15 }
+  );
 }
 
 async function auditResponseWithGemini({ userQuestion = '', response = '', sources = [], logs = [] } = {}) {
@@ -3774,22 +3778,27 @@ Voce decide como a segunda rodada de pesquisa deve ser feita para preencher lacu
 Retorne APENAS JSON valido:
 {
   "should_retry": true,
+  "use_existing_evidence": false,
+  "needs_new_research": true,
   "goal": "preencher lacunas factuais centrais",
   "search_query": "massa gravidade marte nasa jpl",
   "connectors_required": ["nasa"],
   "connectors_optional": ["tavily"],
   "connectors_forbidden": ["ibge"],
   "focus_facts": ["massa de Marte"],
+  "regeneration_brief": "responder de forma mais especifica e orientada pelos fatos ausentes",
   "reasoning": "motivo curto"
 }
 
 Regras:
 - use apenas conectores permitidos
+- se as fontes ja obtidas forem suficientes para preencher a lacuna, prefira use_existing_evidence=true e needs_new_research=false
 - priorize conectores primarios antes de Tavily
 - use Tavily apenas se fontes especializadas puderem precisar de apoio
 - nao aumente escopo alem da lacuna apontada
 - should_retry=true apenas se a segunda rodada tiver boa chance de melhorar a resposta
 - connectors_forbidden deve bloquear conectores irrelevantes para este retry
+- regeneration_brief deve explicar como a resposta final deve ser reescrita depois da recuperacao
 
 Pergunta do usuario: ${JSON.stringify(String(userQuestion || ''))}
 Plano inicial: ${JSON.stringify(actionPlan || {})}
@@ -3814,12 +3823,15 @@ Conectores permitidos: ${JSON.stringify([...SUPPORTED_CONNECTORS].sort())}`;
 
     return {
       should_retry: parsed.should_retry === true,
+      use_existing_evidence: parsed.use_existing_evidence === true,
+      needs_new_research: parsed.needs_new_research !== false,
       goal: String(parsed.goal || '').trim(),
       search_query: String(parsed.search_query || '').trim(),
       connectors_required: filterSupportedConnectors(parsed.connectors_required || []),
       connectors_optional: filterSupportedConnectors(parsed.connectors_optional || []),
       connectors_forbidden: filterSupportedConnectors(parsed.connectors_forbidden || []),
       focus_facts: Array.isArray(parsed.focus_facts) ? parsed.focus_facts.map(item => String(item || '').trim()).filter(Boolean) : [],
+      regeneration_brief: String(parsed.regeneration_brief || '').trim(),
       reasoning: String(parsed.reasoning || '').trim(),
     };
   } catch (error) {
@@ -3865,6 +3877,66 @@ function buildPostRecoveryIntegrityNote(audit = {}) {
     ? ` Os pontos que ainda nao consegui confirmar com seguranca foram: ${missingFacts.join(', ')}.`
     : '';
   return `Revisei novamente fontes especializadas para esta pergunta antes de concluir a resposta e mantive abaixo apenas o que consegui confirmar com seguranca.${factSnippet}`;
+}
+
+async function synthesizeResponseWithAgent({
+  userQuestion = '',
+  workingResponse = '',
+  sources = [],
+  audit = {},
+  recoveryPlan = {},
+  history = [],
+  logs = [],
+} = {}) {
+  const sourceDigest = (sources || [])
+    .slice(0, 18)
+    .map(source => `${source.id}: ${source.label} - ${String(source.detail || '').slice(0, 280)}`)
+    .join('\n');
+  const compactHistory = Array.isArray(history)
+    ? history.slice(-4).map(item => `${item?.role || item?.type || 'user'}: ${String(item?.content || item?.payload?.response || '').slice(0, 240)}`).join('\n')
+    : '';
+
+  const prompt = `Você é o sintetizador científico final do Drekee AI.
+
+Sua missão é entregar a melhor resposta possível ao usuário usando APENAS o que está sustentado pela resposta-base e pelas fontes abaixo.
+
+REGRAS:
+1. Responda de forma direta e específica; não fique genérico se as fontes já permitirem mais precisão.
+2. Preserve ou adicione tags de citação no formato exato [ID-DA-FONTE: ID_EXATO].
+3. Não invente dados.
+4. Se algum ponto continuar sem confirmação, diga isso de forma objetiva e curta.
+5. Use o plano do agente para fechar lacunas, não para abrir assunto novo.
+6. Retorne APENAS a resposta final ao usuário.
+
+PERGUNTA DO USUÁRIO:
+${userQuestion}
+
+RESPOSTA-BASE:
+${workingResponse}
+
+VEREDITO DA AUDITORIA:
+${JSON.stringify(audit || {})}
+
+PLANO DO AGENTE:
+${JSON.stringify(recoveryPlan || {})}
+
+HISTÓRICO RECENTE:
+${compactHistory || 'Sem histórico recente'}
+
+FONTES DISPONÍVEIS:
+${sourceDigest || 'Sem fontes registradas'}
+`;
+
+  try {
+    return await callGroq(
+      [{ role: 'user', content: prompt }],
+      'GROQ_API_KEY_1',
+      { maxTokens: 5000, temperature: 0.15 }
+    );
+  } catch (error) {
+    logs.push(`⚠️ Síntese final orientada pelo agente indisponível: ${error.message}`);
+    return workingResponse;
+  }
 }
 
 function extractLatexGraphBlocks(response = '') {
@@ -5468,7 +5540,7 @@ async function handler(req, res) {
     const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext, userContext });
     exec.response = normalizeResponseCitations(exec.response, exec.sources || []);
 
-    logs.push('🧪 Auditando a resposta inicial com Gemini...');
+    logs.push('🧪 Gemini avaliando a resposta final candidata...');
     let finalExec = exec;
     let recoveryAttempted = false;
     let audit = await auditResponseWithGemini({
@@ -5477,7 +5549,7 @@ async function handler(req, res) {
       sources: exec.sources || [],
       logs,
     });
-    logs.push(audit.approved ? '✅ Auditoria Gemini aprovou a resposta inicial.' : `⚠️ Auditoria Gemini detectou lacunas: ${(audit.issues || []).join(', ') || 'cobertura insuficiente'}`);
+    logs.push(audit.approved ? '✅ Gemini aprovou a resposta candidata.' : `⚠️ Gemini reprovou a resposta candidata: ${(audit.issues || []).join(', ') || 'cobertura insuficiente'}`);
 
     if (!audit.approved && audit.retry_worthy) {
       logs.push('🤖 GROQ Agent acionado para organizar uma recuperação autônoma.');
@@ -5498,38 +5570,46 @@ async function handler(req, res) {
         if (recoveryPlan.reasoning) {
           logs.push(`🧠 Motivo do retry: ${recoveryPlan.reasoning}`);
         }
-        const recoveryActionPlan = {
-          ...(actionPlan || {}),
-          termo_de_busca: recoveryPlan.search_query || actionPlan?.termo_de_busca || userQuestion,
-        };
-        const recoveryVisionContext = `${visionContext}\n[CONTEXTO CONFIRMADO DA PRIMEIRA RODADA]\n${stripLatexGraphBlocks(exec.response).slice(0, 2200)}\n`;
-        const retryExec = await executeAgentPlan(userQuestion, recoveryActionPlan, logs, {
-          connectorAuto: true,
-          connectors: exec.selectedConnectors || [],
-          useNasa: body?.nasa,
-          history,
-          visionContext: recoveryVisionContext,
-          userContext,
-          recoveryMode: true,
-          baseConnectors: exec.selectedConnectors || [],
-          overrideQuery: recoveryPlan.search_query,
-          overrideRequiredConnectors: recoveryPlan.connectors_required || [],
-          overrideOptionalConnectors: recoveryPlan.connectors_optional || [],
-          overrideForbiddenConnectors: recoveryPlan.connectors_forbidden || [],
-          focusFacts: recoveryPlan.focus_facts || [],
-        });
-        retryExec.response = normalizeResponseCitations(retryExec.response, retryExec.sources || []);
-        finalExec = mergeExecutionResults(exec, retryExec);
-        finalExec.response = retryExec.response || exec.response;
+        if (recoveryPlan.use_existing_evidence && !recoveryPlan.needs_new_research) {
+          logs.push('🧠 GROQ Agent decidiu reaproveitar as fontes já coletadas antes de abrir nova pesquisa.');
+        } else {
+          logs.push('🌐 GROQ Agent decidiu abrir nova rodada de pesquisa para fechar lacunas.');
+          const recoveryActionPlan = {
+            ...(actionPlan || {}),
+            termo_de_busca: recoveryPlan.search_query || actionPlan?.termo_de_busca || userQuestion,
+          };
+          const recoveryVisionContext = `${visionContext}\n[CONTEXTO CONFIRMADO DA PRIMEIRA RODADA]\n${stripLatexGraphBlocks(exec.response).slice(0, 2200)}\n`;
+          const retryExec = await executeAgentPlan(userQuestion, recoveryActionPlan, logs, {
+            connectorAuto: true,
+            connectors: exec.selectedConnectors || [],
+            useNasa: body?.nasa,
+            history,
+            visionContext: recoveryVisionContext,
+            userContext,
+            recoveryMode: true,
+            baseConnectors: exec.selectedConnectors || [],
+            overrideQuery: recoveryPlan.search_query,
+            overrideRequiredConnectors: recoveryPlan.connectors_required || [],
+            overrideOptionalConnectors: recoveryPlan.connectors_optional || [],
+            overrideForbiddenConnectors: recoveryPlan.connectors_forbidden || [],
+            focusFacts: recoveryPlan.focus_facts || [],
+          });
+          retryExec.response = normalizeResponseCitations(retryExec.response, retryExec.sources || []);
+          finalExec = mergeExecutionResults(exec, retryExec);
+          finalExec.response = retryExec.response || exec.response;
+        }
 
-        logs.push('🧪 Auditando a resposta recuperada com Gemini...');
-        audit = await auditResponseWithGemini({
+        logs.push('🧠 GROQ Agent organizando a síntese final com a memória das fontes e lacunas detectadas.');
+        finalExec.response = await synthesizeResponseWithAgent({
           userQuestion,
-          response: finalExec.response,
-          sources: finalExec.sources || [],
+          workingResponse: finalExec.response || exec.response,
+          sources: finalExec.sources || exec.sources || [],
+          audit,
+          recoveryPlan,
+          history,
           logs,
         });
-        logs.push(audit.approved ? '✅ Auditoria Gemini aprovou a resposta recuperada.' : '⚠️ Ainda restaram lacunas após a recuperação autônoma.');
+        finalExec.response = normalizeResponseCitations(finalExec.response, finalExec.sources || []);
       } else {
         logs.push('⚠️ GROQ Agent concluiu que uma nova rodada não aumentaria a confiabilidade.');
       }
@@ -5539,7 +5619,7 @@ async function handler(req, res) {
       logs.push('📝 A resposta final vai manter honestidade factual e evitar invenção de dados ausentes.');
     }
 
-    logs.push('👁️ Revisando texto final com Gemini...');
+    logs.push('👁️ Refinando a redação final com a IA principal...');
     const responseDraft = !audit.approved && recoveryAttempted
       ? `${buildPostRecoveryIntegrityNote(audit)}\n\n${finalExec.response}`
       : finalExec.response;
