@@ -1945,7 +1945,17 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   const primaryKey = process.env[apiKeyVar] || process.env.GROQ_API_KEY;
   const secondaryKey = process.env.GROQ_API_KEY_2;
 
-  const tryRequest = async (key) => {
+  const shrinkMessages = (inputMessages = []) => inputMessages.map((message, index) => {
+    const content = String(message?.content || '');
+    const budget = index === inputMessages.length - 1 ? 6000 : 2400;
+    if (content.length <= budget) return message;
+    return {
+      ...message,
+      content: `${content.slice(0, budget)}\n\n[TRUNCATED_FOR_GROQ_LIMIT]`,
+    };
+  });
+
+  const tryRequest = async (key, requestMessages) => {
     if (!key) return null;
     const model = options.model || 'llama-3.3-70b-versatile';
     const maxTokens = options.maxTokens || 4096;
@@ -1959,7 +1969,7 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
       },
       body: JSON.stringify({
         model,
-        messages,
+        messages: requestMessages,
         max_tokens: maxTokens,
         temperature,
       }),
@@ -1973,12 +1983,23 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   };
 
   try {
-    return await tryRequest(primaryKey);
+    return await tryRequest(primaryKey, messages);
   } catch (err) {
+    const tooLarge = /GROQ error 413|Request too large|tokens per minute|rate_limit_exceeded/i.test(String(err?.message || ''));
+    if (tooLarge) {
+      const shrunkenMessages = shrinkMessages(messages);
+      if (JSON.stringify(shrunkenMessages) !== JSON.stringify(messages)) {
+        try {
+          return await tryRequest(primaryKey, shrunkenMessages);
+        } catch (retryErr) {
+          err = retryErr;
+        }
+      }
+    }
     if (secondaryKey && secondaryKey !== primaryKey) {
       console.warn('⚠️ GROQ Primary failed, trying fallback...');
       try {
-        return await tryRequest(secondaryKey);
+        return await tryRequest(secondaryKey, tooLarge ? shrinkMessages(messages) : messages);
       } catch (err2) {
         throw new Error(`Both GROQ keys failed. Last error: ${err2.message}`);
       }
@@ -3638,7 +3659,7 @@ ${context || 'Nenhum contexto externo necessário'}
 ${historyText}${visionText}
 
 FONTES DISPONÍVEIS PARA CITAÇÃO:
-${sources.map(s => `${s.id}: ${s.label} - ${s.detail}`).join('\n')}
+${sources.slice(0, 14).map(s => `${s.id}: ${s.label} - ${String(s.detail || '').slice(0, 220)}`).join('\n')}
 
 PERGUNTA ATUAL DO USUÁRIO: "${userQuestion}"
 
