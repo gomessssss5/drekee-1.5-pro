@@ -1958,12 +1958,13 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
     
     if (rateLimited) {
       const waitMatch = messageText.match(/Please try again in\s+([\d.]+)s/i);
-      const waitMs = waitMatch ? Math.min(Math.ceil(Number(waitMatch[1]) * 1000) + 400, 18000) : 5000;
-      console.warn(`⚠️ GROQ Rate Limit. Waiting ${waitMs}ms...`);
+      const waitMs = waitMatch ? Math.min(Math.ceil(Number(waitMatch[1]) * 1000) + 400, 8000) : 3000;
+      console.warn(`⚠️ GROQ Rate Limit. Waiting ${waitMs}ms before retry...`);
       await sleep(waitMs);
       try {
         return await tryRequest(primaryKey, messages);
       } catch (retryErr) {
+        console.warn('🚨 GROQ retry also failed. Escalating to secondary key or SambaNova fallback...');
         err = retryErr;
       }
     }
@@ -1977,21 +1978,80 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
       }
     }
 
-    // CROSS-PROVIDER FALLBACK: Se todas as chaves GROQ falharem, tenta Gemini como última instância
-    console.warn('🚨 All GROQ keys failed. Falling back to Gemini...');
-    const preparePayload = () => ({
-      contents: [{ parts: [{ text: messages.map(m => `${m.role}: ${m.content}`).join('\n') }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
-    });
+    // CROSS-PROVIDER FALLBACK: Se todas as chaves GROQ falharem, tenta SambaNova como última instância
+    console.warn('🚨 All GROQ keys failed. Falling back to SambaNova...');
     
-    const geminiFallback = await tryGeminiWithFallback(preparePayload);
-    if (geminiFallback) {
-      console.log('✅ Recovered using Gemini fallback');
-      return geminiFallback;
+    const sambaFallback = await callSambaNova(messages, options);
+    if (sambaFallback) {
+      console.log('✅ Recovered using SambaNova fallback');
+      return sambaFallback;
     }
 
     throw err;
   }
+}
+
+// ============ SAMBANOVA API ============
+async function callSambaNova(messages, options = {}) {
+  const endpoint = 'https://api.sambanova.ai/v1/chat/completions';
+  const apiKey = process.env.SAMBA_API_KEY;
+  if (!apiKey) {
+    console.error('❌ SAMBA_API_KEY não encontrada');
+    return null;
+  }
+
+  const model = options.model || 'Meta-Llama-3.3-70B-Instruct';
+  const maxTokens = options.maxTokens || 4096;
+  const temperature = options.temperature !== undefined ? options.temperature : 0.25;
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+      }),
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(`SambaNova error ${res.status}: ${JSON.stringify(error)}`);
+    }
+
+    const data = await res.json();
+    console.log(`🔥 SambaNova (${model}) utilizada com sucesso`);
+    return data.choices?.[0]?.message?.content || null;
+  } catch (err) {
+    console.error('❌ SambaNova API error:', err);
+    return null;
+  }
+}
+
+// ============ SAMBANOVA MODELOS ESPECIALIZADOS ============
+async function callSambaNovaVision(messages, images, options = {}) {
+  // Limitar a 5 imagens conforme especificação
+  const limitedImages = Array.isArray(images) ? images.slice(0, 5) : [];
+  
+  const visionMessages = [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: messages[0]?.content || '' },
+        ...limitedImages.map(img => ({
+          type: 'image_url',
+          image_url: { url: img }
+        }))
+      ]
+    }
+  ];
+
+  return await callSambaNova(visionMessages, { ...options, model: 'Llama-4-Maverick-17B-128E-Instruct' });
 }
 
 // ============ GEMINI Helper (with multiple keys) ============
@@ -2042,7 +2102,28 @@ async function callGemini(prompt, logs = []) {
 
 
 
-// ============ ANALYZE USER UPLOADS (Vision with Gemini) ============
+// ============ ANALYZE USER UPLOADS (Vision with SambaNova) ============
+async function analyzeUserFilesWithSambaNova(files, userQuestion, logs = []) {
+  if (!files || files.length === 0) return null;
+
+  try {
+    const imageUrls = files.map(f => f.url || f.data || f);
+    const prompt = `Analise estas imagens no contexto científico da pergunta do aluno: "${userQuestion}"
+
+Descreva o conteúdo científico relevante que o aluno está perguntando ou mostrando.
+
+Retorne APENAS um parágrafo conciso com a análise.`;
+
+    const response = await callSambaNovaVision([{ role: 'user', content: prompt }], imageUrls, { maxTokens: 500, temperature: 0.2 });
+    return response;
+  } catch (err) {
+    console.error('SambaNova Vision analysis error:', err);
+    if (logs) logs.push(`❌ Falha na análise de imagens com SambaNova: ${err.message}`);
+    return null;
+  }
+}
+
+// ============ ANALYZE USER UPLOADS (Vision with Gemini - FALLBACK) ============
 async function analyzeUserFilesWithGemini(files, userQuestion, logs = []) {
   if (!files || files.length === 0) return null;
 
@@ -2153,6 +2234,23 @@ Retorne APENAS JSON válido (sem markdown):
     'GROQ_API_KEY_2',
     { maxTokens: 800, temperature: 0.2 }
   );
+
+  // Se GROQ falhar, tentar SambaNova como fallback
+  if (!response) {
+    console.warn('🚨 GROQ Agent failed, trying SambaNova fallback...');
+    try {
+      const sambaResponse = await callSambaNova(
+        [{ role: 'user', content: prompt }],
+        { model: 'Meta-Llama-3.1-8B-Instruct', maxTokens: 800, temperature: 0.2 }
+      );
+      if (sambaResponse) {
+        console.log('✅ Plan generated using SambaNova fallback');
+        return JSON.parse(sambaResponse);
+      }
+    } catch (err) {
+      console.error('SambaNova fallback failed:', err);
+    }
+  }
 
   try {
     return JSON.parse(response);
@@ -3901,6 +3999,36 @@ Conectores permitidos: ${JSON.stringify([...SUPPORTED_CONNECTORS].sort())}`;
     };
   } catch (error) {
     logs.push(`⚠️ GROQ Agent indisponivel: ${error.message}`);
+    
+    // Fallback para SambaNova
+    try {
+      console.log('🔄 Trying SambaNova fallback for recovery plan...');
+      const sambaResponse = await callSambaNova(
+        [{ role: 'user', content: prompt }],
+        { model: 'Meta-Llama-3.1-8B-Instruct', maxTokens: 900, temperature: 0.1 }
+      );
+      const parsed = extractJsonObject(sambaResponse);
+      if (parsed && typeof parsed === 'object') {
+        console.log('✅ Recovery plan generated using SambaNova fallback');
+        return {
+          should_retry: parsed.should_retry === true,
+          use_existing_evidence: parsed.use_existing_evidence === true,
+          needs_new_research: parsed.needs_new_research !== false,
+          goal: String(parsed.goal || '').trim(),
+          search_query: String(parsed.search_query || '').trim(),
+          connectors_required: filterSupportedConnectors(parsed.connectors_required || []),
+          connectors_optional: filterSupportedConnectors(parsed.connectors_optional || []),
+          connectors_forbidden: filterSupportedConnectors(parsed.connectors_forbidden || []),
+          focus_facts: Array.isArray(parsed.focus_facts) ? parsed.focus_facts.map(item => String(item || '').trim()).filter(Boolean) : [],
+          regeneration_brief: String(parsed.regeneration_brief || '').trim(),
+          reasoning: String(parsed.reasoning || '').trim(),
+        };
+      }
+    } catch (sambaErr) {
+      console.error('SambaNova fallback failed:', sambaErr);
+      logs.push(`❌ Fallback SambaNova também falhou: ${sambaErr.message}`);
+    }
+    
     return null;
   }
 }
@@ -3955,26 +4083,30 @@ ${sourceDigest || 'Sem fontes registradas'}
     return await callGroq(
       [{ role: 'user', content: prompt }],
       'GROQ_API_KEY_1',
-      { maxTokens: 5000, temperature: 0.15 }
+      { maxTokens: 3000, temperature: 0.3 }
     );
-  } catch (error) {
-    logs.push(`⚠️ Síntese final orientada pelo agente indisponível: ${error.message}`);
-    return workingResponse;
+  } catch (err) {
+    console.error('Synthesis error with GROQ:', err);
+    if (logs) logs.push(`❌ Erro na síntese com GROQ: ${err.message}`);
+    
+    // Fallback para SambaNova
+    try {
+      console.log('🔄 Trying SambaNova fallback for synthesis...');
+      const sambaResponse = await callSambaNova(
+        [{ role: 'user', content: prompt }],
+        { model: 'Meta-Llama-3.3-70B-Instruct', maxTokens: 3000, temperature: 0.3 }
+      );
+      if (sambaResponse) {
+        console.log('✅ Synthesis completed using SambaNova fallback');
+        return sambaResponse;
+      }
+    } catch (sambaErr) {
+      console.error('SambaNova fallback failed:', sambaErr);
+      if (logs) logs.push(`❌ Fallback SambaNova também falhou: ${sambaErr.message}`);
+    }
+    
+    return workingResponse || 'Não foi possível concluir a síntese da resposta.';
   }
-}
-
-function extractLatexGraphBlocks(response = '') {
-  const matches = [];
-  const pattern = /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi;
-  let match;
-  while ((match = pattern.exec(String(response || ''))) !== null) {
-    matches.push({
-      raw: match[0],
-      title: String(match[1] || '').trim(),
-      code: String(match[2] || '').trim(),
-    });
-  }
-  return matches;
 }
 
 function extractMindMapBlocks(response = '') {
@@ -5555,10 +5687,20 @@ async function handler(req, res) {
     let visionContext = '';
     if (files.length > 0) {
       logs.push('👁️ Analisando arquivos anexados com visão computacional...');
-      const imgDesc = await analyzeUserFilesWithGemini(files, userQuestion, logs);
+      const imgDesc = await analyzeUserFilesWithSambaNova(files, userQuestion, logs);
       if (imgDesc) {
         visionContext = `[IMAGEM ENVIADA PELO ALUNO]: ${imgDesc}\n`;
         logs.push('✅ Análise visual concluída');
+      } else {
+        // Fallback para Gemini se SambaNova falhar
+        logs.push('⚠️ SambaNova Vision falhou, tentando Gemini fallback...');
+        const geminiImgDesc = await analyzeUserFilesWithGemini(files, userQuestion, logs);
+        if (geminiImgDesc) {
+          visionContext = `[IMAGEM ENVIADA PELO ALUNO]: ${geminiImgDesc}\n`;
+          logs.push('✅ Análise visual concluída com Gemini fallback');
+        } else {
+          logs.push('⚠️ Não foi possível analisar as imagens');
+        }
       }
     }
 
