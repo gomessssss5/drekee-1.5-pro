@@ -1955,9 +1955,11 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
     const messageText = String(err?.message || '');
     const tooLarge = /GROQ error 413|Request too large|tokens per minute|rate_limit_exceeded/i.test(messageText);
     const rateLimited = /GROQ error 429|Rate limit reached|Please try again in/i.test(messageText);
+    
     if (rateLimited) {
       const waitMatch = messageText.match(/Please try again in\s+([\d.]+)s/i);
       const waitMs = waitMatch ? Math.min(Math.ceil(Number(waitMatch[1]) * 1000) + 400, 18000) : 5000;
+      console.warn(`⚠️ GROQ Rate Limit. Waiting ${waitMs}ms...`);
       await sleep(waitMs);
       try {
         return await tryRequest(primaryKey, messages);
@@ -1965,24 +1967,29 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
         err = retryErr;
       }
     }
-    if (tooLarge) {
-      const shrunkenMessages = shrinkMessages(messages);
-      if (JSON.stringify(shrunkenMessages) !== JSON.stringify(messages)) {
-        try {
-          return await tryRequest(primaryKey, shrunkenMessages);
-        } catch (retryErr) {
-          err = retryErr;
-        }
-      }
-    }
+
     if (secondaryKey && secondaryKey !== primaryKey) {
-      console.warn('⚠️ GROQ Primary failed, trying fallback...');
+      console.warn('⚠️ GROQ Primary failed, trying secondary key...');
       try {
         return await tryRequest(secondaryKey, tooLarge ? shrinkMessages(messages) : messages);
       } catch (err2) {
-        throw new Error(`Both GROQ keys failed. Last error: ${err2.message}`);
+        err = err2;
       }
     }
+
+    // CROSS-PROVIDER FALLBACK: Se todas as chaves GROQ falharem, tenta Gemini como última instância
+    console.warn('🚨 All GROQ keys failed. Falling back to Gemini...');
+    const preparePayload = () => ({
+      contents: [{ parts: [{ text: messages.map(m => `${m.role}: ${m.content}`).join('\n') }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
+    });
+    
+    const geminiFallback = await tryGeminiWithFallback(preparePayload);
+    if (geminiFallback) {
+      console.log('✅ Recovered using Gemini fallback');
+      return geminiFallback;
+    }
+
     throw err;
   }
 }
