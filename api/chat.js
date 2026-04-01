@@ -2439,6 +2439,33 @@ function sanitizeFinalResponse(response = '') {
   );
 }
 
+function softenUnsupportedSuperlatives(response = '', sources = []) {
+  let text = String(response || '');
+  const sourceText = (sources || [])
+    .map(source => `${source.label || ''} ${source.detail || ''} ${source.url || ''}`.toLowerCase())
+    .join(' ');
+
+  if (!/maior montanha|largest mountain|olympus mons/i.test(sourceText)) {
+    text = text.replace(
+      /\b(Monte Olimpo|Olympus Mons),\s*a\s+segunda montanha mais alta conhecida no Sistema Solar/gi,
+      '$1, um dos relevos mais impressionantes do Sistema Solar'
+    );
+    text = text.replace(
+      /\b(Monte Olimpo|Olympus Mons),\s*a\s+maior montanha conhecida no Sistema Solar/gi,
+      '$1, um enorme vulcão marciano'
+    );
+  }
+
+  text = text
+    .replace(/\bEssa característica é única no Sistema Solar\b/gi, 'Essa é uma das características mais marcantes de Marte')
+    .replace(/\bCom a continuação da exploração e pesquisa, esperamos aprender mais sobre [^.!?]+[.!?]/gi, 'A exploração de Marte continua ajudando os cientistas a entender melhor a história e a composição desse planeta.')
+    .replace(/\bSe você tiver mais perguntas específicas[^.!?]*[.!?]/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return text;
+}
+
 function isAstronomyPrimaryQuery(userQuestion = '', selectedConnectors = []) {
   const text = String(userQuestion || '').toLowerCase();
   const astronomyTopic = /\b(marte|mars|terra|earth|venus|v[eê]nus|j[uú]piter|jupiter|saturno|mercurio|merc[uú]rio|netuno|neptune|urano|uranus|plut[aã]o|plutao|lua|moon|sol|sun|planeta|astronomia|sistema solar|exoplaneta|kepler|tess|gal[aá]xia|estrela|orbita|órbita)\b/.test(text);
@@ -5693,6 +5720,7 @@ async function handler(req, res) {
     response = ensureInteractiveTags(response, userQuestion, finalExec.selectedConnectors || []);
     response = normalizeResponseCitations(response, finalExec.sources || []);
     response = removeUnsupportedAnalyticalParagraphs(response);
+    response = softenUnsupportedSuperlatives(response, finalExec.sources || []);
     response = sanitizeFinalResponse(response);
     const alignment = await alignGraphWithResponseReliability(response, finalExec.sources || [], userQuestion, logs);
     response = sanitizeFinalResponse(alignment.response);
