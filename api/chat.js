@@ -1944,6 +1944,7 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
   const primaryKey = process.env[apiKeyVar] || process.env.GROQ_API_KEY;
   const secondaryKey = process.env.GROQ_API_KEY_2;
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   const shrinkMessages = (inputMessages = []) => inputMessages.map((message, index) => {
     const content = String(message?.content || '');
@@ -1977,7 +1978,10 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
 
     const json = await res.json();
     if (!res.ok) {
-        throw new Error(`GROQ error ${res.status}: ${JSON.stringify(json)}`);
+        const error = new Error(`GROQ error ${res.status}: ${JSON.stringify(json)}`);
+        error.status = res.status;
+        error.payload = json;
+        throw error;
     }
     return json.choices?.[0]?.message?.content || null;
   };
@@ -1985,7 +1989,19 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   try {
     return await tryRequest(primaryKey, messages);
   } catch (err) {
-    const tooLarge = /GROQ error 413|Request too large|tokens per minute|rate_limit_exceeded/i.test(String(err?.message || ''));
+    const messageText = String(err?.message || '');
+    const tooLarge = /GROQ error 413|Request too large|tokens per minute|rate_limit_exceeded/i.test(messageText);
+    const rateLimited = /GROQ error 429|Rate limit reached|Please try again in/i.test(messageText);
+    if (rateLimited) {
+      const waitMatch = messageText.match(/Please try again in\s+([\d.]+)s/i);
+      const waitMs = waitMatch ? Math.min(Math.ceil(Number(waitMatch[1]) * 1000) + 400, 18000) : 5000;
+      await sleep(waitMs);
+      try {
+        return await tryRequest(primaryKey, messages);
+      } catch (retryErr) {
+        err = retryErr;
+      }
+    }
     if (tooLarge) {
       const shrunkenMessages = shrinkMessages(messages);
       if (JSON.stringify(shrunkenMessages) !== JSON.stringify(messages)) {
@@ -2460,6 +2476,7 @@ function softenUnsupportedSuperlatives(response = '', sources = []) {
     .replace(/\bEssa característica é única no Sistema Solar\b/gi, 'Essa é uma das características mais marcantes de Marte')
     .replace(/\bCom a continuação da exploração e pesquisa, esperamos aprender mais sobre [^.!?]+[.!?]/gi, 'A exploração de Marte continua ajudando os cientistas a entender melhor a história e a composição desse planeta.')
     .replace(/\bSe você tiver mais perguntas específicas[^.!?]*[.!?]/gi, '')
+    .replace(/\bPosso tentar fornecer mais informa[cç][õo]es[^.!?]*[.!?]/gi, 'Marte ainda guarda muitos segredos, e a próxima grande descoberta pode vir de um cientista como você!')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
