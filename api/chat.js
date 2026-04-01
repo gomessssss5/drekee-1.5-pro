@@ -1996,11 +1996,15 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
 
 // ============ GEMINI Helper (with multiple keys) ============
 async function tryGeminiWithFallback(preparePayload, logs = []) {
-  const keys = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2].filter(Boolean);
+  const keys = [
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3
+  ].filter(Boolean);
   
   for (let i = 0; i < keys.length; i++) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keys[i]}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys[i]}`;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
