@@ -4055,10 +4055,15 @@ Sua missão é transformar dados técnicos em conhecimento encantador para um al
 
 DIRETRIZES DE REDAÇÃO:
 1. FOCO NA ANALOGIA: A explicação DEVE girar em torno de uma analogia clara e criativa.
-2. INTEGRAÇÃO VISUAL: Se houver [LATEX_GRAPH_CODE] ou [MINDMAP_CODE], você DEVE citá-los no texto (ex: "Como ilustrado no gráfico abaixo...", "Veja no mapa mental como os conceitos se conectam...").
-3. TOM DE MENTOR: Use frases como "Imagine que...", "Você sabia que...?", "Isso é fascinante porque...".
-4. DESAFIO PRÁTICO: Sempre termine ou inclua uma seção "🧪 Desafio Prático" com algo que o aluno possa testar.
-5. CITAÇÕES: Mantenha as citações [ID-DA-FONTE: ID_EXATO] de forma natural.
+2. INTEGRAÇÃO VISUAL: Se você decidir gerar um mapa mental ou gráfico, use EXCLUSIVAMENTE os formatos abaixo. NUNCA gere ASCII art ou desenhos de texto simples.
+   - Para Mapas Mentais: Use [MINDMAP_TITLE: Título] [MINDMAP_CODE] código TikZ LaTeX aqui [/MINDMAP_CODE].
+   - Para Gráficos: Use [LATEX_GRAPH_TITLE: Título] [LATEX_GRAPH_CODE] código TikZ LaTeX aqui [/LATEX_GRAPH_CODE].
+3. FORMATO TIKZ: Use a biblioteca 'mindmap' do TikZ. Exemplo: \begin{tikzpicture}[mindmap, concept color=blue!20] \node[concept] {Raiz} child { node[concept] {Ramo} }; \end{tikzpicture}.
+4. TOM DE MENTOR: Use frases como "Imagine que...", "Você sabia que...?", "Isso é fascinante porque...".
+5. DESAFIO PRÁTICO: Sempre termine ou inclua uma seção "🧪 Desafio Prático" com algo que o aluno possa testar.
+6. CITAÇÕES: Mantenha as citações [ID-DA-FONTE: ID_EXATO] de forma natural.
+
+IMPORTANTE: Se não conseguir gerar o código LaTeX TikZ correto, NÃO gere nenhum visual. É proibido gerar ASCII art.
 
 PERGUNTA DO USUÁRIO:
 ${userQuestion}
@@ -4092,8 +4097,9 @@ ${sourceDigest || 'Sem fontes registradas'}
     // Fallback para SambaNova
     try {
       console.log('🔄 Trying SambaNova fallback for synthesis...');
+      const sambaPrompt = `${prompt}\n\nURGENTE: O usuário recebeu um ASCII art anteriormente e ficou muito insatisfeito. NUNCA use ASCII art. Use APENAS TikZ LaTeX dentro de [MINDMAP_CODE] ou [LATEX_GRAPH_CODE]. Se não puder gerar TikZ perfeito, não gere nada visual.`;
       const sambaResponse = await callSambaNova(
-        [{ role: 'user', content: prompt }],
+        [{ role: 'user', content: sambaPrompt }],
         { model: 'Meta-Llama-3.3-70B-Instruct', maxTokens: 3000, temperature: 0.3 }
       );
       if (sambaResponse) {
@@ -4605,99 +4611,25 @@ async function buildStructuredMindMapSpec(response = '', sources = [], userQuest
     .join('\n');
 
   const prompt = `Você é um extrator confiável para mapas mentais científicos.
+Sua tarefa é extrair os conceitos principais e sub-tópicos de uma resposta e suas fontes para criar um mapa mental RADIAL e HIERÁRQUICO.
 
-Transforme a resposta abaixo em uma estrutura de mapa mental radial. Não invente relações.
-
-PERGUNTA:
-${userQuestion}
-
-RESPOSTA:
-${stripLatexGraphBlocks(response)}
-
-FONTES DISPONÍVEIS:
-${sourceDigest}
-
-RETORNE APENAS JSON VÁLIDO:
+Retorne APENAS um JSON válido no seguinte formato:
 {
-  "title": "titulo curto",
-  "center": "tema central curto",
+  "title": "Título do Mapa",
+  "center": "Conceito Central",
   "branches": [
-    { "label": "ramo curto", "subtopics": ["subtopico curto 1", "subtopico curto 2"] }
+    {
+      "label": "Tópico Principal 1",
+      "subtopics": ["Sub 1.1", "Sub 1.2", "Sub 1.3"]
+    }
   ]
 }
 
 REGRAS:
-1. Use 3 a 5 ramos principais.
-2. Cada ramo pode ter no maximo 3 subtópicos.
-3. Todos os rótulos devem ser curtos, idealmente até 2 ou 3 palavras.
-4. Não invente causa, consequência ou relação não sustentada pela resposta/fonte.
-5. Se não houver base suficiente, retorne {"title":"","center":"","branches":[]}
-6. Não use markdown.
-`;
-
-  return extractJsonObject(await callGemini(prompt, logs));
-}
-
-function validateStructuredMindMapSpec(spec = {}) {
-  const normalized = {
-    title: String(spec?.title || 'Mapa mental').trim(),
-    center: String(spec?.center || '').trim(),
-    branches: Array.isArray(spec?.branches) ? spec.branches.map(branch => ({
-      label: String(branch?.label || '').trim(),
-      subtopics: Array.isArray(branch?.subtopics) ? branch.subtopics.map(item => String(item || '').trim()).filter(Boolean).slice(0, 3) : [],
-    })).filter(branch => branch.label) : [],
-  };
-  const issues = [];
-
-  if (!normalized.center) issues.push('Centro do mapa mental ausente.');
-  if (normalized.branches.length < 3) issues.push('Mapa mental precisa de ao menos 3 ramos principais.');
-  if (normalized.branches.length > 5) issues.push('Mapa mental precisa de no maximo 5 ramos principais.');
-  if (normalized.branches.some(branch => branch.label.length > 24)) issues.push('Ramo principal com rotulo longo demais.');
-  if (normalized.branches.some(branch => branch.subtopics.some(item => item.length > 24))) issues.push('Subtopico longo demais para template radial.');
-
-  return { issues, spec: normalized };
-}
-
-function detectSensitiveConceptualTopic(userQuestion = '', response = '') {
-  const text = `${userQuestion}\n${stripLatexGraphBlocks(response)}`.toLowerCase();
-  return /\b(etnia|ra[cç]a|g[eê]nero|sexo|relig[ií]ao|pol[ií]tica|viol[eê]ncia|sa[uú]de mental|diagn[oó]stico|doen[cç]a|c[aâ]ncer|vacina|mortalidade|defici[eê]ncia|pobreza|desigualdade)\b/.test(text);
-}
-
-async function auditMindMapSemantics(spec = {}, response = '', sources = [], userQuestion = '', logs = []) {
-  const sourceDigest = (sources || [])
-    .slice(0, 8)
-    .map(source => `${source.id}: ${source.label} - ${source.detail}`)
-    .join('\n');
-
-  const prompt = `Você é um auditor semântico de mapas mentais científicos.
-
-Verifique se cada ramo do mapa mental abaixo veio da resposta/fonte, não inventa relação causal e não simplifica demais um tema sensível.
-
-PERGUNTA:
-${userQuestion}
-
-RESPOSTA BASE:
-${stripLatexGraphBlocks(response)}
-
-FONTES DISPONÍVEIS:
-${sourceDigest}
-
-MAPA MENTAL ESTRUTURADO:
-${JSON.stringify(spec, null, 2)}
-
-RETORNE APENAS JSON VÁLIDO:
-{
-  "approved": true,
-  "issues": ["problema 1"],
-  "sensitiveTopic": true,
-  "branchChecks": [
-    { "label": "ramo", "supported": true, "causalLeak": false, "oversimplified": false }
-  ]
-}
-
-REGRAS:
-1. Marque supported=false se o ramo não puder ser rastreado de volta à resposta/fonte.
-2. Marque causalLeak=true se o ramo introduzir causa, consequência, impacto ou relação forte não sustentada.
+1. "center" deve ser o tema central da pergunta/resposta.
+2. "branches" deve ter entre 3 e 5 tópicos principais.
+3. Cada branch deve ter entre 2 e 3 subtopics curtos (máximo 4 palavras cada).
+4. NUNCA gere ASCII art ou TikZ aqui. Apenas o JSON.
 3. Marque oversimplified=true se o ramo reduzir demais um tema sensível ou ambíguo.
 4. approved só pode ser true se todos os ramos estiverem sustentados e sem vazamento causal.
 5. Em tema sensível, approved deve ser false se houver simplificação excessiva relevante.
@@ -4724,6 +4656,26 @@ REGRAS:
   }
 
   return { approved, issues, sensitiveTopic, branchChecks };
+}
+
+function validateStructuredMindMapSpec(spec = {}) {
+  const issues = [];
+  const normalized = {
+    title: String(spec?.title || 'Mapa mental').trim(),
+    center: String(spec?.center || '').trim(),
+    branches: Array.isArray(spec?.branches) ? spec.branches.map(b => ({
+      label: String(b?.label || '').trim(),
+      subtopics: Array.isArray(b?.subtopics) ? b.subtopics.map(s => String(s || '').trim()).filter(Boolean) : []
+    })).filter(b => b.label) : []
+  };
+
+  if (!normalized.center) issues.push('Centro do mapa mental ausente.');
+  if (normalized.branches.length < 3) issues.push('Mapa mental precisa de ao menos 3 ramos principais.');
+  if (normalized.branches.length > 5) issues.push('Mapa mental precisa de no máximo 5 ramos principais.');
+  if (normalized.branches.some(branch => branch.label.length > 24)) issues.push('Ramo principal com rótulo longo demais.');
+  if (normalized.branches.some(branch => branch.subtopics.some(item => item.length > 24))) issues.push('Subtópico longo demais para template radial.');
+
+  return { issues, spec: normalized };
 }
 
 function renderStructuredMindMapLatex(spec = {}) {
@@ -4857,6 +4809,11 @@ function enforceSingleVisualChoice(response = '', userQuestion = '') {
   }
 
   return String(response || '').replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ').trim();
+}
+
+function userRequestedMindMap(userQuestion = '') {
+  const q = String(userQuestion || '').toLowerCase();
+  return /\b(mapa\s*mental|mind\s*map|mindmap|mapa\s*de\s*conceitos)\b/i.test(q);
 }
 
 function detectExplicitVisualRequest(userQuestion = '') {
@@ -5050,6 +5007,33 @@ function analyzeLatexGraph(code = '', context = {}) {
 }
 
 async function alignGraphWithResponseReliability(response = '', sources = [], userQuestion = '', logs = []) {
+  const wantsMindMap = userRequestedMindMap(userQuestion);
+  const hasMindMapBlock = extractMindMapBlocks(response).length > 0;
+
+  // Injeção automática se o usuário pediu e o modelo não gerou
+  if (wantsMindMap && !hasMindMapBlock) {
+    try {
+      logs.push('🧠 Tentando gerar mapa mental automaticamente (solicitado pelo usuário)...');
+      const structuredMindMap = await buildStructuredMindMapSpec(response, sources, userQuestion, logs);
+      if (structuredMindMap) {
+        const mindMapValidation = validateStructuredMindMapSpec(structuredMindMap);
+        if (mindMapValidation.issues.length === 0) {
+          const semanticAudit = await auditMindMapSemantics(mindMapValidation.spec, response, sources, userQuestion, logs);
+          if (semanticAudit.approved) {
+            logs.push('✅ Mapa mental adicionado automaticamente.');
+            response = `${String(response || '').trim()}\n\n${buildMindMapBlockFromSpec(mindMapValidation.spec)}`.trim();
+          } else {
+            logs.push(`🛑 Injeção cancelada: auditoria semântica reprovou (${semanticAudit.issues.join(' | ')}).`);
+          }
+        } else {
+          logs.push(`🛑 Injeção cancelada: estrutura inválida (${mindMapValidation.issues.join(' | ')}).`);
+        }
+      }
+    } catch (err) {
+      console.error('Auto MindMap Injection Error:', err);
+    }
+  }
+
   response = enforceSingleVisualChoice(response, userQuestion);
   if (!shouldKeepAnalyticalVisualCalibrated(response, sources, userQuestion)) {
     logs.push('🛑 Visual removido: a pergunta nao exigia grafico/mapa mental com clareza suficiente.');
