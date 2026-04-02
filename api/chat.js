@@ -4109,6 +4109,20 @@ ${sourceDigest || 'Sem fontes registradas'}
   }
 }
 
+function extractLatexGraphBlocks(response = '') {
+  const matches = [];
+  const pattern = /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi;
+  let match;
+  while ((match = pattern.exec(String(response || ''))) !== null) {
+    matches.push({
+      raw: match[0],
+      title: String(match[1] || '').trim(),
+      code: String(match[2] || '').trim(),
+    });
+  }
+  return matches;
+}
+
 function extractMindMapBlocks(response = '') {
   const matches = [];
   const pattern = /\[MINDMAP_TITLE:\s*([^\]]+?)\s*\]\s*\[MINDMAP_CODE\]\s*([\s\S]*?)\s*\[\/MINDMAP_CODE\]/gi;
