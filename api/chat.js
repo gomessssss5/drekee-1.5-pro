@@ -103,6 +103,111 @@ async function searchTavily(query) {
   }
 }
 
+// ============ BRAVE SEARCH API (2-a: segundo motor de busca) ============
+async function searchBrave(query) {
+  const apiKey = process.env.BRAVE_API_KEY;
+  if (!apiKey) return null;
+
+  // Usa o mesmo cache do Tavily (mesma query = mesma intenção)
+  const cacheKey = 'brave:' + getTavilyCacheKey(query);
+  const cached = _tavilyCache.get(cacheKey);
+  if (cached && (Date.now() - cached.ts < TAVILY_CACHE_TTL_MS)) {
+    return cached.data;
+  }
+
+  try {
+    const res = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=8&safesearch=moderate`, {
+      headers: {
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip',
+        'X-Subscription-Token': apiKey,
+      },
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    const results = (data.web?.results || []).slice(0, 6).map(r => ({
+      title: r.title || '',
+      url: r.url || '',
+      snippet: r.description || '',
+    }));
+
+    const result = {
+      query,
+      answer: null,
+      results,
+      source: 'brave',
+    };
+
+    _tavilyCache.set(cacheKey, { data: result, ts: Date.now() });
+    cleanTavilyCache();
+
+    return result;
+  } catch (err) {
+    console.error('Brave search error:', err);
+    return null;
+  }
+}
+
+// ============ 2-b: RANKING DE CREDIBILIDADE DE FONTES ============
+const DOMAIN_CREDIBILITY = {
+  high: /\.(gov|edu|org|mil|ac\.\w{2,3})$/i,
+  academic: /\b(ncbi\.nlm\.nih|pubmed|scholar\.google|arxiv|scielo|nature\.com|science\.org|springer|wiley|ieee|jstor|researchgate|academia\.edu|sciencedirect|pnas\.org|bmj\.com|lancet\.com|nejm\.org|cell\.com)\b/i,
+  encyclopedia: /\b(wikipedia|britannica|khan\s?academy|coursera)\b/i,
+  news_quality: /\b(reuters|apnews|bbc|npr|g1\.globo|folha|estadao|uol)\b/i,
+  low: /\b(pinterest|tiktok|facebook|instagram|twitter|reddit|quora|yahoo\s?answers|ask\.com)\b/i,
+};
+
+function getSourceCredibilityScore(url) {
+  if (!url) return 50;
+  const urlStr = String(url).toLowerCase();
+  if (DOMAIN_CREDIBILITY.academic.test(urlStr)) return 95;
+  if (DOMAIN_CREDIBILITY.high.test(urlStr)) return 90;
+  if (DOMAIN_CREDIBILITY.encyclopedia.test(urlStr)) return 75;
+  if (DOMAIN_CREDIBILITY.news_quality.test(urlStr)) return 70;
+  if (DOMAIN_CREDIBILITY.low.test(urlStr)) return 20;
+  return 50; // default
+}
+
+function mergeAndRankSearchResults(tavilyResult, braveResult) {
+  const tavily = tavilyResult || { query: '', answer: null, results: [] };
+  const brave = braveResult || { query: '', answer: null, results: [] };
+
+  // Deduplicate by domain
+  const seen = new Set();
+  const allResults = [];
+
+  const addResults = (results, sourceName) => {
+    for (const r of (results || [])) {
+      try {
+        const domain = new URL(r.url).hostname.replace(/^www\./, '');
+        if (seen.has(domain)) continue;
+        seen.add(domain);
+        allResults.push({
+          ...r,
+          _credibility: getSourceCredibilityScore(r.url),
+          _source: sourceName,
+        });
+      } catch {
+        allResults.push({ ...r, _credibility: 50, _source: sourceName });
+      }
+    }
+  };
+
+  addResults(tavily.results, 'tavily');
+  addResults(brave.results, 'brave');
+
+  // Sort by credibility (highest first)
+  allResults.sort((a, b) => b._credibility - a._credibility);
+
+  return {
+    query: tavily.query || brave.query,
+    answer: tavily.answer || null,
+    results: allResults.slice(0, 10),
+    hasBrave: brave.results.length > 0,
+  };
+}
+
 // ============ OPTIMIZE QUERY WITH AI (for better NASA search) ============
 async function optimizeNasaQuery(userQuestion) {
   const prompt = `Você é um especialista em otimizar buscas científicas para APIs.\n\nTransforme a pergunta do usuário em palavras-chave específicas para buscar imagens científicas na NASA.\n\nPergunta: "${userQuestion}"\n\nRetorne APENAS palavras-chave separadas por espaço (máximo 5 palavras).\nExemplos:\n- "Quais são as estruturas de Marte?" → "mars surface structures"\n- "Me mostre fotos de buracos negros" → "black hole galaxy"\n- "Imagens de auroras" → "aurora northern lights"\n\nRetorne apenas as palavras-chave, nada mais.`;
@@ -2671,8 +2776,10 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     autoDetectedConnectors.push('ibge');
   }
 
-  if (/\b(médico|saúde|doença|vírus|pubmed|tratamento|vacina|biomed)\b/.test(normalizedText)) {
+  // 2-c: PubMed ampliado — ativa automaticamente para qualquer pergunta de saúde/medicina/biomedicina
+  if (/\b(médico|medicina|saúde|doença|vírus|pubmed|tratamento|vacina|biomed|diagnóstico|sintoma|patologia|farmacologia|remédio|medicamento|antibiótico|infecção|epidemia|pandemia|imunologia|oncologia|cardiologia|neurologia|pediatria|dermatologia|oftalmologia|ortopedia|psiquiatria|endocrinologia|hematologia|pneumologia|gastroenterologia|urologia|nefrologia|ginecologia|cirurgia|anestesia|radiologia|terapia|reabilitação|clínico|hospital|uti|prognóstico|etiologia|fisiopatologia|farmaco|droga|posologia|efeito colateral|contraindicação|ensaio clínico|metanálise|revisão sistemática|câncer|tumor|diabetes|hipertensão|asma|alergia|aids|hiv|covid|dengue|malária|tuberculose|alzheimer|parkinson|epilepsia|esclerose|lúpus|artrite)\b/.test(normalizedText)) {
     autoDetectedConnectors.push('pubmed');
+    autoDetectedConnectors.push('wikipedia');
   }
   
   if (/\b(conceito|definição|o que é|explica|explicar|definir|wikidata|quem foi|onde fica)\b/.test(normalizedText)) {
@@ -2817,20 +2924,30 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (podeBuscarWeb) {
     logs.push(`🌐 Buscando na web: "${queryParaBuscar}"`);
-    const searchResult = await searchTavily(queryParaBuscar);
-    if (searchResult) {
-      context += `\n\n📰 Resultados de busca web (use apenas como complemento, NUNCA para dados em tempo real como terremotos ou clima):\n`;
-      context += `Resposta resumida: ${searchResult.answer}\n\n`;
+    // 2-a/2-b: Busca paralela Tavily + Brave com ranking de credibilidade
+    const [tavilyResult, braveResult] = await Promise.all([
+      searchTavily(queryParaBuscar),
+      searchBrave(queryParaBuscar),
+    ]);
+    const searchResult = mergeAndRankSearchResults(tavilyResult, braveResult);
+    if (searchResult && searchResult.results.length > 0) {
+      context += `\n\n📰 Resultados de busca web (ordenados por credibilidade — use apenas como complemento, NUNCA para dados em tempo real como terremotos ou clima):\n`;
+      if (searchResult.answer) {
+        context += `Resposta resumida: ${searchResult.answer}\n\n`;
+      }
       searchResult.results.forEach((r, i) => {
-        context += `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.url}\n`;
+        const credLabel = r._credibility >= 90 ? '🟢' : r._credibility >= 70 ? '🟡' : '⚪';
+        context += `${credLabel} ${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.url}\n`;
       });
-      addSource('WEB-SUMMARY', 'Resumo da busca web (Tavily)', 'web', searchResult.answer, null);
+      if (searchResult.answer) {
+        addSource('WEB-SUMMARY', 'Resumo da busca web (Tavily)', 'web', searchResult.answer, null);
+      }
       searchResult.results.forEach((r, i) => {
-        addSource(`WEB-${i + 1}`, r.title || `Web resultado ${i + 1}`, 'web', r.snippet, r.url);
+        addSource(`WEB-${i + 1}`, r.title || `Web resultado ${i + 1}`, r._source === 'brave' ? 'brave' : 'web', r.snippet, r.url);
       });
-      logs.push('✅ Dados da web coletados');
+      logs.push(`✅ Dados da web coletados (${searchResult.results.length} resultados${searchResult.hasBrave ? ', Tavily + Brave' : ', Tavily'})`);
     } else {
-      logs.push('⚠️ Tavily API não disponível');
+      logs.push('⚠️ Nenhum motor de busca retornou resultados');
     }
   } else if (!connectorAuto && !selectedConnectors.includes('tavily')) {
     logs.push('🔒 Modo manual: busca web desativada (Tavily não selecionado)');
