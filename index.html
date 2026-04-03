@@ -2833,6 +2833,7 @@
   function simpleMarkdownToHTML(text) {
     if (!text) return '';
     let html = text
+      .replace(/```(?:latex|tikz)\s*[\s\S]*?\s*```/gi, '')
       .replace(/^### (.*$)/gim, '<h3>$1</h3>')
       .replace(/^## (.*$)/gim, '<h2>$1</h2>')
       .replace(/^# (.*$)/gim, '<h1>$1</h1>')
@@ -2892,6 +2893,7 @@
       .replace(/\\pgfplotsset\{[^}]+\}/gi, ' ')
       .replace(/\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\}/gi, ' ')
       .replace(/\\begin\{axis\}[\s\S]*?\\end\{axis\}/gi, ' ')
+      .replace(/```(?:latex|tikz)\s*[\s\S]*?\s*```/gi, ' ')
       .replace(/\[PHET:[^\]]+\]/gi, ' ')
       .replace(/\[PDB:[^\]]+\]/gi, ' ')
       .replace(/\[ID-DA-FONTE:\s*[^\]]+\]/gi, ' ')
@@ -3693,6 +3695,24 @@
       }
     );
 
+    // Detect ```latex ... ``` and ```tikz ... ``` markdown code fences
+    working = working.replace(
+      /```(?:latex|tikz)\s*([\s\S]*?)\s*```/gi,
+      (match, rawCode) => {
+        const trimmed = String(rawCode || '').trim();
+        if (!trimmed) return ' ';
+        if (/mindmap|mind\s*map/i.test(trimmed)) {
+          const index = mindMaps.length;
+          pushMindMap('Mapa mental', trimmed);
+          return ` DREKEE_MINDMAP_SLOT_${index} `;
+        } else {
+          const index = graphs.length;
+          pushGraph('Grafico informativo', trimmed);
+          return ` DREKEE_GRAPH_SLOT_${index} `;
+        }
+      }
+    );
+
     working = working.replace(
       /(\\documentclass[\s\S]*?\\end\{document\})/gi,
       (match, rawCode) => {
@@ -3724,6 +3744,7 @@
       .replace(/\[LATEX_GRAPH_CODE\]|\[\/LATEX_GRAPH_CODE\]/gi, ' ')
       .replace(/\[\/MINDMAP_TITLE\]/gi, ' ')
       .replace(/\[MINDMAP_CODE\]|\[\/MINDMAP_CODE\]/gi, ' ')
+      .replace(/```(?:latex|tikz)\s*[\s\S]*?\s*```/gi, ' ')
       .replace(/\\documentclass(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
       .replace(/\\usepackage(?:\[[^\]]*\])?\{[^}]+\}/gi, ' ')
       .replace(/\\begin\{document\}|\\end\{document\}/gi, ' ')
