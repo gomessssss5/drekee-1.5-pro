@@ -4,6 +4,29 @@ const path = require('path');
 // Drekee AI 1.5 Pro - Cientific Agent
 // Fluxo: GeneratePlan -> Research/Reasoning -> Review -> Retornar logs + resposta + mídia
 
+// ============ TAVILY CACHE (1-c: evita buscas repetidas) ============
+const _tavilyCache = new Map();
+const TAVILY_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 horas
+const TAVILY_CACHE_MAX_SIZE = 120;
+
+function getTavilyCacheKey(query) {
+  return String(query || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function cleanTavilyCache() {
+  if (_tavilyCache.size <= TAVILY_CACHE_MAX_SIZE) return;
+  const now = Date.now();
+  for (const [key, entry] of _tavilyCache) {
+    if (now - entry.ts > TAVILY_CACHE_TTL_MS) _tavilyCache.delete(key);
+  }
+  // If still over limit, remove oldest entries
+  if (_tavilyCache.size > TAVILY_CACHE_MAX_SIZE) {
+    const sorted = [..._tavilyCache.entries()].sort((a, b) => a[1].ts - b[1].ts);
+    const toRemove = sorted.slice(0, sorted.length - TAVILY_CACHE_MAX_SIZE);
+    for (const [key] of toRemove) _tavilyCache.delete(key);
+  }
+}
+
 const SCIENCE_SYSTEM_PROMPT = `Você é o Drekee AI 1.5 Pro, um mentor científico de elite dedicado a transformar a educação em escolas públicas. Sua missão não é apenas informar, mas despertar o encantamento pela ciência.
 
 DIRETRIZES DE OURO (MODO MENTOR):
@@ -38,6 +61,13 @@ async function searchTavily(query) {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!apiKey) return null;
 
+  // 1-c: Check cache first
+  const cacheKey = getTavilyCacheKey(query);
+  const cached = _tavilyCache.get(cacheKey);
+  if (cached && (Date.now() - cached.ts < TAVILY_CACHE_TTL_MS)) {
+    return cached.data;
+  }
+
   try {
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
@@ -45,22 +75,28 @@ async function searchTavily(query) {
       body: JSON.stringify({
         api_key: apiKey,
         query,
-        max_results: 7,
+        max_results: 10,
         include_answer: true,
       }),
     });
 
     if (!res.ok) return null;
     const data = await res.json();
-    return {
+    const result = {
       query,
       answer: data.answer,
-      results: data.results?.slice(0, 5).map(r => ({
+      results: data.results?.slice(0, 7).map(r => ({
         title: r.title,
         url: r.url,
         snippet: r.snippet,
       })) || [],
     };
+
+    // 1-c: Store in cache
+    _tavilyCache.set(cacheKey, { data: result, ts: Date.now() });
+    cleanTavilyCache();
+
+    return result;
   } catch (err) {
     console.error('Tavily search error:', err);
     return null;
@@ -2652,6 +2688,21 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(espaço|nasa|planeta|satélite|foguete|astronomia|marte|lua|asteroide|asteróide)\b/.test(normalizedText)) {
     autoDetectedConnectors.push('nasa');
     autoDetectedConnectors.push('spacex');
+  }
+
+  // 2-d: Ativar conectores científicos automaticamente por domínio amplo
+  // Ciência geral → wikipedia + arxiv + scielo como base de conhecimento
+  if (/\b(ciência|científico|cientista|pesquisador|laboratório|experimento|hipótese|teoria|lei|fenômeno|reação|célula|organismo|evolução|genética|biologia|física|química|geologia|ecologia|botânica|zoologia|microbiologia|bioquímica|neurociência|fisiologia|anatomia|histologia|embriologia|paleontologia|taxonomia)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('wikipedia', 'wikidata', 'arxiv');
+    if (/\b(brasil|português|tese|scielo)\b/.test(normalizedText)) autoDetectedConnectors.push('scielo');
+  }
+  // Geografia ampla → ibge + wikipedia + open-meteo
+  if (/\b(geografia|continente|país|região|capital|fronteira|relevo|hidrografia|bacia|rio|montanha|cordilheira|planalto|planície|litoral|clima|bioma|cerrado|amazônia|caatinga|pantanal|pampa|mata atlântica|deserto|floresta|savana|tundra|latitude|longitude|hemisfério|trópico|equador|meridiano|cartografia|mapa|território)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('wikipedia', 'wikidata', 'ibge', 'open-meteo');
+  }
+  // Astronomia ampla → nasa + solarsystem + stellarium + exoplanets
+  if (/\b(astronomia|astrônomo|telescópio|nebulosa|galáxia|via láctea|big bang|cosmologia|supernova|quasar|pulsar|anã branca|gigante vermelha|matéria escura|energia escura|radiação cósmica|espectro|magnitude|parsec|ano-luz|órbita|periélio|afélio|eclipse|equinócio|solstício|precessão|astrofísica|radioastronomia|astrobiologia)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('nasa', 'solarsystem', 'stellarium', 'exoplanets', 'kepler', 'wikipedia');
   }
 
   let requestedConnectors;
@@ -5775,80 +5826,111 @@ async function handler(req, res) {
     exec.response = normalizeMarkdownLatexFences(exec.response);
     exec.response = normalizeResponseCitations(exec.response, exec.sources || []);
 
-    logs.push('🧪 Gemini avaliando a resposta final candidata...');
+    // 1-b: Streaming parcial — enviar rascunho ao usuário enquanto audit/review rodam
+    if (wantsStream) {
+      writeAgentEvent(res, 'status', {
+        message: 'Resposta preliminar gerada. Validando qualidade...',
+      });
+      writeAgentEvent(res, 'draft', {
+        response: exec.response,
+        sources: exec.sources || [],
+        media: exec.media || [],
+      });
+    }
+
+    // 1-a: Paralelizar audit + review (caminho otimista)
+    // Roda ambos em paralelo: se audit aprovar, a review otimista já está pronta
+    logs.push('🧪 Gemini avaliando a resposta + revisão em paralelo...');
+    const [audit, optimisticReview] = await Promise.all([
+      auditResponseWithGemini({
+        userQuestion,
+        response: exec.response,
+        sources: exec.sources || [],
+        logs,
+      }),
+      reviewResponse(exec.response, {
+        userQuestion,
+        sources: exec.sources || [],
+      }),
+    ]);
+
     let finalExec = exec;
     let recoveryAttempted = false;
-    let audit = await auditResponseWithGemini({
-      userQuestion,
-      response: exec.response,
-      sources: exec.sources || [],
-      logs,
-    });
     logs.push(audit.approved ? '✅ Gemini aprovou a resposta candidata.' : `⚠️ Gemini reprovou a resposta candidata: ${(audit.issues || []).join(', ') || 'cobertura insuficiente'}`);
 
     if (!audit.approved && audit.retry_worthy) {
-      logs.push('🤖 GROQ Agent acionado para organizar uma recuperação autônoma.');
-      const recoveryPlan = await buildRecoveryPlanWithGroqAgent({
-        userQuestion,
-        actionPlan,
-        initialResponse: exec.response,
-        audit,
-        selectedConnectors: exec.selectedConnectors || [],
-        sources: exec.sources || [],
-        history,
-        logs,
-      });
+      // 1-d: Pular recovery se a resposta já tem fontes suficientes e o gap é pequeno
+      const sourceCount = (exec.sources || []).length;
+      const responseLength = (exec.response || '').length;
+      const issueCount = (audit.issues || []).length;
+      const isMinorGap = issueCount <= 1 && sourceCount >= 3 && responseLength > 1500;
 
-      if (recoveryPlan?.should_retry) {
-        recoveryAttempted = true;
-        logs.push(`🧠 Plano de recuperação: ${recoveryPlan.goal || 'preencher lacunas factuais'}`);
-        if (recoveryPlan.reasoning) {
-          logs.push(`🧠 Motivo do retry: ${recoveryPlan.reasoning}`);
-        }
-        if (recoveryPlan.use_existing_evidence && !recoveryPlan.needs_new_research) {
-          logs.push('🧠 GROQ Agent decidiu reaproveitar as fontes já coletadas antes de abrir nova pesquisa.');
-        } else {
-          logs.push('🌐 GROQ Agent decidiu abrir nova rodada de pesquisa para fechar lacunas.');
-          const recoveryActionPlan = {
-            ...(actionPlan || {}),
-            termo_de_busca: recoveryPlan.search_query || actionPlan?.termo_de_busca || userQuestion,
-          };
-          const recoveryVisionContext = `${visionContext}\n[CONTEXTO CONFIRMADO DA PRIMEIRA RODADA]\n${stripLatexGraphBlocks(exec.response).slice(0, 2200)}\n`;
-          const retryExec = await executeAgentPlan(userQuestion, recoveryActionPlan, logs, {
-            connectorAuto: true,
-            connectors: exec.selectedConnectors || [],
-            useNasa: body?.nasa,
-            history,
-            visionContext: recoveryVisionContext,
-            userContext,
-            recoveryMode: true,
-            baseConnectors: exec.selectedConnectors || [],
-            overrideQuery: recoveryPlan.search_query,
-            overrideRequiredConnectors: recoveryPlan.connectors_required || [],
-            overrideOptionalConnectors: recoveryPlan.connectors_optional || [],
-            overrideForbiddenConnectors: recoveryPlan.connectors_forbidden || [],
-            focusFacts: recoveryPlan.focus_facts || [],
-          });
-          retryExec.response = normalizeMarkdownLatexFences(retryExec.response);
-          retryExec.response = normalizeResponseCitations(retryExec.response, retryExec.sources || []);
-          finalExec = mergeExecutionResults(exec, retryExec);
-          finalExec.response = retryExec.response || exec.response;
-        }
-
-        logs.push('🧠 GROQ Agent organizando a síntese final com a memória das fontes e lacunas detectadas.');
-        finalExec.response = await synthesizeResponseWithAgent({
+      if (isMinorGap) {
+        logs.push('⚡ 1-d: Gap menor detectado — pulando recovery (resposta já tem fontes suficientes).');
+      } else {
+        logs.push('🤖 GROQ Agent acionado para organizar uma recuperação autônoma.');
+        const recoveryPlan = await buildRecoveryPlanWithGroqAgent({
           userQuestion,
-          workingResponse: finalExec.response || exec.response,
-          sources: finalExec.sources || exec.sources || [],
+          actionPlan,
+          initialResponse: exec.response,
           audit,
-          recoveryPlan,
+          selectedConnectors: exec.selectedConnectors || [],
+          sources: exec.sources || [],
           history,
           logs,
         });
-        finalExec.response = normalizeMarkdownLatexFences(finalExec.response);
-        finalExec.response = normalizeResponseCitations(finalExec.response, finalExec.sources || []);
-      } else {
-        logs.push('⚠️ GROQ Agent concluiu que uma nova rodada não aumentaria a confiabilidade.');
+
+        if (recoveryPlan?.should_retry) {
+          recoveryAttempted = true;
+          logs.push(`🧠 Plano de recuperação: ${recoveryPlan.goal || 'preencher lacunas factuais'}`);
+          if (recoveryPlan.reasoning) {
+            logs.push(`🧠 Motivo do retry: ${recoveryPlan.reasoning}`);
+          }
+          if (recoveryPlan.use_existing_evidence && !recoveryPlan.needs_new_research) {
+            logs.push('🧠 GROQ Agent decidiu reaproveitar as fontes já coletadas antes de abrir nova pesquisa.');
+          } else {
+            logs.push('🌐 GROQ Agent decidiu abrir nova rodada de pesquisa para fechar lacunas.');
+            const recoveryActionPlan = {
+              ...(actionPlan || {}),
+              termo_de_busca: recoveryPlan.search_query || actionPlan?.termo_de_busca || userQuestion,
+            };
+            const recoveryVisionContext = `${visionContext}\n[CONTEXTO CONFIRMADO DA PRIMEIRA RODADA]\n${stripLatexGraphBlocks(exec.response).slice(0, 2200)}\n`;
+            const retryExec = await executeAgentPlan(userQuestion, recoveryActionPlan, logs, {
+              connectorAuto: true,
+              connectors: exec.selectedConnectors || [],
+              useNasa: body?.nasa,
+              history,
+              visionContext: recoveryVisionContext,
+              userContext,
+              recoveryMode: true,
+              baseConnectors: exec.selectedConnectors || [],
+              overrideQuery: recoveryPlan.search_query,
+              overrideRequiredConnectors: recoveryPlan.connectors_required || [],
+              overrideOptionalConnectors: recoveryPlan.connectors_optional || [],
+              overrideForbiddenConnectors: recoveryPlan.connectors_forbidden || [],
+              focusFacts: recoveryPlan.focus_facts || [],
+            });
+            retryExec.response = normalizeMarkdownLatexFences(retryExec.response);
+            retryExec.response = normalizeResponseCitations(retryExec.response, retryExec.sources || []);
+            finalExec = mergeExecutionResults(exec, retryExec);
+            finalExec.response = retryExec.response || exec.response;
+          }
+
+          logs.push('🧠 GROQ Agent organizando a síntese final com a memória das fontes e lacunas detectadas.');
+          finalExec.response = await synthesizeResponseWithAgent({
+            userQuestion,
+            workingResponse: finalExec.response || exec.response,
+            sources: finalExec.sources || exec.sources || [],
+            audit,
+            recoveryPlan,
+            history,
+            logs,
+          });
+          finalExec.response = normalizeMarkdownLatexFences(finalExec.response);
+          finalExec.response = normalizeResponseCitations(finalExec.response, finalExec.sources || []);
+        } else {
+          logs.push('⚠️ GROQ Agent concluiu que uma nova rodada não aumentaria a confiabilidade.');
+        }
       }
     }
 
@@ -5856,15 +5938,23 @@ async function handler(req, res) {
       logs.push('📝 A resposta final vai manter honestidade factual e evitar invenção de dados ausentes.');
     }
 
-    logs.push('👁️ Refinando a redação final com a IA principal...');
-    const responseDraft = !audit.approved && recoveryAttempted
-      ? `${buildPostRecoveryIntegrityNote(audit)}\n\n${finalExec.response}`
-      : finalExec.response;
-    let response = await reviewResponse(responseDraft, {
-      userQuestion,
-      sources: finalExec.sources || [],
-    });
-    response = normalizeMarkdownLatexFences(response);
+    // 1-a: Usar review otimista se audit aprovou e não houve recovery
+    // Se houve recovery, precisa re-review com o conteúdo atualizado
+    let response;
+    if (audit.approved && !recoveryAttempted) {
+      logs.push('⚡ 1-a: Usando revisão otimista (paralela) — economia de ~3-5s.');
+      response = normalizeMarkdownLatexFences(optimisticReview);
+    } else {
+      logs.push('👁️ Refinando a redação final com a IA principal...');
+      const responseDraft = !audit.approved && recoveryAttempted
+        ? `${buildPostRecoveryIntegrityNote(audit)}\n\n${finalExec.response}`
+        : finalExec.response;
+      response = await reviewResponse(responseDraft, {
+        userQuestion,
+        sources: finalExec.sources || [],
+      });
+      response = normalizeMarkdownLatexFences(response);
+    }
     logs.push('✅ Resposta revisada e validada');
 
     response = ensureInteractiveTags(response, userQuestion, finalExec.selectedConnectors || []);
