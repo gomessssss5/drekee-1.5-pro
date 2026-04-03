@@ -4090,11 +4090,36 @@ ${sourceDigest || 'Sem fontes registradas'}
 `;
 
   try {
-    return await callGroq(
+    const response = await callGroq(
       [{ role: 'user', content: prompt }],
       'GROQ_API_KEY_1',
       { maxTokens: 3000, temperature: 0.3 }
     );
+    
+    // Verificar se o usuário pediu mapa mental e se a resposta não tem
+    if (userRequestedMindMap(userQuestion) && !extractMindMapBlocks(response).length) {
+      console.warn('🚨 GROQ não gerou mapa mental solicitado! Tentando SambaNova...');
+      if (logs) logs.push('🚨 GROQ não gerou mapa mental solicitado! Tentando SambaNova...');
+      
+      // Tentar SambaNova imediatamente
+      try {
+        const sambaPrompt = `${prompt}\n\nURGENTE: O usuário pediu explicitamente um MAPA MENTAL e você NÃO gerou! Use o formato [MINDMAP_TITLE: Título] [MINDMAP_CODE] código TikZ LaTeX aqui [/MINDMAP_CODE]. NUNCA use ASCII art.`;
+        const sambaResponse = await callSambaNova(
+          [{ role: 'user', content: sambaPrompt }],
+          { model: 'Meta-Llama-3.3-70B-Instruct', maxTokens: 3000, temperature: 0.3 }
+        );
+        if (sambaResponse && extractMindMapBlocks(sambaResponse).length) {
+          console.log('✅ Mapa mental gerado com SambaNova!');
+          if (logs) logs.push('✅ Mapa mental gerado com SambaNova!');
+          return sambaResponse;
+        }
+      } catch (sambaErr) {
+        console.error('SambaNova mindmap attempt failed:', sambaErr);
+        if (logs) logs.push(`❌ Tentativa SambaNova falhou: ${sambaErr.message}`);
+      }
+    }
+    
+    return response;
   } catch (err) {
     console.error('Synthesis error with GROQ:', err);
     if (logs) logs.push(`❌ Erro na síntese com GROQ: ${err.message}`);
@@ -4109,6 +4134,13 @@ ${sourceDigest || 'Sem fontes registradas'}
       );
       if (sambaResponse) {
         console.log('✅ Synthesis completed using SambaNova fallback');
+        
+        // Verificação final para mapa mental no fallback
+        if (userRequestedMindMap(userQuestion) && !extractMindMapBlocks(sambaResponse).length) {
+          console.warn('🚨 SambaNova fallback também não gerou mapa mental!');
+          if (logs) logs.push('🚨 SambaNova fallback também não gerou mapa mental!');
+        }
+        
         return sambaResponse;
       }
     } catch (sambaErr) {
