@@ -161,8 +161,11 @@ const DOMAIN_CREDIBILITY = {
 function getSourceCredibilityScore(url) {
   if (!url) return 50;
   const urlStr = String(url).toLowerCase();
+  // Extract hostname for TLD-based checks (high credibility)
+  let hostname = urlStr;
+  try { hostname = new URL(urlStr).hostname; } catch { /* keep full url */ }
   if (DOMAIN_CREDIBILITY.academic.test(urlStr)) return 95;
-  if (DOMAIN_CREDIBILITY.high.test(urlStr)) return 90;
+  if (DOMAIN_CREDIBILITY.high.test(hostname)) return 90;
   if (DOMAIN_CREDIBILITY.encyclopedia.test(urlStr)) return 75;
   if (DOMAIN_CREDIBILITY.news_quality.test(urlStr)) return 70;
   if (DOMAIN_CREDIBILITY.low.test(urlStr)) return 20;
