@@ -2219,6 +2219,8 @@ Dica de Autodetecção:
 REGRA IMPORTANTE: Se a pergunta for sobre terremotos, sismos, sol (nascer/pôr), localização em tempo real, posição da ISS, ou qualquer dado ao vivo já coletado pelos conectores ativos, defina "precisa_busca_web" como false. Esses dados já estão disponíveis e são mais precisos do que a web.
 REGRA IMPORTANTE 2: Se a pergunta for astronômica e puder ser respondida por fontes primárias como NASA, Horizons, Solar System, Exoplanet Archive, Kepler/TESS ou ESA, prefira essas fontes e evite busca web genérica. Nesse caso, "precisa_busca_web" deve tender a false.
 
+${userRequestedMindMap(userQuestion) ? '🗺️ ATENÇÃO: O usuário pediu explicitamente um MAPA MENTAL! Inclua nos passos a geração de um mapa mental visual se o conteúdo permitir.' : ''}
+
 Retorne APENAS JSON válido (sem markdown):
 
 {
@@ -4065,6 +4067,9 @@ DIRETRIZES DE REDAÇÃO:
 
 IMPORTANTE: Se não conseguir gerar o código LaTeX TikZ correto, NÃO gere nenhum visual. É proibido gerar ASCII art.
 
+DETECÇÃO DE PEDIDO VISUAL: O usuário pediu "${userQuestion}".
+${userRequestedMindMap(userQuestion) ? '🗺️ O USUÁRIO PEDEU EXPLICITAMENTE UM MAPA MENTAL! Se possível, gere um mapa mental em formato LaTeX TikZ.' : 'O usuário não pediu explicitamente um visual.'}
+
 PERGUNTA DO USUÁRIO:
 ${userQuestion}
 
@@ -4813,10 +4818,11 @@ function enforceSingleVisualChoice(response = '', userQuestion = '') {
 
 function userRequestedMindMap(userQuestion = '') {
   const q = String(userQuestion || '').toLowerCase();
-  return /\b(mapa\s*mental|mind\s*map|mindmap|mapa\s*de\s*conceitos)\b/i.test(q);
+  return /\b(mapa\s*mental|mind\s*map|mindmap|mapa\s*de\s*conceitos|crie\s+um\s+mapa|faça\s+um\s+mapa|gerar\s+mapa)\b/i.test(q);
 }
 
 function detectExplicitVisualRequest(userQuestion = '') {
+
   return /\b(grafico|gráfico|mapa mental|diagrama|esquema|visualiza[cç][aã]o|visual)\b/i.test(String(userQuestion || ''));
 }
 
