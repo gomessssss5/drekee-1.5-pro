@@ -3838,7 +3838,7 @@ REGRAS CRUCIAIS (RESPEITE 100%):
 4) NÃO inclua títulos artificiais, listas de etapas ou qualquer prefácio sobre revisão. Apenas a resposta final ao usuário.
 5) Se não for possível afirmar com certeza, seja honesto e explique por que.
 6) IMPORTANTE: NÃO REMOVA as tags [ID-DA-FONTE: ID_EXATO] presentes no texto original. Se o texto estiver afirmando informações sem as tags apropriadas originais, ADICIONE tags no mesmo formato exato [ID-DA-FONTE: ID_EXATO]. Nunca use [FONTE: nome] nem rótulos livres. É vital manter o rastreio das fontes.
-7) PRESERVE integralmente, se existirem, os blocos [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE] e [MINDMAP_TITLE: ...][MINDMAP_CODE]...[/MINDMAP_CODE], além de [PHET:...] e [PDB:...]. Você pode melhorar o texto ao redor, mas não corrompa essas tags.
+7) PRESERVE integralmente, se existirem, os blocos [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE] e [MINDMAP_TITLE: ...][MINDMAP_CODE]...[/MINDMAP_CODE], além de [PHET:...] e [PDB:...]. Também preserve blocos \`\`\`latex ... \`\`\` e \`\`\`tikz ... \`\`\` intactos. Você pode melhorar o texto ao redor, mas não corrompa essas tags nem blocos de código.
 8) Se a pergunta pedir propriedades físicas, astronômicas, geográficas ou quantitativas, prefira trazer valor absoluto + comparação relativa quando as fontes sustentarem isso.
 9) Se houver fontes disponíveis, a resposta final deve sair com boa densidade de citações, especialmente nas frases numéricas e comparativas.
 
@@ -4152,6 +4152,25 @@ ${sourceDigest || 'Sem fontes registradas'}
   }
 }
 
+// Normalize markdown code fences (```latex```, ```tikz```) into custom tags
+// so all downstream extraction/validation/stripping works uniformly.
+function normalizeMarkdownLatexFences(response = '') {
+  let text = String(response || '');
+  // Convert ```latex ... ``` and ```tikz ... ``` to custom tag format
+  text = text.replace(
+    /```(?:latex|tikz)\s*([\s\S]*?)\s*```/gi,
+    (match, rawCode) => {
+      const trimmed = String(rawCode || '').trim();
+      if (!trimmed) return ' ';
+      if (/mindmap|mind\s*map/i.test(trimmed)) {
+        return `[MINDMAP_TITLE: Mapa mental] [MINDMAP_CODE]\n${trimmed}\n[/MINDMAP_CODE]`;
+      }
+      return `[LATEX_GRAPH_TITLE: Grafico informativo] [LATEX_GRAPH_CODE]\n${trimmed}\n[/LATEX_GRAPH_CODE]`;
+    }
+  );
+  return text;
+}
+
 function extractLatexGraphBlocks(response = '') {
   const matches = [];
   const pattern = /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi;
@@ -4186,6 +4205,7 @@ function stripLatexGraphBlocks(response = '') {
     .replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ')
     .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
     .replace(/\[\/MINDMAP_TITLE\]/gi, ' ')
+    .replace(/```(?:latex|tikz)\s*[\s\S]*?\s*```/gi, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -4881,6 +4901,7 @@ function stripAllVisualBlocks(response = '') {
     .replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ')
     .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\]/gi, ' ')
     .replace(/\[MINDMAP_TITLE:\s*[^\]]+?\]/gi, ' ')
+    .replace(/```(?:latex|tikz)\s*[\s\S]*?\s*```/gi, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
@@ -5751,6 +5772,7 @@ async function handler(req, res) {
     visionContext = contextHeader + visionContext;
 
     const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext, userContext });
+    exec.response = normalizeMarkdownLatexFences(exec.response);
     exec.response = normalizeResponseCitations(exec.response, exec.sources || []);
 
     logs.push('🧪 Gemini avaliando a resposta final candidata...');
@@ -5807,6 +5829,7 @@ async function handler(req, res) {
             overrideForbiddenConnectors: recoveryPlan.connectors_forbidden || [],
             focusFacts: recoveryPlan.focus_facts || [],
           });
+          retryExec.response = normalizeMarkdownLatexFences(retryExec.response);
           retryExec.response = normalizeResponseCitations(retryExec.response, retryExec.sources || []);
           finalExec = mergeExecutionResults(exec, retryExec);
           finalExec.response = retryExec.response || exec.response;
@@ -5822,6 +5845,7 @@ async function handler(req, res) {
           history,
           logs,
         });
+        finalExec.response = normalizeMarkdownLatexFences(finalExec.response);
         finalExec.response = normalizeResponseCitations(finalExec.response, finalExec.sources || []);
       } else {
         logs.push('⚠️ GROQ Agent concluiu que uma nova rodada não aumentaria a confiabilidade.');
@@ -5840,6 +5864,7 @@ async function handler(req, res) {
       userQuestion,
       sources: finalExec.sources || [],
     });
+    response = normalizeMarkdownLatexFences(response);
     logs.push('✅ Resposta revisada e validada');
 
     response = ensureInteractiveTags(response, userQuestion, finalExec.selectedConnectors || []);
