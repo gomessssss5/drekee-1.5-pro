@@ -730,6 +730,9 @@
   .log-line { color: #cbd5e1; margin: 0.3rem 0; line-height: 1.4; }
 
   .ai-response { margin-bottom: 1rem; white-space: pre-wrap; word-break: break-word; font-size: 1.02rem; line-height: 1.88; color: #e5eefb; }
+  .ai-response ul { margin: 1rem 0; padding-left: 1.5rem; list-style-type: disc; }
+  .ai-response li { margin-bottom: 0.5rem; display: list-item; }
+  .ai-response li::marker { color: var(--blue); }
   .ai-response-dark-table { white-space: normal; margin-bottom: 0.35rem; }
 
   .citation-tag { display: inline-block; max-width: 100%; background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.4); border-radius: 3px; padding: 0.12rem 0.34rem; font-size: 0.7rem; font-weight: 600; color: #3b82f6; margin: 0 0.2rem; cursor: pointer; transition: background 0.2s ease; vertical-align: baseline; white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
@@ -2839,8 +2842,8 @@
       .replace(/^# (.*$)/gim, '<h1>$1</h1>')
       .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
       .replace(/\*(.*?)\*/g, '<i>$1</i>')
-      .replace(/^\- (.*$)/gim, '<li>$1</li>')
-      .replace(/(<li>.*<\/li>)/gis, '<ul>$1</ul>')
+      .replace(/^[ \t]*[\*\-] (.*$)/gim, '<li>$1</li>')
+      .replace(/(?:<li>.*<\/li>\s*)+/gis, (match) => `<ul>${match}</ul>`)
       .replace(/\n\n/g, '<br/><br/>')
       .replace(/\n/g, '<br/>');
     
