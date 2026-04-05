@@ -149,13 +149,14 @@ async function searchTavilyScoped(query, options = {}) {
   }
 }
 
-function getSerpApiKeyStatus() {
-  const key = process.env.SERPAPI_API_KEY;
-  return key ? { ok: true, key } : { ok: false, key: 'SERPAPI_API_KEY' };
+function getSerpApiKeyStatus(target = 'lens') {
+  const envName = target === 'news' ? 'SERPAPI_API_KEY_2' : 'SERPAPI_API_KEY';
+  const key = process.env[envName];
+  return key ? { ok: true, key, envName } : { ok: false, key: envName, envName };
 }
 
 async function searchSerpApiGoogleNews(query) {
-  const keyStatus = getSerpApiKeyStatus();
+  const keyStatus = getSerpApiKeyStatus('news');
   if (!keyStatus.ok) return { error: 'missing_api_key', key: keyStatus.key };
 
   try {
@@ -186,7 +187,7 @@ async function searchSerpApiGoogleNews(query) {
 }
 
 async function searchSerpApiGoogleLens(imageUrl) {
-  const keyStatus = getSerpApiKeyStatus();
+  const keyStatus = getSerpApiKeyStatus('lens');
   if (!keyStatus.ok) return { error: 'missing_api_key', key: keyStatus.key };
   if (!imageUrl || !/^https?:\/\//i.test(String(imageUrl))) return null;
 
@@ -5739,7 +5740,7 @@ ${serializedHistory}`;
 const CONNECTOR_REQUIRES_KEYS = {
   tavily: ['TAVILY_API_KEY'],
   wolfram: ['WOLFRAM_APP_ID'],
-  'serpapi-news': ['SERPAPI_API_KEY'],
+  'serpapi-news': ['SERPAPI_API_KEY_2'],
   'serpapi-lens': ['SERPAPI_API_KEY'],
 };
 
@@ -6065,7 +6066,8 @@ async function getAdminDiagnostics() {
       testOpenRouterKey('OPENROUTER_API_KEY'),
       testOpenRouterKey('OPENROUTER_API_KEY_2'),
       testTavilyKey(),
-      testOptionalKey('SERPAPI_API_KEY', () => searchSerpApiGoogleNews('nasa')),
+      testOptionalKey('SERPAPI_API_KEY', () => searchSerpApiGoogleLens('https://upload.wikimedia.org/wikipedia/commons/8/87/Example_of_fake_news.jpg')),
+      testOptionalKey('SERPAPI_API_KEY_2', () => searchSerpApiGoogleNews('nasa')),
       testOptionalKey('WOLFRAM_APP_ID', () => buscarWolframAlpha('2+2')),
     ]),
     connectors: supportedConnectors.map(key => ({
