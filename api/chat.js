@@ -110,6 +110,114 @@ async function searchTavily(query) {
   }
 }
 
+async function searchTavilyScoped(query, options = {}) {
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const payload = {
+      api_key: apiKey,
+      query,
+      max_results: options.maxResults || 6,
+      include_answer: options.includeAnswer !== false,
+    };
+
+    if (Array.isArray(options.includeDomains) && options.includeDomains.length > 0) {
+      payload.include_domains = options.includeDomains;
+    }
+
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      query,
+      answer: data.answer,
+      results: (data.results || []).slice(0, options.maxResults || 6).map(r => ({
+        title: r.title,
+        url: r.url,
+        snippet: r.snippet,
+      })),
+    };
+  } catch (err) {
+    console.error('Tavily scoped search error:', err);
+    return null;
+  }
+}
+
+function getSerpApiKeyStatus() {
+  const key = process.env.SERPAPI_API_KEY;
+  return key ? { ok: true, key } : { ok: false, key: 'SERPAPI_API_KEY' };
+}
+
+async function searchSerpApiGoogleNews(query) {
+  const keyStatus = getSerpApiKeyStatus();
+  if (!keyStatus.ok) return { error: 'missing_api_key', key: keyStatus.key };
+
+  try {
+    const url = new URL('https://serpapi.com/search.json');
+    url.searchParams.set('engine', 'google_news');
+    url.searchParams.set('q', query);
+    url.searchParams.set('hl', 'pt-BR');
+    url.searchParams.set('gl', 'br');
+    url.searchParams.set('api_key', keyStatus.key);
+
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) {
+      return { error: `HTTP ${res.status}`, source: 'serpapi-google-news' };
+    }
+    const data = await res.json();
+    return (data.news_results || []).slice(0, 6).map(item => ({
+      title: item.title,
+      link: item.link,
+      source: item.source,
+      date: item.date,
+      snippet: item.snippet,
+      thumbnail: item.thumbnail || null,
+    }));
+  } catch (error) {
+    console.error('SerpApi Google News error:', error);
+    return { error: 'Fetch failed', source: 'serpapi-google-news' };
+  }
+}
+
+async function searchSerpApiGoogleLens(imageUrl) {
+  const keyStatus = getSerpApiKeyStatus();
+  if (!keyStatus.ok) return { error: 'missing_api_key', key: keyStatus.key };
+  if (!imageUrl || !/^https?:\/\//i.test(String(imageUrl))) return null;
+
+  try {
+    const url = new URL('https://serpapi.com/search.json');
+    url.searchParams.set('engine', 'google_lens');
+    url.searchParams.set('url', imageUrl);
+    url.searchParams.set('api_key', keyStatus.key);
+
+    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) {
+      return { error: `HTTP ${res.status}`, source: 'serpapi-google-lens' };
+    }
+    const data = await res.json();
+    const visualMatches = data.visual_matches || [];
+    const knowledgeGraph = data.knowledge_graph || null;
+    return {
+      knowledgeGraph,
+      visualMatches: visualMatches.slice(0, 6).map(item => ({
+        title: item.title,
+        source: item.source,
+        link: item.link,
+        thumbnail: item.thumbnail || null,
+      })),
+    };
+  } catch (error) {
+    console.error('SerpApi Google Lens error:', error);
+    return { error: 'Fetch failed', source: 'serpapi-google-lens' };
+  }
+}
+
 // ============ OPTIMIZE QUERY WITH AI (for better NASA search) ============
 async function optimizeNasaQuery(userQuestion) {
   const prompt = `Você é um especialista em otimizar buscas científicas para APIs.\n\nTransforme a pergunta do usuário em palavras-chave específicas para buscar imagens científicas na NASA.\n\nPergunta: "${userQuestion}"\n\nRetorne APENAS palavras-chave separadas por espaço (máximo 5 palavras).\nExemplos:\n- "Quais são as estruturas de Marte?" → "mars surface structures"\n- "Me mostre fotos de buracos negros" → "black hole galaxy"\n- "Imagens de auroras" → "aurora northern lights"\n\nRetorne apenas as palavras-chave, nada mais.`;
@@ -801,6 +909,8 @@ const SUPPORTED_CONNECTORS = new Set([
   'seade',
   'getty',
   'libras',
+  'serpapi-news',
+  'serpapi-lens',
 ]);
 
 const CONNECTORS_IN_MAINTENANCE = new Set([]);
@@ -2218,7 +2328,136 @@ TASK: Analise APENAS o conteúdo visual dessas imagens. Descreva o que cada imag
   }
 }
 
+// ============ ANALYZE NASA IMAGES (Last 4 with GEMINI) ============
+async function analyzeNasaImagesWithGemini(nasaMedia, logs = []) {
+  if (!nasaMedia || nasaMedia.length === 0) return null;
 
+  const lastFourImages = nasaMedia.slice(-4);
+  const validImages = lastFourImages.filter(m => m.media_type === 'image' && m.url);
+  if (validImages.length === 0) return null;
+
+  const imageList = validImages
+    .map((img, i) => `${i + 1}. ${img.title}\n   Descrição: ${img.description}\n   URL: ${img.url}`)
+    .join('\n\n');
+
+  const preparePayload = () => ({
+    contents: [{ parts: [{ text: `Você é um especialista em análise de imagens científicas. IMAGENS FORNECIDAS:\n${imageList}\n\nTASK: Analise APENAS o conteúdo visual dessas imagens. Descreva o que cada uma mostra e o contexto científico. Retorne apenas as descrições.` }] }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 2000 }
+  });
+
+  return await tryGeminiWithFallback(preparePayload, logs);
+}
+
+function detectFactCheckIntent(userQuestion = '', visionContext = '') {
+  const text = `${userQuestion}\n${visionContext}`.toLowerCase();
+  return /\b(fake news|fake|verdadeir[ao]|falsa|falso|boato|desmente|desmentir|verifique|verificar|chec(?:a|ar|agem)|fact[ -]?check|essa noticia|essa notícia|essa manchete|essa informa[cç][aã]o|e verdade|é verdade)\b/.test(text);
+}
+
+function extractFactCheckImageUrl(files = []) {
+  const firstImage = (files || []).find(file => {
+    const value = file?.url || file?.data || file;
+    return typeof value === 'string' && /^data:image\/|^https?:\/\//i.test(value);
+  });
+  return firstImage ? (firstImage.url || firstImage.data || firstImage) : null;
+}
+
+function normalizeFactCheckVerdict(verdict = '') {
+  const normalized = String(verdict || '').trim().toLowerCase();
+  if (['verdadeiro', 'real', 'true'].includes(normalized)) return 'verdadeiro';
+  if (['enganoso', 'impreciso', 'misleading', 'fora_de_contexto', 'fora de contexto'].includes(normalized)) return 'enganoso';
+  if (['falso', 'fake', 'fake news'].includes(normalized)) return 'falso';
+  return 'nao_verificado';
+}
+
+function buildFactCheckAdvice(verdict = '') {
+  switch (normalizeFactCheckVerdict(verdict)) {
+    case 'verdadeiro':
+      return 'Mesmo quando a noticia parece real, confira data, autoria e se o link pertence ao dominio oficial do veiculo.';
+    case 'enganoso':
+      return 'Compare a manchete com o texto completo da materia e desconfie de imagens verdadeiras usadas fora de contexto.';
+    case 'falso':
+      return 'Desconfie de textos alarmistas sem fonte primaria, URL verificavel ou confirmacao em orgaos oficiais.';
+    default:
+      return 'Quando nao houver prova suficiente, o mais seguro e nao compartilhar ate encontrar confirmacao em fonte primaria ou agencia de checagem.';
+  }
+}
+
+async function buildFactCheckAssessment({
+  userQuestion = '',
+  actionPlan = {},
+  visionContext = '',
+  sources = [],
+  logs = [],
+} = {}) {
+  const sourceDigest = (sources || [])
+    .slice(0, 20)
+    .map(source => `${source.id}: ${source.label} - ${String(source.detail || '').slice(0, 220)}${source.url ? ` | ${source.url}` : ''}`)
+    .join('\n');
+
+  const prompt = `Voce e o verificador de fatos do Drekee AI.
+
+Use APENAS as evidencias disponiveis.
+Retorne APENAS JSON valido.
+
+{
+  "claim": "alegacao central",
+  "claim_type": "noticia|boato|imagem_fora_de_contexto|texto_viral|institucional|cientifico|outro",
+  "verdict": "verdadeiro|enganoso|nao_verificado|falso",
+  "confidence": "LOW|MEDIUM|HIGH",
+  "summary": "resumo curto em 2 a 4 frases",
+  "primary_link": "https://...",
+  "evidence_for": [{"source_id":"ID","note":"motivo curto"}],
+  "evidence_against": [{"source_id":"ID","note":"motivo curto"}],
+  "evidence_uncertain": [{"source_id":"ID","note":"motivo curto"}],
+  "recommended_sources": ["ID1","ID2"],
+  "reasoning": "motivo curto"
+}
+
+Regras:
+- use "falso" apenas quando houver contradicao clara ou checagem confiavel desmentindo
+- use "nao_verificado" quando faltarem provas suficientes
+- use "enganoso" quando algo real estiver fora de contexto ou distorcido
+- use somente source_id existentes
+- nao invente links
+- prefira fonte primaria ou agencia de checagem como primary_link
+
+Pergunta do usuario: ${JSON.stringify(String(userQuestion || ''))}
+Plano de acao: ${JSON.stringify(actionPlan || {})}
+Contexto visual: ${JSON.stringify(String(visionContext || '').slice(0, 2200))}
+
+Evidencias:
+${sourceDigest || 'Sem fontes registradas'}
+`;
+
+  const raw = await callGemini(prompt, logs);
+  const parsed = extractJsonObject(raw) || {};
+  const normalizeEvidenceList = value => Array.isArray(value)
+    ? value.map(item => ({
+        source_id: String(item?.source_id || '').trim(),
+        note: String(item?.note || '').trim(),
+      })).filter(item => item.source_id || item.note)
+    : [];
+
+  const verdict = normalizeFactCheckVerdict(parsed.verdict);
+  return {
+    claim: String(parsed.claim || actionPlan?.alegacao_principal || userQuestion).trim(),
+    claim_type: String(parsed.claim_type || 'outro').trim(),
+    verdict,
+    confidence: ['LOW', 'MEDIUM', 'HIGH'].includes(parsed.confidence) ? parsed.confidence : 'MEDIUM',
+    summary: String(parsed.summary || '').trim(),
+    primaryLink: String(parsed.primary_link || '').trim() || null,
+    evidence: {
+      for: normalizeEvidenceList(parsed.evidence_for),
+      against: normalizeEvidenceList(parsed.evidence_against),
+      uncertain: normalizeEvidenceList(parsed.evidence_uncertain),
+    },
+    recommendedSources: Array.isArray(parsed.recommended_sources)
+      ? parsed.recommended_sources.map(item => String(item || '').trim()).filter(Boolean)
+      : [],
+    advice: buildFactCheckAdvice(verdict),
+    reasoning: String(parsed.reasoning || '').trim(),
+  };
+}
 
 // ============ STEP 1: Generate Action Plan (internal) ============
 async function generateActionPlan(userQuestion, history = [], visionContext = '') {
@@ -2285,6 +2524,86 @@ Retorne APENAS JSON válido (sem markdown):
       area_cientifica: 'Geral',
       passos: [{ numero: 1, nome: 'Responder', descricao: 'Gerar uma resposta clara e precisa' }],
       precisa_busca_web: true,
+    };
+  }
+}
+
+async function generateActionPlan(userQuestion, history = [], visionContext = '') {
+  const historyText = history.length > 0
+    ? `\nHISTORICO (Contexto previo):\n${history.map(m => `${m.role === 'user' ? 'Usuario' : 'IA'}: ${m.content}`).join('\n')}\n`
+    : '';
+  const visionText = visionContext ? `\n${visionContext}\n` : '';
+  const likelyFactCheck = detectFactCheckIntent(userQuestion, visionContext);
+
+  const prompt = `Voce e um planejador cientifico. Para a pergunta, crie um plano de acao:
+${historyText}${visionText}
+Pergunta atual: "${userQuestion}"
+
+Dicas:
+- use intent="fact_check" quando o usuario pedir para verificar se noticia, print, manchete, texto viral ou imagem sao verdadeiros ou falsos
+- em fact-check, extraia a alegacao principal, entidades citadas, se precisa visao, se busca reversa ajudaria e se fontes oficiais devem ser priorizadas
+- para perguntas de astronomia, prefira fontes primarias espaciais antes de busca web generica
+- para dados ao vivo ja cobertos por conectores, reduza dependencia de web aberta
+
+Retorne APENAS JSON valido:
+{
+  "objetivo": "descricao clara",
+  "area_cientifica": "area",
+  "intent": "answer|fact_check",
+  "alegacao_principal": "frase curta ou null",
+  "entidades_citadas": ["entidade 1"],
+  "tema_fact_check": "tema principal ou null",
+  "exige_visao": true,
+  "exige_busca_reversa": false,
+  "prioridade_fontes_oficiais": true,
+  "passos": [ { "numero": 1, "nome": "Passo", "descricao": "O que fazer" } ],
+  "precisa_busca_web": true,
+  "termo_de_busca": "consulta investigativa"
+}`;
+
+  let rawPlan = await callGroq(
+    [{ role: 'user', content: prompt }],
+    'GROQ_API_KEY_2',
+    { maxTokens: 900, temperature: 0.2 }
+  );
+
+  if (!rawPlan) {
+    try {
+      rawPlan = await callSambaNova(
+        [{ role: 'user', content: prompt }],
+        { model: 'Meta-Llama-3.1-8B-Instruct', maxTokens: 900, temperature: 0.2 }
+      );
+    } catch (err) {
+      console.error('SambaNova fallback failed:', err);
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(rawPlan);
+    if (!parsed.intent) parsed.intent = likelyFactCheck ? 'fact_check' : 'answer';
+    if (parsed.intent === 'fact_check') {
+      parsed.alegacao_principal = parsed.alegacao_principal || userQuestion;
+      parsed.entidades_citadas = Array.isArray(parsed.entidades_citadas) ? parsed.entidades_citadas : [];
+      parsed.exige_visao = parsed.exige_visao === true || Boolean(visionContext);
+      parsed.exige_busca_reversa = parsed.exige_busca_reversa === true;
+      parsed.prioridade_fontes_oficiais = parsed.prioridade_fontes_oficiais !== false;
+    }
+    return parsed;
+  } catch (e) {
+    console.error('Plan parse error:', e);
+    return {
+      objetivo: likelyFactCheck ? 'Verificar a veracidade da alegacao enviada' : 'Responder a pergunta',
+      area_cientifica: likelyFactCheck ? 'Verificacao de fatos' : 'Geral',
+      intent: likelyFactCheck ? 'fact_check' : 'answer',
+      alegacao_principal: likelyFactCheck ? userQuestion : null,
+      entidades_citadas: [],
+      tema_fact_check: null,
+      exige_visao: Boolean(visionContext),
+      exige_busca_reversa: false,
+      prioridade_fontes_oficiais: likelyFactCheck,
+      passos: [{ numero: 1, nome: 'Responder', descricao: likelyFactCheck ? 'Extrair alegacao, buscar evidencias e emitir veredito conservador' : 'Gerar uma resposta clara e precisa' }],
+      precisa_busca_web: true,
+      termo_de_busca: userQuestion,
     };
   }
 }
@@ -2597,9 +2916,20 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const overrideForbiddenConnectors = new Set(filterSupportedConnectors(options.overrideForbiddenConnectors || []));
   const baseRecoveryConnectors = filterSupportedConnectors(options.baseConnectors || []);
   const focusFacts = Array.isArray(options.focusFacts) ? options.focusFacts.map(item => String(item || '').trim()).filter(Boolean) : [];
+  const isFactCheck = actionPlan?.intent === 'fact_check' || detectFactCheckIntent(userQuestion, options.visionContext || '');
 
   const autoDetectedConnectors = [];
   const normalizedText = (userQuestion || '').toLowerCase();
+
+  if (isFactCheck) {
+    autoDetectedConnectors.push('tavily', 'wikipedia', 'wikidata', 'serpapi-news');
+    if (actionPlan?.exige_busca_reversa || options.factCheckImageUrl) {
+      autoDetectedConnectors.push('serpapi-lens');
+    }
+    if (/\b(nasa|espaco|espaço|astronomia|marte|lua|sol|satellite|satélite)\b/.test(normalizedText)) autoDetectedConnectors.push('nasa');
+    if (/\b(brasil|governo|beneficio|benefício|ministerio|ministério|lei|camara|câmara|politica|política)\b/.test(normalizedText)) autoDetectedConnectors.push('brasilapi', 'camara', 'transparencia');
+    if (/\b(saude|saúde|vacina|sus|anvisa|hospital|medicamento|oms|opas)\b/.test(normalizedText)) autoDetectedConnectors.push('datasus', 'pubmed', 'openfda');
+  }
 
   if (/\b(Ã¡tomo|atomo|prÃ³ton|proton|nÃªutron|neutron|elÃ©tron|eletron|isÃ³topo|isotopo|molÃ©cula|molecula|ligaÃ§Ã£o quÃ­mica|ligacao quimica|ph|acidez|basicidade|circuito|corrente elÃ©trica|corrente eletrica|voltagem|tensÃ£o elÃ©trica|tensao eletrica|resistor|ohm|faraday|induÃ§Ã£o eletromagnÃ©tica|inducao eletromagnetica|forÃ§a|forca|segunda lei de newton)\b/.test(normalizedText)) {
     autoDetectedConnectors.push('phet');
@@ -2783,6 +3113,57 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     addSource('PHET-1', `PhET: ${phetTitle}`, 'phet', phetSuggestion.theory || phetSuggestion.guide || 'Simulação interativa recomendada para este conceito.', phetUrl);
     context += `\n\n🧪 Simulação interativa disponível (PhET): ${phetTitle}\nComo usar: ${phetSuggestion.guide}\nBase teórica: ${phetSuggestion.theory}\nLink: ${phetUrl}\n`;
     logs.push(`🧪 Simulação PhET preparada: ${phetTitle}`);
+  }
+
+  if (isFactCheck) {
+    const claimQuery = actionPlan?.alegacao_principal || queryParaBuscar;
+    logs.push(`Modo fact-check ativado para a alegacao: "${claimQuery}"`);
+
+    if (selectedConnectors.includes('serpapi-news')) {
+      logs.push('Buscando cobertura jornalistica via SerpApi Google News...');
+      const newsHits = await searchSerpApiGoogleNews(claimQuery);
+      if (Array.isArray(newsHits) && newsHits.length > 0) {
+        context += `\n\nCobertura jornalistica (SerpApi Google News):\n`;
+        newsHits.forEach((item, index) => {
+          context += `${index + 1}. ${item.title} | Fonte: ${item.source || 'N/A'} | Data: ${item.date || 'N/A'}\n${item.snippet || ''}\nLink: ${item.link}\n`;
+          addSource(`NEWS-${index + 1}`, item.title || `Google News ${index + 1}`, 'serpapi-news', `${item.source || 'Fonte desconhecida'} - ${item.snippet || ''}`.trim(), item.link);
+          if (item.thumbnail) {
+            media.push({ title: item.title, url: item.thumbnail, media_type: 'image', description: item.source || 'Cobertura jornalistica' });
+          }
+        });
+        logs.push(`${newsHits.length} resultados de noticias coletados`);
+      }
+    }
+
+    if (selectedConnectors.includes('serpapi-lens') && options.factCheckImageUrl) {
+      logs.push('Executando busca reversa de imagem via Google Lens...');
+      const lensHits = await searchSerpApiGoogleLens(options.factCheckImageUrl);
+      if (lensHits?.visualMatches?.length > 0) {
+        context += `\n\nBusca reversa de imagem (Google Lens):\n`;
+        lensHits.visualMatches.forEach((item, index) => {
+          context += `${index + 1}. ${item.title || 'Sem titulo'} | Fonte: ${item.source || 'N/A'}\nLink: ${item.link || 'N/A'}\n`;
+          addSource(`LENS-${index + 1}`, item.title || `Lens resultado ${index + 1}`, 'serpapi-lens', item.source || 'Correspondencia visual', item.link);
+          if (item.thumbnail) {
+            media.push({ title: item.title || `Lens ${index + 1}`, url: item.thumbnail, media_type: 'image', description: item.source || 'Correspondencia visual do Google Lens' });
+          }
+        });
+        logs.push('Busca reversa de imagem concluida');
+      }
+    }
+
+    const factCheckScoped = await searchTavilyScoped(claimQuery, {
+      includeDomains: ['g1.globo.com', 'aosfatos.org', 'lupa.uol.com.br', 'boatos.org', 'gov.br', 'who.int', 'opas.org.br'],
+      maxResults: 8,
+      includeAnswer: true,
+    });
+    if (factCheckScoped?.results?.length > 0) {
+      context += `\n\nChecagens e fontes oficiais priorizadas:\nResumo: ${factCheckScoped.answer || 'Sem resumo consolidado.'}\n`;
+      factCheckScoped.results.forEach((item, index) => {
+        context += `${index + 1}. ${item.title}\n${item.snippet || ''}\nLink: ${item.url}\n`;
+        addSource(`FACT-${index + 1}`, item.title || `Fact-check ${index + 1}`, 'fact-check', item.snippet || '', item.url);
+      });
+      logs.push('Dominios de checagem consultados');
+    }
   }
 
   const isEarthquakeQuery = selectedConnectors.includes('usgs') && 
@@ -3836,7 +4217,21 @@ Seja honesto. Não invente. Use as fontes.`;
   );
 
   logs.push('✅ Resposta gerada pela IA principal');
-  return { response, media: [...media, ...nasaMedia], sources, selectedConnectors };
+  let factCheck = null;
+  if (isFactCheck) {
+    logs.push('Fact-check: consolidando veredito estruturado...');
+    factCheck = await buildFactCheckAssessment({
+      userQuestion,
+      actionPlan,
+      visionContext: options.visionContext || '',
+      sources,
+      logs,
+    });
+    if (options.factCheckImageUrl) {
+      factCheck.inputPreviewUrl = options.factCheckImageUrl;
+    }
+  }
+  return { response, media: [...media, ...nasaMedia], sources, selectedConnectors, factCheck };
 }
 
 // ============ STEP 3: Audit with Gemini / Polish with Groq ============
@@ -3885,6 +4280,7 @@ ${response}
 }
 
 async function auditResponseWithOpenRouter({ userQuestion = '', response = '', sources = [], logs = [] } = {}) {
+  const isFactCheck = detectFactCheckIntent(userQuestion, response);
   const sourceDigest = (sources || [])
     .slice(0, 12)
     .map(source => `${source.id}: ${source.label} - ${source.detail}`)
@@ -3911,6 +4307,7 @@ Regras:
 - use issues curtos como: missing_key_fact, insufficient_content, weak_coverage, factual_gap, unsupported_claim
 - missing_facts deve listar fatos centrais ausentes, se existirem
 - se a resposta estiver boa o suficiente, aprove
+ ${isFactCheck ? '- em fact-check, reprove respostas binarias sem evidencia direta e exija diferenca clara entre falso, enganoso e nao_verificado' : ''}
 
 Pergunta do usuario: ${JSON.stringify(String(userQuestion || ''))}
 Fontes disponiveis:
@@ -4082,13 +4479,14 @@ Sua missão é transformar dados técnicos em conhecimento encantador para um al
 
 DIRETRIZES DE REDAÇÃO:
 1. FOCO NA ANALOGIA: A explicação DEVE girar em torno de uma analogia clara e criativa.
-2. INTEGRAÇÃO VISUAL: Se você decidir gerar um mapa mental ou gráfico, use EXCLUSIVAMENTE os formatos abaixo. NUNCA gere ASCII art ou desenhos de texto simples.
+2. INTEGRAÇÃO VISUAL: Se você decidir gerar um mapa mental ou gráfico, use EXCLUSIVAMENTE os formatos abaixo. NUNCA gere ASCII art, desenhos de texto simples, ou blocos markdown com \`\`\`latex\`\`\`. Use APENAS os formatos específicos:
    - Para Mapas Mentais: Use [MINDMAP_TITLE: Título] [MINDMAP_CODE] código TikZ LaTeX aqui [/MINDMAP_CODE].
    - Para Gráficos: Use [LATEX_GRAPH_TITLE: Título] [LATEX_GRAPH_CODE] código TikZ LaTeX aqui [/LATEX_GRAPH_CODE].
 3. FORMATO TIKZ: Use a biblioteca 'mindmap' do TikZ. Exemplo: \begin{tikzpicture}[mindmap, concept color=blue!20] \node[concept] {Raiz} child { node[concept] {Ramo} }; \end{tikzpicture}.
-4. TOM DE MENTOR: Use frases como "Imagine que...", "Você sabia que...?", "Isso é fascinante porque...".
-5. DESAFIO PRÁTICO: Sempre termine ou inclua uma seção "🧪 Desafio Prático" com algo que o aluno possa testar.
-6. CITAÇÕES: Mantenha as citações [ID-DA-FONTE: ID_EXATO] de forma natural.
+4. PROIBIÇÃO TOTAL: NUNCA use \`\`\`latex\`\`\` ou qualquer outro bloco markdown. Use APENAS os formatos [MINDMAP_CODE] e [LATEX_GRAPH_CODE] especificados acima.
+5. TOM DE MENTOR: Use frases como "Imagine que...", "Você sabia que...?", "Isso é fascinante porque...".
+6. DESAFIO PRÁTICO: Sempre termine ou inclua uma seção "🧪 Desafio Prático" com algo que o aluno possa testar.
+7. CITAÇÕES: Mantenha as citações [ID-DA-FONTE: ID_EXATO] de forma natural.
 
 IMPORTANTE: Se não conseguir gerar o código LaTeX TikZ correto, NÃO gere nenhum visual. É proibido gerar ASCII art.
 
@@ -5341,6 +5739,8 @@ ${serializedHistory}`;
 const CONNECTOR_REQUIRES_KEYS = {
   tavily: ['TAVILY_API_KEY'],
   wolfram: ['WOLFRAM_APP_ID'],
+  'serpapi-news': ['SERPAPI_API_KEY'],
+  'serpapi-lens': ['SERPAPI_API_KEY'],
 };
 
 const AUTO_DETECTED_CONNECTORS = new Set([
@@ -5352,7 +5752,7 @@ const AUTO_DETECTED_CONNECTORS = new Set([
   'datasus', 'covid-jhu', 'clinvar', 'cosmic', 'noaa-climate', 'worldbank-climate',
   'usgs-water', 'firms', 'edx', 'mit-ocw', 'mec-ejovem', 'educ4share', 'tcu', 'transparencia',
   'metmuseum', 'getty', 'libras', 'sketchfab', 'timelapse', 'arxiv', 'scielo', 'ibge',
-  'pubmed', 'wikipedia', 'wikidata', 'rcsb', 'newton', 'nasa', 'spacex'
+  'pubmed', 'wikipedia', 'wikidata', 'rcsb', 'newton', 'nasa', 'spacex', 'serpapi-news', 'serpapi-lens'
 ]);
 
 const CONNECTOR_PROBE_QUERIES = {
@@ -5423,6 +5823,9 @@ function getConnectorProbeQuery(key) {
   return CONNECTOR_PROBE_QUERIES[key] || 'science';
 }
 
+CONNECTOR_PROBE_QUERIES['serpapi-news'] = 'nasa 3 dias de escuridao';
+CONNECTOR_PROBE_QUERIES['serpapi-lens'] = 'https://upload.wikimedia.org/wikipedia/commons/8/87/Example_of_fake_news.jpg';
+
 function summarizeProbeData(value) {
   if (value == null) return 'Sem dados';
   if (typeof value === 'string') return value.slice(0, 120);
@@ -5470,6 +5873,8 @@ async function probeConnector(key, options = {}) {
     let data = null;
     switch (key) {
       case 'tavily': data = await searchTavily(query); break;
+      case 'serpapi-news': data = await searchSerpApiGoogleNews(query); break;
+      case 'serpapi-lens': data = await searchSerpApiGoogleLens(query); break;
       case 'wikipedia': data = await buscarWikipedia(query); break;
       case 'arxiv': data = await buscarArxiv(query); break;
       case 'scielo': data = await buscarSciELORobusto(query); break;
@@ -5660,6 +6065,7 @@ async function getAdminDiagnostics() {
       testOpenRouterKey('OPENROUTER_API_KEY'),
       testOpenRouterKey('OPENROUTER_API_KEY_2'),
       testTavilyKey(),
+      testOptionalKey('SERPAPI_API_KEY', () => searchSerpApiGoogleNews('nasa')),
       testOptionalKey('WOLFRAM_APP_ID', () => buscarWolframAlpha('2+2')),
     ]),
     connectors: supportedConnectors.map(key => ({
@@ -5764,8 +6170,9 @@ async function handler(req, res) {
 
     logs.push('🚀 Iniciando Agente Científico...');
 
-    const files = Array.isArray(body?.files) ? body.files : [];
-    let visionContext = '';
+  const files = Array.isArray(body?.files) ? body.files : [];
+  const factCheckImageUrl = extractFactCheckImageUrl(files);
+  let visionContext = '';
     if (files.length > 0) {
       logs.push('👁️ Analisando arquivos anexados com visão computacional...');
       const imgDesc = await analyzeUserFilesWithSambaNova(files, userQuestion, logs);
@@ -5795,7 +6202,7 @@ async function handler(req, res) {
     const contextHeader = `\n⚡ CONTEXTO DO USUÁRIO (USE ESTES DADOS COMO VERDADE ABSOLUTA — não especule):\n- Data e Hora local: ${userContext.localDate || 'hoje'} às ${userContext.localTime || 'agora'}\n- Localização: ${locationStr}\n- Fuso horário: ${userContext.timezone || 'America/Sao_Paulo'}\n\nINSTRUÇÃO: Quando o contexto contiver dados de APIs em tempo real (USGS, Sunrise-Sunset, ISS etc.), cite-os com precisão numérica. NUNCA invente, estime ou use dados de outras fontes para substituí-los. Se o usuário perguntar "hoje" ou "agora", use os dados desta requisição.\n\n`;
     visionContext = contextHeader + visionContext;
 
-    const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext, userContext });
+    const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext, userContext, factCheckImageUrl });
     exec.response = normalizeMarkdownLatexFences(exec.response);
     exec.response = normalizeResponseCitations(exec.response, exec.sources || []);
 
@@ -5965,6 +6372,7 @@ async function handler(req, res) {
       logs,
       media: finalExec.media || [],
       sources: finalExec.sources || [],
+      factCheck: finalExec.factCheck || null,
     };
     if (wantsStream) {
       writeAgentEvent(res, 'final', payload);
@@ -5986,6 +6394,7 @@ async function handler(req, res) {
       logs,
       media: [],
       sources: [],
+      factCheck: null,
     };
     if (wantsStream) {
       writeAgentEvent(res, 'error', { message: err.message });
