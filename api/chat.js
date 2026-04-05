@@ -2090,51 +2090,50 @@ async function callSambaNovaVision(messages, images, options = {}) {
   return await callSambaNova(visionMessages, { ...options, model: 'Llama-4-Maverick-17B-128E-Instruct' });
 }
 
-// ============ GEMINI Helper (with multiple keys) ============
-async function tryGeminiWithFallback(preparePayload, logs = []) {
+// ============ OPENROUTER Helper (with multiple keys) ============
+async function callOpenRouter(prompt, logs = [], options = {}) {
   const keys = [
-    process.env.GEMINI_API_KEY,
-    process.env.GEMINI_API_KEY_2,
-    process.env.GEMINI_API_KEY_3
+    process.env.OPENROUTER_API_KEY,
+    process.env.OPENROUTER_API_KEY_2
   ].filter(Boolean);
+  
+  const model = options.model || 'qwen/qwen-2.5-7b-instruct:free';
   
   for (let i = 0; i < keys.length; i++) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys[i]}`;
-      const res = await fetch(endpoint, {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(preparePayload()),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${keys[i]}`,
+          'HTTP-Referer': 'https://drekee.com.br',
+          'X-Title': 'Drekee AI'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: options.temperature || 0.2,
+          max_tokens: options.maxTokens || 4096
+        }),
       });
       
       const json = await res.json();
-      if (!res.ok) throw new Error(`Gemini error ${res.status}: ${JSON.stringify(json)}`);
-      return json.candidates?.[0]?.content?.parts?.[0]?.text || null;
+      if (!res.ok) throw new Error(`OpenRouter error ${res.status}: ${JSON.stringify(json)}`);
+      return json.choices?.[0]?.message?.content || null;
     } catch (err) {
-      console.warn(`⚠️ Gemini Key ${i+1} failed:`, err.message);
-      if (logs) logs.push(`⚠️ Limite Gemini ${i+1} atingido, tentando alternativa...`);
+      console.warn(`⚠️ OpenRouter Key ${i+1} failed:`, err.message);
+      if (logs) logs.push(`⚠️ Limite OpenRouter ${i+1} atingido, tentando alternativa...`);
     }
-  }
-  return null;
-}
-
-// ============ GEMINI Call (Review with dual-key fallback + Groq emergency) ============
-async function callGemini(prompt, logs = []) {
-  const preparePayload = () => ({
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
-  });
-
-  const geminiResult = await tryGeminiWithFallback(preparePayload, logs);
-  if (geminiResult !== null) {
-    return geminiResult;
   }
 
   // Final Emergency Fallback to Groq for text tasks
-  console.warn('🚨 Both Gemini keys failed, falling back to emergency GROQ...');
-  if (logs) logs.push('🚨 Gemini indisponível, usando motor de emergência Groq...');
+  console.warn('🚨 All OpenRouter keys failed, falling back to emergency GROQ...');
+  if (logs) logs.push('🚨 OpenRouter indisponível, usando motor de emergência Groq...');
   return await callGroq([{ role: 'user', content: prompt }], 'GROQ_API_KEY_2', { maxTokens: 4096 });
 }
+
+// Alias para manter compatibilidade onde callGemini era usado
+const callGemini = (...args) => callOpenRouter(...args);
 
 
 
@@ -2178,13 +2177,13 @@ async function analyzeUserFilesWithGemini(files, userQuestion, logs = []) {
   return await tryGeminiWithFallback(preparePayload, logs);
 }
 
-// ============ ANALYZE NASA IMAGES (First 4 with GROQ_API_KEY_2) ============
+// ============ ANALYZE NASA IMAGES (All with GROQ_API_KEY_2) ============
 async function analyzeNasaImagesWithGroq(nasaMedia) {
   if (!nasaMedia || nasaMedia.length === 0) return null;
 
-  // Selecionar as 4 PRIMEIRAS imagens
-  const firstFourImages = nasaMedia.slice(0, 4);
-  const validImages = firstFourImages.filter(m => m.media_type === 'image' && m.url);
+  // Selecionar as 8 PRIMEIRAS imagens (ou todas se menos de 8)
+  const imagesToAnalyze = nasaMedia.slice(0, 8);
+  const validImages = imagesToAnalyze.filter(m => m.media_type === 'image' && m.url);
 
   if (validImages.length === 0) return null;
 
@@ -2203,33 +2202,13 @@ TASK: Analise APENAS o conteúdo visual dessas imagens. Descreva o que cada imag
     const response = await callGroq(
       [{ role: 'user', content: prompt }],
       'GROQ_API_KEY_2',
-      { model: 'meta-llama/llama-4-scout-17b-16e-instruct', maxTokens: 1500, temperature: 0.2 }
+      { model: 'meta-llama/llama-4-scout-17b-16e-instruct', maxTokens: 2000, temperature: 0.2 }
     );
     return response;
   } catch (err) {
     console.error('Groq image analysis error:', err);
     return null;
   }
-}
-
-// ============ ANALYZE NASA IMAGES (Last 4 with GEMINI) ============
-async function analyzeNasaImagesWithGemini(nasaMedia, logs = []) {
-  if (!nasaMedia || nasaMedia.length === 0) return null;
-
-  const lastFourImages = nasaMedia.slice(-4);
-  const validImages = lastFourImages.filter(m => m.media_type === 'image' && m.url);
-  if (validImages.length === 0) return null;
-
-  const imageList = validImages
-    .map((img, i) => `${i + 1}. ${img.title}\n   Descrição: ${img.description}\n   URL: ${img.url}`)
-    .join('\n\n');
-
-  const preparePayload = () => ({
-    contents: [{ parts: [{ text: `Você é um especialista em análise de imagens científicas. IMAGENS FORNECIDAS:\n${imageList}\n\nTASK: Analise APENAS o conteúdo visual dessas imagens. Descreva o que cada uma mostra e o contexto científico. Retorne apenas as descrições.` }] }],
-    generationConfig: { temperature: 0.2, maxOutputTokens: 2000 }
-  });
-
-  return await tryGeminiWithFallback(preparePayload, logs);
 }
 
 
@@ -3763,32 +3742,19 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
         });
         logs.push('✅ Dados da NASA coletados e otimizados');
 
-        // ANALYZE IMAGES (first 4 with GROQ, last 4 with Gemini)
+        // ANALYZE IMAGES (All with GROQ)
         const imagesCount = nasaMedia.filter(m => m.media_type === 'image').length;
         if (imagesCount >= 4) {
-          logs.push('🔍 Analisando imagens com IA (Groq + Gemini)...');
+          logs.push('🔍 Analisando imagens com IA (Groq)...');
 
-          const [groqAnalysis, geminiAnalysis] = await Promise.all([
-            analyzeNasaImagesWithGroq(nasaMedia).catch(err => {
-              console.error('Groq image analysis failed:', err);
-              return null;
-            }),
-            analyzeNasaImagesWithGemini(nasaMedia).catch(err => {
-              console.error('Gemini image analysis failed:', err);
-              return null;
-            }),
-          ]);
+          const groqAnalysis = await analyzeNasaImagesWithGroq(nasaMedia).catch(err => {
+            console.error('Groq image analysis failed:', err);
+            return null;
+          });
 
           if (groqAnalysis) {
             context += `\n\n📸 Análise de imagens (GROQ):\n${groqAnalysis}`;
             addSource('NASA-ANALYSIS-GROQ', 'Análise de imagens (GROQ)', 'nasa', groqAnalysis, null);
-          }
-          if (geminiAnalysis) {
-            context += `\n\n📸 Análise de imagens (Gemini):\n${geminiAnalysis}`;
-            addSource('NASA-ANALYSIS-GEMINI', 'Análise de imagens (Gemini)', 'nasa', geminiAnalysis, null);
-          }
-
-          if (groqAnalysis || geminiAnalysis) {
             logs.push('✅ Imagens analisadas');
           }
         }
@@ -3910,7 +3876,7 @@ ${response}
   );
 }
 
-async function auditResponseWithGemini({ userQuestion = '', response = '', sources = [], logs = [] } = {}) {
+async function auditResponseWithOpenRouter({ userQuestion = '', response = '', sources = [], logs = [] } = {}) {
   const sourceDigest = (sources || [])
     .slice(0, 12)
     .map(source => `${source.id}: ${source.label} - ${source.detail}`)
@@ -3945,7 +3911,7 @@ ${sourceDigest || 'Sem fontes registradas'}
 Resposta para auditar:
 ${String(response || '')}`;
 
-  const raw = await callGemini(prompt, logs);
+  const raw = await callOpenRouter(prompt, logs, { model: 'qwen/qwen-2.5-7b-instruct:free' });
   const parsed = extractJsonObject(raw) || {};
   return {
     approved: parsed.approved !== false,
@@ -4019,7 +3985,7 @@ Regras:
 Pergunta do usuario: ${JSON.stringify(String(userQuestion || ''))}
 Plano inicial: ${JSON.stringify(actionPlan || {})}
 Conectores usados antes: ${JSON.stringify(selectedConnectors || [])}
-Auditoria Gemini: ${JSON.stringify(audit || {})}
+Auditoria OpenRouter: ${JSON.stringify(audit || {})}
 Historico recente: ${JSON.stringify(compactHistory)}
 Fontes ja obtidas: ${JSON.stringify(sourceDigest)}
 Resposta inicial: ${JSON.stringify(String(initialResponse || '').slice(0, 4000))}
@@ -5617,14 +5583,14 @@ async function testGroqKey(envName) {
   }
 }
 
-async function testGeminiKey(envName) {
+async function testOpenRouterKey(envName) {
   const key = process.env[envName];
   if (!key) return { env: envName, status: 'missing', ok: false, message: 'Chave não cadastrada' };
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: 'ping' }] }], generationConfig: { temperature: 0, maxOutputTokens: 8 } }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ model: 'qwen/qwen-2.5-7b-instruct:free', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 }),
       signal: AbortSignal.timeout(12000),
     });
     const json = await res.json();
@@ -5682,10 +5648,9 @@ async function getAdminDiagnostics() {
     keys: await Promise.all([
       testGroqKey('GROQ_API_KEY_1'),
       testGroqKey('GROQ_API_KEY_2'),
-      testGroqKey('GROQ_ANALISE_API_KEY'),
       testGroqKey('GROQ_AGENT_API_KEY'),
-      testGeminiKey('GEMINI_API_KEY'),
-      testGeminiKey('GEMINI_API_KEY_2'),
+      testOpenRouterKey('OPENROUTER_API_KEY'),
+      testOpenRouterKey('OPENROUTER_API_KEY_2'),
       testTavilyKey(),
       testOptionalKey('WOLFRAM_APP_ID', () => buscarWolframAlpha('2+2')),
     ]),
@@ -5840,9 +5805,9 @@ async function handler(req, res) {
 
     // 1-a: Paralelizar audit + review (caminho otimista)
     // Roda ambos em paralelo: se audit aprovar, a review otimista já está pronta
-    logs.push('🧪 Gemini avaliando a resposta + revisão em paralelo...');
+    logs.push('🧪 OpenRouter avaliando a resposta + revisão em paralelo...');
     const [audit, optimisticReview] = await Promise.all([
-      auditResponseWithGemini({
+      auditResponseWithOpenRouter({
         userQuestion,
         response: exec.response,
         sources: exec.sources || [],
@@ -5856,7 +5821,7 @@ async function handler(req, res) {
 
     let finalExec = exec;
     let recoveryAttempted = false;
-    logs.push(audit.approved ? '✅ Gemini aprovou a resposta candidata.' : `⚠️ Gemini reprovou a resposta candidata: ${(audit.issues || []).join(', ') || 'cobertura insuficiente'}`);
+    logs.push(audit.approved ? '✅ OpenRouter aprovou a resposta candidata.' : `⚠️ OpenRouter reprovou a resposta candidata: ${(audit.issues || []).join(', ') || 'cobertura insuficiente'}`);
 
     if (!audit.approved && audit.retry_worthy) {
       // 1-d: Pular recovery se a resposta já tem fontes suficientes e o gap é pequeno
