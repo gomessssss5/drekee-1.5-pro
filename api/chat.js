@@ -2097,7 +2097,7 @@ async function callOpenRouter(prompt, logs = [], options = {}) {
     process.env.OPENROUTER_API_KEY_2
   ].filter(Boolean);
   
-  const model = options.model || 'qwen/qwen-2.5-7b-instruct:free';
+  const model = options.model || 'qwen/qwen-2.5-72b-instruct:free';
   
   for (let i = 0; i < keys.length; i++) {
     try {
@@ -3911,7 +3911,7 @@ ${sourceDigest || 'Sem fontes registradas'}
 Resposta para auditar:
 ${String(response || '')}`;
 
-  const raw = await callOpenRouter(prompt, logs, { model: 'qwen/qwen-2.5-7b-instruct:free' });
+  const raw = await callOpenRouter(prompt, logs, { model: 'qwen/qwen-2.5-72b-instruct:free' });
   const parsed = extractJsonObject(raw) || {};
   return {
     approved: parsed.approved !== false,
@@ -5590,7 +5590,7 @@ async function testOpenRouterKey(envName) {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: 'qwen/qwen-2.5-7b-instruct:free', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 }),
+      body: JSON.stringify({ model: 'qwen/qwen-2.5-72b-instruct:free', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 }),
       signal: AbortSignal.timeout(12000),
     });
     const json = await res.json();
