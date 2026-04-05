@@ -41,10 +41,15 @@ DIRETRIZES DE OURO (MODO MENTOR):
 4.  **INTEGRAÇÃO VISUAL NATIVA:**
     - Gráficos e Mapas Mentais NÃO são anexos; eles fazem parte da explicação.
     - No texto, faça referências diretas ao visual: "Como você pode ver no mapa mental abaixo...", "Note no gráfico de barras que a diferença entre X e Y é gritante...".
-5.  **CITAÇÕES REAIS E RÍGIDAS:**
+5. 5. **CITAÇÕES REAIS E RÍGIDAS:**
     - Use APENAS os IDs que aparecerem explicitamente nas ferramentas ou contexto, no formato [ID-DA-FONTE: ID_EXATO].
-6.  **REGRAS DE TAGS INTERATIVAS:**
-    - **PhET [PHET:slug|Guia|Teoria]:** SÓ ative se for o tema CENTRAL.
+6. **FORMATAÇÃO DE LISTAS:**
+    - Use SEMPRE o asterisco (*) para itens de lista (ex: * Item 1). Nunca use hífens (-) ou outros símbolos para listas.
+7. **INSERÇÃO DE IMAGENS NASA (CONTEXTUAL):**
+    - Se houver imagens da NASA no contexto, insira-as LOGO APÓS o parágrafo que descreve o conteúdo da imagem.
+    - Use o formato: [NASA_IMG: ID-DA-FONTE].
+    - O sistema substituirá isso pela imagem real em tamanho reduzido.
+8. **REGRAS DE TAGS INTERATIVAS:**    - **PhET [PHET:slug|Guia|Teoria]:** SÓ ative se for o tema CENTRAL.
     - **Gráfico LaTeX:** Use para comparações, rankings e dados numéricos.
     - **Mapa Mental LaTeX:** Use para organizar conceitos e hierarquias.
     - ESCOLHA APENAS UMA OPÇÃO VISUAL (ou gráfico, ou mapa mental).
@@ -3843,7 +3848,8 @@ async function reviewResponse(response, { userQuestion = '', sources = [] } = {}
 Objetivo:
 - Garantir precisão e remover erros factuais.
 - Otimizar a estrutura e o tom: abrir com um parágrafo curto e direto, e só depois expandir.
-- Manter formatação excelente e acessível (parágrafos curtos, bullet points e negrito apenas quando ajudarem).
+- Manter formatação excelente e acessível (parágrafos curtos, listas SEMPRE com asterisco (*) e negrito apenas quando ajudarem).
+    - Garantir que as imagens da NASA [NASA_IMG: ID-DA-FONTE] estejam posicionadas logo após os parágrafos que as descrevem, e nunca todas acumuladas no final.
 - Manter analogias simples do dia a dia apenas quando elas realmente ajudarem.
 - Remover qualquer inferência causal, impacto indireto, consequência econômica/social ou extrapolação que não esteja claramente sustentada por tags [ID-DA-FONTE: ...].
 - Se não houver base explícita para um efeito, tendência ou interpretação adicional, corte esse trecho em vez de inventar contexto.
@@ -5927,6 +5933,21 @@ async function handler(req, res) {
     response = removeUnsupportedAnalyticalParagraphs(response);
     response = softenUnsupportedSuperlatives(response, finalExec.sources || []);
     response = sanitizeFinalResponse(response);
+    
+    // Substituir tags [NASA_IMG: ID] por imagens reais com tamanho reduzido
+    if (finalExec.media && finalExec.media.length > 0) {
+      finalExec.media.forEach(m => {
+        const sourceId = finalExec.sources.find(s => s.url === m.url)?.id;
+        if (sourceId) {
+          const imgTag = `[NASA_IMG: ${sourceId}]`;
+          const htmlImg = `<div style="margin: 10px 0; max-width: 300px;"><img src="${m.url}" alt="${m.title}" style="width: 100%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><p style="font-size: 0.8em; color: #666; margin-top: 4px;">${m.title}</p></div>`;
+          response = response.split(imgTag).join(htmlImg);
+        }
+      });
+    }
+    // Limpar tags remanescentes que não foram substituídas
+    response = response.replace(/\[NASA_IMG: [^\]]+\]/g, '');
+
     const alignment = await alignGraphWithResponseReliability(response, finalExec.sources || [], userQuestion, logs);
     response = sanitizeFinalResponse(alignment.response);
     const displayResponse = response;
