@@ -2208,6 +2208,44 @@ async function callSambaNovaVision(messages, images, options = {}) {
   return await callSambaNova(visionMessages, { ...options, model: 'Llama-4-Maverick-17B-128E-Instruct' });
 }
 
+// ============ GEMINI Helper (multi-key, supports inlineData/image payloads) ============
+async function tryGeminiWithFallback(preparePayload, logs = []) {
+  const keys = [
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+  ].filter(Boolean);
+
+  if (keys.length === 0) {
+    if (logs) logs.push('⚠️ Nenhuma chave Gemini configurada para fallback de visão.');
+    return null;
+  }
+
+  for (let i = 0; i < keys.length; i++) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys[i]}`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(preparePayload()),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(`Gemini error ${res.status}: ${JSON.stringify(json).slice(0, 220)}`);
+
+      const text = json.candidates?.[0]?.content?.parts?.[0]?.text || null;
+      if (text) {
+        return text;
+      }
+    } catch (err) {
+      console.warn(`⚠️ Gemini Key ${i + 1} failed:`, err.message);
+      if (logs) logs.push(`⚠️ Gemini ${i + 1} indisponível, tentando a próxima chave...`);
+    }
+  }
+
+  return null;
+}
+
 // ============ OPENROUTER Helper (with multiple keys) ============
 async function callOpenRouter(prompt, logs = [], options = {}) {
   const keys = [
