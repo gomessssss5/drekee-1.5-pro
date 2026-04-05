@@ -2421,6 +2421,89 @@ function buildFactCheckAdvice(verdict = '') {
   }
 }
 
+function formatFactCheckVerdictLabel(verdict = '') {
+  switch (normalizeFactCheckVerdict(verdict)) {
+    case 'verdadeiro':
+      return 'Verdadeiro';
+    case 'enganoso':
+      return 'Enganoso';
+    case 'falso':
+      return 'Falso';
+    default:
+      return 'Nao verificado';
+  }
+}
+
+function buildFactCheckMethodSummary({ factCheck = null, sources = [], usedVision = false, hasImage = false } = {}) {
+  const connectors = new Set((sources || []).map(source => String(source?.connector || '').trim().toLowerCase()).filter(Boolean));
+  const usedLens = connectors.has('serpapi-lens');
+  const usedNews = connectors.has('serpapi-news');
+  const usedScopedChecks = connectors.has('fact-check');
+  const methods = [];
+
+  if (hasImage && usedVision) methods.push('analisei a imagem enviada com visao computacional');
+  else if (hasImage) methods.push('analisei os elementos visuais e textuais da imagem enviada');
+  if (usedLens) methods.push('rodei busca reversa no Google Lens');
+  if (usedNews) methods.push('comparei com cobertura jornalistica indexada no Google News');
+  if (usedScopedChecks) methods.push('priorizei agencias de checagem e fontes oficiais');
+  if (methods.length === 0 && factCheck?.primaryLink) methods.push('comparei a alegacao com fontes rastreaveis');
+
+  return {
+    usedLens,
+    usedNews,
+    usedScopedChecks,
+    text: methods.length > 0 ? methods.join('; ') : 'comparei a alegacao com as evidencias encontradas',
+  };
+}
+
+function buildFactCheckFinalResponse({ factCheck = null, sources = [], visionContext = '', hasImage = false } = {}) {
+  if (!factCheck) return null;
+
+  const verdictLabel = formatFactCheckVerdictLabel(factCheck.verdict);
+  const sourceById = new Map((sources || []).map(source => [String(source?.id || '').trim(), source]));
+  const usedVision = Boolean(hasImage && String(visionContext || '').trim());
+  const methodSummary = buildFactCheckMethodSummary({ factCheck, sources, usedVision, hasImage });
+  const evidenceAgainst = Array.isArray(factCheck.evidence?.against) ? factCheck.evidence.against : [];
+  const evidenceFor = Array.isArray(factCheck.evidence?.for) ? factCheck.evidence.for : [];
+  const evidenceUncertain = Array.isArray(factCheck.evidence?.uncertain) ? factCheck.evidence.uncertain : [];
+
+  const pickEvidenceLine = (items = []) => {
+    for (const item of items) {
+      const note = String(item?.note || '').trim();
+      const source = sourceById.get(String(item?.source_id || '').trim());
+      const sourceLabel = source?.label ? ` (${source.label})` : '';
+      if (note) return `${note}${sourceLabel}`;
+      if (source?.detail) return `${String(source.detail).slice(0, 180)}${sourceLabel}`;
+      if (source?.label) return `${source.label}`;
+    }
+    return '';
+  };
+
+  const strongestLine = pickEvidenceLine(
+    normalizeFactCheckVerdict(factCheck.verdict) === 'verdadeiro'
+      ? evidenceFor
+      : normalizeFactCheckVerdict(factCheck.verdict) === 'nao_verificado'
+        ? evidenceUncertain
+        : evidenceAgainst
+  ) || pickEvidenceLine(evidenceFor) || pickEvidenceLine(evidenceAgainst) || pickEvidenceLine(evidenceUncertain);
+
+  const summary = String(factCheck.summary || '').trim();
+  const claim = String(factCheck.claim || '').trim();
+  const primaryLink = String(factCheck.primaryLink || '').trim();
+  const lines = [
+    `Veredito: ${verdictLabel}.`,
+    claim ? `Alegacao analisada: ${claim}` : '',
+    `Como cheguei nisso: ${methodSummary.text}.`,
+  ];
+
+  if (summary) lines.push(summary);
+  if (strongestLine) lines.push(`Principal evidencia: ${strongestLine}.`);
+  if (primaryLink) lines.push(`Fonte principal: ${primaryLink}`);
+  lines.push(`Como nao cair nessa: ${factCheck.advice || buildFactCheckAdvice(factCheck.verdict)}`);
+
+  return lines.filter(Boolean).join('\n\n');
+}
+
 async function buildFactCheckAssessment({
   userQuestion = '',
   actionPlan = {},
@@ -4269,6 +4352,16 @@ Seja honesto. Não invente. Use as fontes.`;
     if (options.factCheckImageUrl) {
       factCheck.inputPreviewUrl = options.factCheckImageUrl;
     }
+    const factCheckConnectors = new Set((sources || []).map(source => String(source?.connector || '').trim().toLowerCase()).filter(Boolean));
+    factCheck.analysisMode = options.factCheckImageUrl
+      ? (factCheckConnectors.has('serpapi-lens') ? 'vision_plus_lens' : 'vision_only')
+      : 'text_only';
+    factCheck.methodsUsed = {
+      vision: Boolean(options.factCheckImageUrl && String(options.visionContext || '').trim()),
+      lens: factCheckConnectors.has('serpapi-lens'),
+      news: factCheckConnectors.has('serpapi-news'),
+      officialChecks: factCheckConnectors.has('fact-check'),
+    };
   }
   return { response, media: [...media, ...nasaMedia], sources, selectedConnectors, factCheck };
 }
@@ -6382,6 +6475,17 @@ async function handler(req, res) {
     response = removeUnsupportedAnalyticalParagraphs(response);
     response = softenUnsupportedSuperlatives(response, finalExec.sources || []);
     response = sanitizeFinalResponse(response);
+    if (finalExec.factCheck) {
+      const structuredFactCheckResponse = buildFactCheckFinalResponse({
+        factCheck: finalExec.factCheck,
+        sources: finalExec.sources || [],
+        visionContext,
+        hasImage: Boolean(factCheckImageUrl),
+      });
+      if (structuredFactCheckResponse) {
+        response = structuredFactCheckResponse;
+      }
+    }
     
     // Substituir tags [NASA_IMG: ID] por imagens reais com tamanho reduzido
     if (finalExec.media && finalExec.media.length > 0) {
