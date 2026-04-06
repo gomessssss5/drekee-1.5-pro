@@ -2064,12 +2064,16 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   const shrinkMessages = (inputMessages = []) => inputMessages.map((message, index) => {
-    const content = String(message?.content || '');
+    const content = message?.content;
+    if (Array.isArray(content)) {
+      return message;
+    }
+    const textContent = String(content || '');
     const budget = index === inputMessages.length - 1 ? 6000 : 2400;
-    if (content.length <= budget) return message;
+    if (textContent.length <= budget) return message;
     return {
       ...message,
-      content: `${content.slice(0, budget)}\n\n[TRUNCATED_FOR_GROQ_LIMIT]`,
+      content: `${textContent.slice(0, budget)}\n\n[TRUNCATED_FOR_GROQ_LIMIT]`,
     };
   });
 
@@ -2463,12 +2467,20 @@ function extractFactCheckImageUrl(files = []) {
   return firstImage ? (firstImage.url || firstImage.data || firstImage) : null;
 }
 
+function isGenericFactCheckQuestion(userQuestion = '') {
+  const question = String(userQuestion || '').trim();
+  if (!question) return true;
+  return /^(isso|isto|essa|esta|essa notícia|essa noticia|essa manchete|essa informação|essa informacao|essa imagem|essa foto)(\s+da\s+imagem)?[\s,:-]*(é|e)?\s*(verdadeira|verdadeiro|fake|falsa|falso|real)?\??$/i.test(question)
+    || /essa notícia da imagem,?\s*é verdadeira ou fake\??/i.test(question)
+    || /isso é fake\??|isso é real\??|verifique isso\??|verifica isso\??|é fake ou verdade\??|é fake ou real\??/i.test(question);
+}
+
 function deriveFactCheckClaim(userQuestion = '', visionContext = '', hasImage = false) {
   const question = String(userQuestion || '').trim();
-  const visual = String(visionContext || '').replace(/\[IMAGEM ENVIADA PELO ALUNO\]:/gi, '').trim();
-  const genericQuestion = /^(isso|isto|essa|esta|essa notícia|essa noticia|essa manchete|essa informação|essa informacao|essa imagem|essa foto)(\s+da\s+imagem)?[\s,:-]*(é|e)?\s*(verdadeira|verdadeiro|fake|falsa|falso|real)?\??$/i.test(question)
-    || /essa notícia da imagem,?\s*é verdadeira ou fake\??/i.test(question)
-    || /isso é fake\??|isso é real\??|verifique isso\??|verifica isso\??/i.test(question);
+  const rawVision = String(visionContext || '').trim();
+  const imageMatch = rawVision.match(/\[IMAGEM ENVIADA PELO ALUNO\]:\s*([\s\S]*?)(?:\n\[|$)/i);
+  const visual = String(imageMatch?.[1] || rawVision || '').trim();
+  const genericQuestion = isGenericFactCheckQuestion(question);
 
   if (hasImage && visual) {
     const compactVisual = visual.replace(/\s+/g, ' ').trim();
@@ -2576,6 +2588,10 @@ function buildFactCheckFinalResponse({ factCheck = null, sources = [], visionCon
     claim ? `Alegação analisada: ${claim}` : '',
     `Como cheguei nisso: ${methodSummary.text}.`,
   ];
+
+  if (hasImage && !usedVision) {
+    lines.push('Aviso: não consegui ler o conteúdo textual da imagem com confiança total; por isso, a checagem ficou mais limitada do que deveria.');
+  }
 
   if (summary) lines.push(summary);
   if (strongestLine) lines.push(`Principal evidência: ${strongestLine}.`);
@@ -2740,10 +2756,14 @@ async function generateActionPlan(userQuestion, history = [], visionContext = ''
     : '';
   const visionText = visionContext ? `\n${visionContext}\n` : '';
   const likelyFactCheck = detectFactCheckIntent(userQuestion, visionContext);
+  const normalizedFactCheckClaim = likelyFactCheck
+    ? deriveFactCheckClaim(userQuestion, visionContext, Boolean(String(visionContext || '').trim()))
+    : '';
 
   const prompt = `Voce e um planejador cientifico. Para a pergunta, crie um plano de acao:
 ${historyText}${visionText}
 Pergunta atual: "${userQuestion}"
+Alegacao normalizada para fact-check: "${normalizedFactCheckClaim || 'N/A'}"
 
 Dicas:
 - use intent="fact_check" quando o usuario pedir para verificar se noticia, print, manchete, texto viral ou imagem sao verdadeiros ou falsos
@@ -2788,7 +2808,7 @@ Retorne APENAS JSON valido:
     const parsed = JSON.parse(rawPlan);
     if (!parsed.intent) parsed.intent = likelyFactCheck ? 'fact_check' : 'answer';
     if (parsed.intent === 'fact_check') {
-      parsed.alegacao_principal = parsed.alegacao_principal || userQuestion;
+    parsed.alegacao_principal = parsed.alegacao_principal || normalizedFactCheckClaim || userQuestion;
       parsed.entidades_citadas = Array.isArray(parsed.entidades_citadas) ? parsed.entidades_citadas : [];
       parsed.exige_visao = parsed.exige_visao === true || Boolean(visionContext);
       parsed.exige_busca_reversa = parsed.exige_busca_reversa === true;
@@ -2801,7 +2821,7 @@ Retorne APENAS JSON valido:
       objetivo: likelyFactCheck ? 'Verificar a veracidade da alegacao enviada' : 'Responder a pergunta',
       area_cientifica: likelyFactCheck ? 'Verificacao de fatos' : 'Geral',
       intent: likelyFactCheck ? 'fact_check' : 'answer',
-      alegacao_principal: likelyFactCheck ? userQuestion : null,
+      alegacao_principal: likelyFactCheck ? (normalizedFactCheckClaim || userQuestion) : null,
       entidades_citadas: [],
       tema_fact_check: null,
       exige_visao: Boolean(visionContext),
@@ -3126,6 +3146,7 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const factCheckClaim = isFactCheck
     ? deriveFactCheckClaim(userQuestion, options.visionContext || '', Boolean(options.factCheckImageUrl))
     : '';
+  const missingImageInterpretation = Boolean(isFactCheck && options.factCheckImageUrl && !String(factCheckClaim || '').trim());
 
   const autoDetectedConnectors = [];
   const normalizedText = (userQuestion || '').toLowerCase();
@@ -3314,7 +3335,9 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   const media = [];
   const phetSuggestion = detectPhetSimulation(userQuestion, '', selectedConnectors);
   
-  const queryParaBuscar = overrideQuery || (actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion);
+  const queryParaBuscar = overrideQuery
+    || (isFactCheck && factCheckClaim ? factCheckClaim : '')
+    || (actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion);
 
   if (phetSuggestion) {
     const phetTitle = formatPhetTitle(phetSuggestion.slug);
@@ -3327,8 +3350,11 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   if (isFactCheck) {
     const claimQuery = factCheckClaim || actionPlan?.alegacao_principal || queryParaBuscar;
     logs.push(`Modo fact-check ativado para a alegacao: "${claimQuery}"`);
+    if (missingImageInterpretation) {
+      logs.push('⚠️ A imagem não foi interpretada com sucesso; buscas genéricas foram bloqueadas.');
+    }
 
-    if (selectedConnectors.includes('serpapi-news')) {
+    if (!missingImageInterpretation && selectedConnectors.includes('serpapi-news')) {
       logs.push('Buscando cobertura jornalistica via SerpApi Google News...');
       const newsHits = await searchSerpApiGoogleNews(claimQuery);
       if (Array.isArray(newsHits) && newsHits.length > 0) {
@@ -3344,7 +3370,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       }
     }
 
-    if (selectedConnectors.includes('serpapi-lens') && options.factCheckImageUrl) {
+    if (!missingImageInterpretation && selectedConnectors.includes('serpapi-lens') && options.factCheckImageUrl) {
       logs.push('Executando busca reversa de imagem via Google Lens...');
       const lensHits = await searchSerpApiGoogleLens(options.factCheckImageUrl);
       if (lensHits?.visualMatches?.length > 0) {
@@ -3360,18 +3386,20 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       }
     }
 
-    const factCheckScoped = await searchTavilyScoped(claimQuery, {
-      includeDomains: ['g1.globo.com', 'aosfatos.org', 'lupa.uol.com.br', 'boatos.org', 'gov.br', 'who.int', 'opas.org.br'],
-      maxResults: 8,
-      includeAnswer: true,
-    });
-    if (factCheckScoped?.results?.length > 0) {
-      context += `\n\nChecagens e fontes oficiais priorizadas:\nResumo: ${factCheckScoped.answer || 'Sem resumo consolidado.'}\n`;
-      factCheckScoped.results.forEach((item, index) => {
-        context += `${index + 1}. ${item.title}\n${item.snippet || ''}\nLink: ${item.url}\n`;
-        addSource(`FACT-${index + 1}`, item.title || `Fact-check ${index + 1}`, 'fact-check', item.snippet || '', item.url);
+    if (!missingImageInterpretation) {
+      const factCheckScoped = await searchTavilyScoped(claimQuery, {
+        includeDomains: ['g1.globo.com', 'aosfatos.org', 'lupa.uol.com.br', 'boatos.org', 'gov.br', 'who.int', 'opas.org.br'],
+        maxResults: 8,
+        includeAnswer: true,
       });
-      logs.push('Dominios de checagem consultados');
+      if (factCheckScoped?.results?.length > 0) {
+        context += `\n\nChecagens e fontes oficiais priorizadas:\nResumo: ${factCheckScoped.answer || 'Sem resumo consolidado.'}\n`;
+        factCheckScoped.results.forEach((item, index) => {
+          context += `${index + 1}. ${item.title}\n${item.snippet || ''}\nLink: ${item.url}\n`;
+          addSource(`FACT-${index + 1}`, item.title || `Fact-check ${index + 1}`, 'fact-check', item.snippet || '', item.url);
+        });
+        logs.push('Dominios de checagem consultados');
+      }
     }
   }
 
@@ -3385,11 +3413,11 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   // 2. Em modo manual, só roda se o usuário selecionar explicitamente 'tavily'
   const isAstronomyPrimary = isAstronomyPrimaryQuery(userQuestion, selectedConnectors);
   const forcedTavilyByRecovery = recoveryMode && selectedConnectors.includes('tavily');
-  const podeBuscarWeb = forcedTavilyByRecovery
+  const podeBuscarWeb = !missingImageInterpretation && (forcedTavilyByRecovery
     ? true
     : connectorAuto
       ? !isEarthquakeQuery && !isSunQuery && !isAstronomyPrimary
-      : selectedConnectors.includes('tavily');
+      : selectedConnectors.includes('tavily'));
 
   if (podeBuscarWeb) {
     logs.push(`🌐 Buscando na web: "${queryParaBuscar}"`);
