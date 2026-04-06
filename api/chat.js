@@ -2314,6 +2314,69 @@ Retorne APENAS um parágrafo conciso com a análise.`;
   }
 }
 
+async function analyzeUserFilesWithGroqVision(files, userQuestion, logs = []) {
+  if (!files || files.length === 0) return null;
+
+  const imageParts = (files || []).map(file => {
+    const directUrl = typeof file?.url === 'string' ? file.url : null;
+    if (directUrl && /^https?:\/\//i.test(directUrl)) {
+      return { type: 'image_url', image_url: { url: directUrl } };
+    }
+
+    const mimeType = String(file?.type || '').trim();
+    const rawData = typeof file?.data === 'string' ? file.data.trim() : '';
+    if (mimeType.startsWith('image/') && rawData) {
+      const normalizedData = rawData.startsWith('data:')
+        ? rawData
+        : `data:${mimeType};base64,${rawData}`;
+      return { type: 'image_url', image_url: { url: normalizedData } };
+    }
+
+    if (typeof file === 'string' && /^data:image\/|^https?:\/\//i.test(file)) {
+      return { type: 'image_url', image_url: { url: file } };
+    }
+
+    return null;
+  }).filter(Boolean).slice(0, 5);
+
+  if (imageParts.length === 0) return null;
+
+  try {
+    const response = await callGroq(
+      [{
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `Você é um verificador de fatos do Drekee AI. Leia a imagem enviada pelo usuário e extraia APENAS o que realmente aparece nela.
+
+Identifique, se existirem:
+- manchete principal
+- subtítulo
+- veículo, domínio, logotipo, arroba ou assinatura
+- data e horário
+- autor
+- texto menor, legenda ou chamada
+- sinais de montagem, recorte ou contexto ausente
+
+Pergunta do usuário: "${userQuestion}"
+
+Retorne um único parágrafo curto, objetivo e específico sobre o conteúdo visual da imagem.`
+          },
+          ...imageParts,
+        ],
+      }],
+      'GROQ_API_KEY_2',
+      { model: 'meta-llama/llama-4-scout-17b-16e-instruct', maxTokens: 700, temperature: 0.1 }
+    );
+    return response;
+  } catch (err) {
+    console.error('Groq Vision analysis error:', err);
+    if (logs) logs.push(`⚠️ Falha na análise de imagens com Groq Vision: ${err.message}`);
+    return null;
+  }
+}
+
 // ============ ANALYZE USER UPLOADS (Vision with Gemini - FALLBACK) ============
 async function analyzeUserFilesWithGemini(files, userQuestion, logs = []) {
   if (!files || files.length === 0) return null;
@@ -2400,6 +2463,24 @@ function extractFactCheckImageUrl(files = []) {
   return firstImage ? (firstImage.url || firstImage.data || firstImage) : null;
 }
 
+function deriveFactCheckClaim(userQuestion = '', visionContext = '', hasImage = false) {
+  const question = String(userQuestion || '').trim();
+  const visual = String(visionContext || '').replace(/\[IMAGEM ENVIADA PELO ALUNO\]:/gi, '').trim();
+  const genericQuestion = /^(isso|isto|essa|esta|essa notícia|essa noticia|essa manchete|essa informação|essa informacao|essa imagem|essa foto)(\s+da\s+imagem)?[\s,:-]*(é|e)?\s*(verdadeira|verdadeiro|fake|falsa|falso|real)?\??$/i.test(question)
+    || /essa notícia da imagem,?\s*é verdadeira ou fake\??/i.test(question)
+    || /isso é fake\??|isso é real\??|verifique isso\??|verifica isso\??/i.test(question);
+
+  if (hasImage && visual) {
+    const compactVisual = visual.replace(/\s+/g, ' ').trim();
+    if (genericQuestion || question.length < 24) {
+      return compactVisual.slice(0, 400);
+    }
+    return `${question} | Conteúdo visível: ${compactVisual.slice(0, 300)}`;
+  }
+
+  return question;
+}
+
 function normalizeFactCheckVerdict(verdict = '') {
   const normalized = String(verdict || '').trim().toLowerCase();
   if (['verdadeiro', 'real', 'true'].includes(normalized)) return 'verdadeiro';
@@ -2411,13 +2492,13 @@ function normalizeFactCheckVerdict(verdict = '') {
 function buildFactCheckAdvice(verdict = '') {
   switch (normalizeFactCheckVerdict(verdict)) {
     case 'verdadeiro':
-      return 'Mesmo quando a noticia parece real, confira data, autoria e se o link pertence ao dominio oficial do veiculo.';
+      return 'Mesmo quando a notícia parece real, confira data, autoria e se o link pertence ao domínio oficial do veículo.';
     case 'enganoso':
-      return 'Compare a manchete com o texto completo da materia e desconfie de imagens verdadeiras usadas fora de contexto.';
+      return 'Compare a manchete com o texto completo da matéria e desconfie de imagens verdadeiras usadas fora de contexto.';
     case 'falso':
-      return 'Desconfie de textos alarmistas sem fonte primaria, URL verificavel ou confirmacao em orgaos oficiais.';
+      return 'Desconfie de textos alarmistas sem fonte primária, URL verificável ou confirmação em órgãos oficiais.';
     default:
-      return 'Quando nao houver prova suficiente, o mais seguro e nao compartilhar ate encontrar confirmacao em fonte primaria ou agencia de checagem.';
+      return 'Quando não houver prova suficiente, o mais seguro é não compartilhar até encontrar confirmação em fonte primária ou agência de checagem.';
   }
 }
 
@@ -2430,7 +2511,7 @@ function formatFactCheckVerdictLabel(verdict = '') {
     case 'falso':
       return 'Falso';
     default:
-      return 'Nao verificado';
+      return 'Não verificado';
   }
 }
 
@@ -2441,18 +2522,18 @@ function buildFactCheckMethodSummary({ factCheck = null, sources = [], usedVisio
   const usedScopedChecks = connectors.has('fact-check');
   const methods = [];
 
-  if (hasImage && usedVision) methods.push('analisei a imagem enviada com visao computacional');
-  else if (hasImage) methods.push('analisei os elementos visuais e textuais da imagem enviada');
+  if (hasImage && usedVision) methods.push('analisei a imagem enviada com visão computacional');
+  else if (hasImage) methods.push('não consegui extrair texto confiável da imagem e tratei a checagem com base apenas nas fontes externas');
   if (usedLens) methods.push('rodei busca reversa no Google Lens');
-  if (usedNews) methods.push('comparei com cobertura jornalistica indexada no Google News');
-  if (usedScopedChecks) methods.push('priorizei agencias de checagem e fontes oficiais');
-  if (methods.length === 0 && factCheck?.primaryLink) methods.push('comparei a alegacao com fontes rastreaveis');
+  if (usedNews) methods.push('comparei com cobertura jornalística indexada no Google News');
+  if (usedScopedChecks) methods.push('priorizei agências de checagem e fontes oficiais');
+  if (methods.length === 0 && factCheck?.primaryLink) methods.push('comparei a alegação com fontes rastreáveis');
 
   return {
     usedLens,
     usedNews,
     usedScopedChecks,
-    text: methods.length > 0 ? methods.join('; ') : 'comparei a alegacao com as evidencias encontradas',
+    text: methods.length > 0 ? methods.join('; ') : 'comparei a alegação com as evidências encontradas',
   };
 }
 
@@ -2492,14 +2573,14 @@ function buildFactCheckFinalResponse({ factCheck = null, sources = [], visionCon
   const primaryLink = String(factCheck.primaryLink || '').trim();
   const lines = [
     `Veredito: ${verdictLabel}.`,
-    claim ? `Alegacao analisada: ${claim}` : '',
+    claim ? `Alegação analisada: ${claim}` : '',
     `Como cheguei nisso: ${methodSummary.text}.`,
   ];
 
   if (summary) lines.push(summary);
-  if (strongestLine) lines.push(`Principal evidencia: ${strongestLine}.`);
+  if (strongestLine) lines.push(`Principal evidência: ${strongestLine}.`);
   if (primaryLink) lines.push(`Fonte principal: ${primaryLink}`);
-  lines.push(`Como nao cair nessa: ${factCheck.advice || buildFactCheckAdvice(factCheck.verdict)}`);
+  lines.push(`Como não cair nessa: ${factCheck.advice || buildFactCheckAdvice(factCheck.verdict)}`);
 
   return lines.filter(Boolean).join('\n\n');
 }
@@ -2510,7 +2591,9 @@ async function buildFactCheckAssessment({
   visionContext = '',
   sources = [],
   logs = [],
+  hasImage = false,
 } = {}) {
+  const effectiveClaim = deriveFactCheckClaim(userQuestion, visionContext, hasImage);
   const sourceDigest = (sources || [])
     .slice(0, 20)
     .map(source => `${source.id}: ${source.label} - ${String(source.detail || '').slice(0, 220)}${source.url ? ` | ${source.url}` : ''}`)
@@ -2544,6 +2627,7 @@ Regras:
 - prefira fonte primaria ou agencia de checagem como primary_link
 
 Pergunta do usuario: ${JSON.stringify(String(userQuestion || ''))}
+Alegacao normalizada para checagem: ${JSON.stringify(effectiveClaim)}
 Plano de acao: ${JSON.stringify(actionPlan || {})}
 Contexto visual: ${JSON.stringify(String(visionContext || '').slice(0, 2200))}
 
@@ -2562,7 +2646,7 @@ ${sourceDigest || 'Sem fontes registradas'}
 
   const verdict = normalizeFactCheckVerdict(parsed.verdict);
   return {
-    claim: String(parsed.claim || actionPlan?.alegacao_principal || userQuestion).trim(),
+    claim: String(parsed.claim || actionPlan?.alegacao_principal || effectiveClaim || userQuestion).trim(),
     claim_type: String(parsed.claim_type || 'outro').trim(),
     verdict,
     confidence: ['LOW', 'MEDIUM', 'HIGH'].includes(parsed.confidence) ? parsed.confidence : 'MEDIUM',
@@ -3039,6 +3123,9 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const baseRecoveryConnectors = filterSupportedConnectors(options.baseConnectors || []);
   const focusFacts = Array.isArray(options.focusFacts) ? options.focusFacts.map(item => String(item || '').trim()).filter(Boolean) : [];
   const isFactCheck = actionPlan?.intent === 'fact_check' || detectFactCheckIntent(userQuestion, options.visionContext || '');
+  const factCheckClaim = isFactCheck
+    ? deriveFactCheckClaim(userQuestion, options.visionContext || '', Boolean(options.factCheckImageUrl))
+    : '';
 
   const autoDetectedConnectors = [];
   const normalizedText = (userQuestion || '').toLowerCase();
@@ -3075,7 +3162,7 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   
   // Maga Expansão Keys
   if (/\b(comida|alimento|food|caloria|nutrição|ingrediente)\b/.test(normalizedText)) autoDetectedConnectors.push('openfoodfacts');
-  if (/\b(imagem|foto|picsum|paisagem)\b/.test(normalizedText)) autoDetectedConnectors.push('picsum');
+  if (!isFactCheck && /\b(imagem|foto|picsum|paisagem)\b/.test(normalizedText)) autoDetectedConnectors.push('picsum');
   if (/\b(universo|cosmos|openuniverse|galáxia|espaço profundo)\b/.test(normalizedText)) autoDetectedConnectors.push('openuniverse');
   if (/\b(esa|europa|agência espacial europeia)\b/.test(normalizedText)) autoDetectedConnectors.push('esa');
   if (/\b(estrela|constelação|céu|stellarium|mapa estelar)\b/.test(normalizedText)) autoDetectedConnectors.push('stellarium');
@@ -3238,7 +3325,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   }
 
   if (isFactCheck) {
-    const claimQuery = actionPlan?.alegacao_principal || queryParaBuscar;
+    const claimQuery = factCheckClaim || actionPlan?.alegacao_principal || queryParaBuscar;
     logs.push(`Modo fact-check ativado para a alegacao: "${claimQuery}"`);
 
     if (selectedConnectors.includes('serpapi-news')) {
@@ -4348,6 +4435,7 @@ Seja honesto. Não invente. Use as fontes.`;
       visionContext: options.visionContext || '',
       sources,
       logs,
+      hasImage: Boolean(options.factCheckImageUrl),
     });
     if (options.factCheckImageUrl) {
       factCheck.inputPreviewUrl = options.factCheckImageUrl;
@@ -6303,24 +6391,30 @@ async function handler(req, res) {
 
     logs.push('🚀 Iniciando Agente Científico...');
 
-  const files = Array.isArray(body?.files) ? body.files : [];
-  const factCheckImageUrl = extractFactCheckImageUrl(files);
-  let visionContext = '';
+    const files = Array.isArray(body?.files) ? body.files : [];
+    const factCheckImageUrl = extractFactCheckImageUrl(files);
+    let visionContext = '';
     if (files.length > 0) {
       logs.push('👁️ Analisando arquivos anexados com visão computacional...');
-      const imgDesc = await analyzeUserFilesWithSambaNova(files, userQuestion, logs);
-      if (imgDesc) {
-        visionContext = `[IMAGEM ENVIADA PELO ALUNO]: ${imgDesc}\n`;
-        logs.push('✅ Análise visual concluída');
+      const groqImgDesc = await analyzeUserFilesWithGroqVision(files, userQuestion, logs);
+      if (groqImgDesc) {
+        visionContext = `[IMAGEM ENVIADA PELO ALUNO]: ${groqImgDesc}\n`;
+        logs.push('✅ Análise visual concluída com Groq Vision');
       } else {
-        // Fallback para Gemini se SambaNova falhar
-        logs.push('⚠️ SambaNova Vision falhou, tentando Gemini fallback...');
-        const geminiImgDesc = await analyzeUserFilesWithGemini(files, userQuestion, logs);
-        if (geminiImgDesc) {
-          visionContext = `[IMAGEM ENVIADA PELO ALUNO]: ${geminiImgDesc}\n`;
-          logs.push('✅ Análise visual concluída com Gemini fallback');
+        logs.push('⚠️ Groq Vision falhou, tentando SambaNova Vision...');
+        const imgDesc = await analyzeUserFilesWithSambaNova(files, userQuestion, logs);
+        if (imgDesc) {
+          visionContext = `[IMAGEM ENVIADA PELO ALUNO]: ${imgDesc}\n`;
+          logs.push('✅ Análise visual concluída com SambaNova Vision');
         } else {
-          logs.push('⚠️ Não foi possível analisar as imagens');
+          logs.push('⚠️ SambaNova Vision falhou, tentando Gemini fallback...');
+          const geminiImgDesc = await analyzeUserFilesWithGemini(files, userQuestion, logs);
+          if (geminiImgDesc) {
+            visionContext = `[IMAGEM ENVIADA PELO ALUNO]: ${geminiImgDesc}\n`;
+            logs.push('✅ Análise visual concluída com Gemini fallback');
+          } else {
+            logs.push('⚠️ Não foi possível analisar as imagens');
+          }
         }
       }
     }
