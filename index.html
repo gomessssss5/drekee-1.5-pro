@@ -3708,13 +3708,33 @@
     }
   }
 
+  function formatFactCheckConfidence(confidence) {
+    switch (String(confidence || '').toUpperCase()) {
+      case 'HIGH': return 'Confiança alta';
+      case 'LOW': return 'Confiança baixa';
+      default: return 'Confiança média';
+    }
+  }
+
+  function formatFactCheckAnalysisMode(mode) {
+    switch (String(mode || '').toLowerCase()) {
+      case 'vision_plus_lens': return 'Visão + Google Lens + fontes externas';
+      case 'vision_only': return 'Visão + fontes externas';
+      case 'lens_only': return 'Google Lens + fontes externas';
+      default: return 'Texto + fontes externas';
+    }
+  }
+
   function renderFactCheckCard(factCheck) {
     if (!factCheck) return '';
 
     const verdict = String(factCheck.verdict || 'nao_verificado').toLowerCase();
-    const confidence = escapeHtml(String(factCheck.confidence || 'MEDIUM'));
+    const confidence = escapeHtml(formatFactCheckConfidence(factCheck.confidence || 'MEDIUM'));
     const claim = escapeHtml(String(factCheck.claim || 'Alegação não identificada.'));
     const summary = escapeHtml(String(factCheck.summary || 'Não foi possível consolidar um resumo desta checagem.'));
+    const scientificExplanation = escapeHtml(String(factCheck.scientificExplanation || ''));
+    const studentSummary = escapeHtml(String(factCheck.studentSummary || ''));
+    const analysisMode = escapeHtml(formatFactCheckAnalysisMode(factCheck.analysisMode || 'text_only'));
     const primaryLink = factCheck.primaryLink
       ? `<a class="fact-check-link" href="${escapeHtml(factCheck.primaryLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(factCheck.primaryLink)}</a>`
       : '<span style="color:#94a3b8;">Nenhum link principal confirmado.</span>';
@@ -3724,6 +3744,12 @@
         return `<div class="fact-check-item" style="color:#94a3b8;">${escapeHtml(emptyText)}</div>`;
       }
       return items.map(item => `<div class="fact-check-item"><strong>${escapeHtml(item.source_id || 'Fonte')}</strong>${item.note ? `: ${escapeHtml(item.note)}` : ''}</div>`).join('');
+    };
+    const renderBulletList = (items, emptyText) => {
+      if (!Array.isArray(items) || items.length === 0) {
+        return `<div class="fact-check-item" style="color:#94a3b8;">${escapeHtml(emptyText)}</div>`;
+      }
+      return items.map(item => `<div class="fact-check-item">* ${escapeHtml(String(item || ''))}</div>`).join('');
     };
     const preview = factCheck.inputPreviewUrl
       ? `<img class="fact-check-preview" src="${escapeHtml(factCheck.inputPreviewUrl)}" alt="Imagem analisada" />`
@@ -3743,6 +3769,10 @@
           <div class="fact-check-summary">${summary}</div>
           <div class="fact-check-meta">
             <div class="fact-check-block">
+              <div class="fact-check-block-title">Por que isso está certo ou errado cientificamente</div>
+              <div class="fact-check-item">${scientificExplanation || '<span style="color:#94a3b8;">Explicação científica não consolidada.</span>'}</div>
+            </div>
+            <div class="fact-check-block">
               <div class="fact-check-block-title">Fonte principal</div>
               <div class="fact-check-item">${primaryLink}</div>
             </div>
@@ -3757,6 +3787,18 @@
             <div class="fact-check-block">
               <div class="fact-check-block-title">Como não cair nessa</div>
               <div class="fact-check-item">${advice}</div>
+            </div>
+            <div class="fact-check-block">
+              <div class="fact-check-block-title">Como um estudante pode checar sozinho</div>
+              <div class="fact-check-list">${renderBulletList(factCheck.studentCheckSteps, 'Nenhum passo adicional sugerido.')}</div>
+            </div>
+            <div class="fact-check-block">
+              <div class="fact-check-block-title">Resumo em linguagem simples</div>
+              <div class="fact-check-item">${studentSummary || summary}</div>
+            </div>
+            <div class="fact-check-block">
+              <div class="fact-check-block-title">Modo de análise</div>
+              <div class="fact-check-item">${analysisMode}</div>
             </div>
           </div>
         </div>

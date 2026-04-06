@@ -2475,6 +2475,10 @@ function isGenericFactCheckQuestion(userQuestion = '') {
     || /isso é fake\??|isso é real\??|verifique isso\??|verifica isso\??|é fake ou verdade\??|é fake ou real\??/i.test(question);
 }
 
+function hasImageVisionExtraction(visionContext = '') {
+  return /\[IMAGEM ENVIADA PELO ALUNO\]:\s*\S/i.test(String(visionContext || ''));
+}
+
 function deriveFactCheckClaim(userQuestion = '', visionContext = '', hasImage = false) {
   const question = String(userQuestion || '').trim();
   const rawVision = String(visionContext || '').trim();
@@ -2511,6 +2515,97 @@ function buildFactCheckAdvice(verdict = '') {
       return 'Desconfie de textos alarmistas sem fonte primária, URL verificável ou confirmação em órgãos oficiais.';
     default:
       return 'Quando não houver prova suficiente, o mais seguro é não compartilhar até encontrar confirmação em fonte primária ou agência de checagem.';
+  }
+}
+
+function getFactCheckTopic(text = '') {
+  const normalized = String(text || '').toLowerCase();
+  if (/\b(c[aâ]ncer|tumor|oncologia|quimioterapia|radioterapia|met[aá]stase|cura)\b/.test(normalized)) return 'oncologia';
+  if (/\b(vacina|virus|v[ií]rus|covid|doen[cç]a|tratamento|rem[eé]dio|medicamento|sus|anvisa|sa[uú]de)\b/.test(normalized)) return 'saude';
+  if (/\b(nasa|astronomia|espaco|espaço|marte|lua|sol|gal[aá]xia|sat[eé]lite)\b/.test(normalized)) return 'espaco';
+  if (/\b(governo|lei|benef[ií]cio|minist[eé]rio|elei[cç][aã]o|pol[ií]tica|ibge|c[aâ]mara)\b/.test(normalized)) return 'institucional';
+  return 'geral';
+}
+
+function getFactCheckPriorityRules(topic = 'geral') {
+  const base = {
+    domains: ['gov.br', 'who.int', 'opas.org.br', 'aosfatos.org', 'lupa.uol.com.br', 'g1.globo.com', 'boatos.org'],
+    preferred: ['gov.br', 'who.int', 'opas.org.br', 'aosfatos.org', 'lupa.uol.com.br', 'g1.globo.com'],
+  };
+
+  if (topic === 'oncologia') {
+    return {
+      domains: ['inca.gov.br', 'gov.br', 'who.int', 'opas.org.br', 'cancer.gov', 'aosfatos.org', 'lupa.uol.com.br', 'g1.globo.com'],
+      preferred: ['inca.gov.br', 'gov.br', 'cancer.gov', 'who.int', 'opas.org.br', 'aosfatos.org', 'lupa.uol.com.br'],
+    };
+  }
+  if (topic === 'saude') {
+    return {
+      domains: ['gov.br', 'saude.gov.br', 'who.int', 'opas.org.br', 'nih.gov', 'pubmed.ncbi.nlm.nih.gov', 'aosfatos.org', 'lupa.uol.com.br'],
+      preferred: ['saude.gov.br', 'gov.br', 'who.int', 'opas.org.br', 'nih.gov', 'pubmed.ncbi.nlm.nih.gov', 'aosfatos.org'],
+    };
+  }
+  if (topic === 'espaco') {
+    return {
+      domains: ['nasa.gov', 'esa.int', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'aosfatos.org', 'g1.globo.com'],
+      preferred: ['nasa.gov', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'esa.int', 'aosfatos.org'],
+    };
+  }
+  if (topic === 'institucional') {
+    return {
+      domains: ['gov.br', 'camara.leg.br', 'senado.leg.br', 'tse.jus.br', 'ibge.gov.br', 'aosfatos.org', 'lupa.uol.com.br', 'g1.globo.com'],
+      preferred: ['gov.br', 'camara.leg.br', 'senado.leg.br', 'tse.jus.br', 'ibge.gov.br', 'aosfatos.org'],
+    };
+  }
+
+  return base;
+}
+
+function scoreFactCheckSource(source = {}, topic = 'geral') {
+  const url = String(source?.url || '').toLowerCase();
+  const label = String(source?.label || '').toLowerCase();
+  const detail = String(source?.detail || '').toLowerCase();
+  const type = String(source?.type || source?.connector || '').toLowerCase();
+  const rules = getFactCheckPriorityRules(topic);
+  let score = 0;
+
+  const matchedPreferredIndex = rules.preferred.findIndex(domain => url.includes(domain));
+  if (matchedPreferredIndex >= 0) score += 140 - matchedPreferredIndex * 8;
+  else {
+    const matchedDomainIndex = rules.domains.findIndex(domain => url.includes(domain));
+    if (matchedDomainIndex >= 0) score += 110 - matchedDomainIndex * 6;
+  }
+
+  if (/\.gov(\.|\/|$)|\.gov\.br|\.edu(\.|\/|$)|\.edu\.br/.test(url)) score += 48;
+  if (/who\.int|opas\.org\.br|nih\.gov|pubmed\.ncbi\.nlm\.nih\.gov|cancer\.gov|nasa\.gov|jpl\.nasa\.gov|inca\.gov\.br/.test(url)) score += 54;
+  if (/aosfatos\.org|lupa\.uol\.com\.br|g1\.globo\.com/.test(url)) score += 34;
+  if (/youtube\.com|youtu\.be|tiktok\.com|instagram\.com|facebook\.com/.test(url)) score -= 60;
+  if (/blog|wordpress|medium\.com/.test(url)) score -= 25;
+
+  if (type === 'fact-check') score += 22;
+  if (type === 'web') score -= 8;
+  if (type === 'serpapi-news') score -= 6;
+  if (type === 'serpapi-lens') score -= 10;
+  if (type === 'pubmed' || type === 'datasus' || type === 'nasa' || type === 'ibge') score += 20;
+
+  if (/\b(estudo|protocolo|ensaio|diretriz|evid[eê]ncia|instituto|minist[eé]rio|organiza[cç][aã]o mundial)\b/.test(`${label} ${detail}`)) score += 10;
+  if (/\b(v[ií]deo|canal|shorts|reels)\b/.test(`${label} ${detail}`)) score -= 18;
+
+  return score;
+}
+
+function rankFactCheckSources(sources = [], topic = 'geral') {
+  return [...(sources || [])].sort((a, b) => scoreFactCheckSource(b, topic) - scoreFactCheckSource(a, topic));
+}
+
+function formatFactCheckConfidenceLabel(confidence = '') {
+  switch (String(confidence || '').toUpperCase()) {
+    case 'HIGH':
+      return 'Alto';
+    case 'LOW':
+      return 'Baixo';
+    default:
+      return 'Médio';
   }
 }
 
@@ -2554,7 +2649,7 @@ function buildFactCheckFinalResponse({ factCheck = null, sources = [], visionCon
 
   const verdictLabel = formatFactCheckVerdictLabel(factCheck.verdict);
   const sourceById = new Map((sources || []).map(source => [String(source?.id || '').trim(), source]));
-  const usedVision = Boolean(hasImage && String(visionContext || '').trim());
+  const usedVision = Boolean(hasImage && hasImageVisionExtraction(visionContext));
   const methodSummary = buildFactCheckMethodSummary({ factCheck, sources, usedVision, hasImage });
   const evidenceAgainst = Array.isArray(factCheck.evidence?.against) ? factCheck.evidence.against : [];
   const evidenceFor = Array.isArray(factCheck.evidence?.for) ? factCheck.evidence.for : [];
@@ -2583,20 +2678,33 @@ function buildFactCheckFinalResponse({ factCheck = null, sources = [], visionCon
   const summary = String(factCheck.summary || '').trim();
   const claim = String(factCheck.claim || '').trim();
   const primaryLink = String(factCheck.primaryLink || '').trim();
+  const scientificExplanation = String(factCheck.scientificExplanation || '').trim();
+  const studentSummary = String(factCheck.studentSummary || '').trim();
+  const fakeSignals = Array.isArray(factCheck.fakeSignals) ? factCheck.fakeSignals : [];
+  const studentCheckSteps = Array.isArray(factCheck.studentCheckSteps) ? factCheck.studentCheckSteps : [];
+  const recommendedSources = Array.isArray(factCheck.recommendedSources) ? factCheck.recommendedSources : [];
+  const sourceLines = recommendedSources
+    .map(sourceId => sourceById.get(String(sourceId || '').trim()))
+    .filter(Boolean)
+    .slice(0, 5)
+    .map(source => `* ${source.label}${source.url ? ` - ${source.url}` : ''}`);
+
   const lines = [
-    `Veredito: ${verdictLabel}.`,
-    claim ? `Alegação analisada: ${claim}` : '',
-    `Como cheguei nisso: ${methodSummary.text}.`,
+    `Veredito: ${verdictLabel}`,
+    `Nível de confiança: ${formatFactCheckConfidenceLabel(factCheck.confidence)}`,
+    claim ? `Alegação principal identificada:\n${claim}` : '',
+    scientificExplanation ? `Por que isso está certo ou errado cientificamente:\n${scientificExplanation}` : '',
+    fakeSignals.length > 0 ? `Sinais de fake news encontrados na imagem/texto:\n${fakeSignals.map(item => `* ${item}`).join('\n')}` : '',
+    strongestLine ? `Evidência principal:\n* ${strongestLine}` : '',
+    sourceLines.length > 0 ? `Fontes confiáveis usadas:\n${sourceLines.join('\n')}` : (primaryLink ? `Fontes confiáveis usadas:\n* ${primaryLink}` : ''),
+    studentCheckSteps.length > 0 ? `Como um estudante pode checar sozinho:\n${studentCheckSteps.map(item => `* ${item}`).join('\n')}` : `Como um estudante pode checar sozinho:\n* ${factCheck.advice || buildFactCheckAdvice(factCheck.verdict)}`,
+    studentSummary || summary ? `Resumo em linguagem simples:\n${studentSummary || summary}` : '',
+    `Modo de análise:\n* ${methodSummary.text}`,
   ];
 
   if (hasImage && !usedVision) {
-    lines.push('Aviso: não consegui ler o conteúdo textual da imagem com confiança total; por isso, a checagem ficou mais limitada do que deveria.');
+    lines.splice(3, 0, 'Aviso técnico:\nNão consegui ler o conteúdo textual da imagem com confiança total; por isso, a checagem ficou mais limitada do que deveria.');
   }
-
-  if (summary) lines.push(summary);
-  if (strongestLine) lines.push(`Principal evidência: ${strongestLine}.`);
-  if (primaryLink) lines.push(`Fonte principal: ${primaryLink}`);
-  lines.push(`Como não cair nessa: ${factCheck.advice || buildFactCheckAdvice(factCheck.verdict)}`);
 
   return lines.filter(Boolean).join('\n\n');
 }
@@ -2610,7 +2718,9 @@ async function buildFactCheckAssessment({
   hasImage = false,
 } = {}) {
   const effectiveClaim = deriveFactCheckClaim(userQuestion, visionContext, hasImage);
-  const sourceDigest = (sources || [])
+  const topic = getFactCheckTopic(`${effectiveClaim}\n${userQuestion}\n${visionContext}`);
+  const rankedSources = rankFactCheckSources(sources || [], topic);
+  const sourceDigest = rankedSources
     .slice(0, 20)
     .map(source => `${source.id}: ${source.label} - ${String(source.detail || '').slice(0, 220)}${source.url ? ` | ${source.url}` : ''}`)
     .join('\n');
@@ -2626,6 +2736,10 @@ Retorne APENAS JSON valido.
   "verdict": "verdadeiro|enganoso|nao_verificado|falso",
   "confidence": "LOW|MEDIUM|HIGH",
   "summary": "resumo curto em 2 a 4 frases",
+  "scientific_explanation": "explique o erro cientifico central ou a confirmacao cientifica principal",
+  "fake_signals": ["sinal 1", "sinal 2"],
+  "student_check_steps": ["passo 1", "passo 2", "passo 3"],
+  "student_summary": "resumo em linguagem simples para estudante",
   "primary_link": "https://...",
   "evidence_for": [{"source_id":"ID","note":"motivo curto"}],
   "evidence_against": [{"source_id":"ID","note":"motivo curto"}],
@@ -2638,12 +2752,18 @@ Regras:
 - use "falso" apenas quando houver contradicao clara ou checagem confiavel desmentindo
 - use "nao_verificado" quando faltarem provas suficientes
 - use "enganoso" quando algo real estiver fora de contexto ou distorcido
+- em saude e ciencia, priorize explicacao biologica, medica, fisica ou institucional do erro central; nao foque apenas em "tom sensacionalista"
+- fake_signals devem listar sinais reais observados na imagem/texto ou na ausencia de fonte, sem exagero
+- student_check_steps devem ser praticos e curtos
 - use somente source_id existentes
 - nao invente links
 - prefira fonte primaria ou agencia de checagem como primary_link
+- prefira como primary_link a melhor fonte oficial; se nao houver, use a melhor agencia de checagem
+- considere que as fontes abaixo ja estao ordenadas por prioridade de autoridade para este tema
 
 Pergunta do usuario: ${JSON.stringify(String(userQuestion || ''))}
 Alegacao normalizada para checagem: ${JSON.stringify(effectiveClaim)}
+Tema principal: ${JSON.stringify(topic)}
 Plano de acao: ${JSON.stringify(actionPlan || {})}
 Contexto visual: ${JSON.stringify(String(visionContext || '').slice(0, 2200))}
 
@@ -2661,21 +2781,31 @@ ${sourceDigest || 'Sem fontes registradas'}
     : [];
 
   const verdict = normalizeFactCheckVerdict(parsed.verdict);
+  const strongestPreferredSource = rankedSources[0] || null;
+  const recommendedSources = Array.isArray(parsed.recommended_sources)
+    ? parsed.recommended_sources.map(item => String(item || '').trim()).filter(Boolean)
+    : [];
   return {
     claim: String(parsed.claim || actionPlan?.alegacao_principal || effectiveClaim || userQuestion).trim(),
     claim_type: String(parsed.claim_type || 'outro').trim(),
     verdict,
     confidence: ['LOW', 'MEDIUM', 'HIGH'].includes(parsed.confidence) ? parsed.confidence : 'MEDIUM',
     summary: String(parsed.summary || '').trim(),
-    primaryLink: String(parsed.primary_link || '').trim() || null,
+    scientificExplanation: String(parsed.scientific_explanation || '').trim(),
+    fakeSignals: Array.isArray(parsed.fake_signals) ? parsed.fake_signals.map(item => String(item || '').trim()).filter(Boolean).slice(0, 4) : [],
+    studentCheckSteps: Array.isArray(parsed.student_check_steps) ? parsed.student_check_steps.map(item => String(item || '').trim()).filter(Boolean).slice(0, 4) : [],
+    studentSummary: String(parsed.student_summary || '').trim(),
+    primaryLink: String(parsed.primary_link || '').trim() || strongestPreferredSource?.url || null,
     evidence: {
       for: normalizeEvidenceList(parsed.evidence_for),
       against: normalizeEvidenceList(parsed.evidence_against),
       uncertain: normalizeEvidenceList(parsed.evidence_uncertain),
     },
-    recommendedSources: Array.isArray(parsed.recommended_sources)
-      ? parsed.recommended_sources.map(item => String(item || '').trim()).filter(Boolean)
-      : [],
+    recommendedSources: recommendedSources.length > 0
+      ? recommendedSources
+      : rankedSources.slice(0, 5).map(source => source.id),
+    rankedSourceIds: rankedSources.slice(0, 8).map(source => source.id),
+    topic,
     advice: buildFactCheckAdvice(verdict),
     reasoning: String(parsed.reasoning || '').trim(),
   };
@@ -3147,6 +3277,7 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     ? deriveFactCheckClaim(userQuestion, options.visionContext || '', Boolean(options.factCheckImageUrl))
     : '';
   const missingImageInterpretation = Boolean(isFactCheck && options.factCheckImageUrl && !String(factCheckClaim || '').trim());
+  const factCheckTopic = getFactCheckTopic(`${factCheckClaim}\n${userQuestion}\n${options.visionContext || ''}`);
 
   const autoDetectedConnectors = [];
   const normalizedText = (userQuestion || '').toLowerCase();
@@ -3388,7 +3519,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
     if (!missingImageInterpretation) {
       const factCheckScoped = await searchTavilyScoped(claimQuery, {
-        includeDomains: ['g1.globo.com', 'aosfatos.org', 'lupa.uol.com.br', 'boatos.org', 'gov.br', 'who.int', 'opas.org.br'],
+        includeDomains: getFactCheckPriorityRules(factCheckTopic).domains,
         maxResults: 8,
         includeAnswer: true,
       });
@@ -4469,11 +4600,14 @@ Seja honesto. Não invente. Use as fontes.`;
       factCheck.inputPreviewUrl = options.factCheckImageUrl;
     }
     const factCheckConnectors = new Set((sources || []).map(source => String(source?.connector || '').trim().toLowerCase()).filter(Boolean));
+    const usedVisionExtraction = hasImageVisionExtraction(options.visionContext || '');
     factCheck.analysisMode = options.factCheckImageUrl
-      ? (factCheckConnectors.has('serpapi-lens') ? 'vision_plus_lens' : 'vision_only')
+      ? (usedVisionExtraction
+          ? (factCheckConnectors.has('serpapi-lens') ? 'vision_plus_lens' : 'vision_only')
+          : (factCheckConnectors.has('serpapi-lens') ? 'lens_only' : 'text_only'))
       : 'text_only';
     factCheck.methodsUsed = {
-      vision: Boolean(options.factCheckImageUrl && String(options.visionContext || '').trim()),
+      vision: usedVisionExtraction,
       lens: factCheckConnectors.has('serpapi-lens'),
       news: factCheckConnectors.has('serpapi-news'),
       officialChecks: factCheckConnectors.has('fact-check'),
@@ -5844,7 +5978,8 @@ function convertLogsToThinking(logs) {
     .map(log => String(log || '').trim())
     .filter(Boolean)
     .map(log => log.replace(/^[^\p{L}\p{N}]+/u, '').trim())
-    .filter(log => !/^Conectores habilitados para esta pergunta:/i.test(log));
+    .filter(log => !/^Conectores habilitados para esta pergunta:/i.test(log))
+    .filter(log => !/^Confiabilidade final da resposta:/i.test(log));
 
   const uniqueThinking = [...new Set(normalized)].slice(0, 4);
   if (uniqueThinking.length === 0) {
@@ -5852,6 +5987,14 @@ function convertLogsToThinking(logs) {
   }
 
   return uniqueThinking.join(' -> ');
+}
+
+function reconcileFactCheckConfidence(alignmentConfidence = 'MEDIUM', factCheck = null) {
+  if (!factCheck) return alignmentConfidence;
+  const factConfidence = String(factCheck?.confidence || '').toUpperCase();
+  if (factConfidence === 'HIGH') return 'HIGH';
+  if (factConfidence === 'MEDIUM') return 'MEDIUM';
+  return alignmentConfidence === 'HIGH' ? 'HIGH' : 'MEDIUM';
 }
 
 // ============ EXTRACT CONFIDENCE ============
@@ -6607,6 +6750,7 @@ async function handler(req, res) {
       if (structuredFactCheckResponse) {
         response = structuredFactCheckResponse;
       }
+      finalExec.sources = rankFactCheckSources(finalExec.sources || [], finalExec.factCheck.topic || 'geral');
     }
     
     // Substituir tags [NASA_IMG: ID] por imagens reais com tamanho reduzido
@@ -6626,7 +6770,10 @@ async function handler(req, res) {
     const alignment = await alignGraphWithResponseReliability(response, finalExec.sources || [], userQuestion, logs);
     response = sanitizeFinalResponse(alignment.response);
     const displayResponse = response;
-    logs.push(`🧪 Confiabilidade final da resposta: ${alignment.confidence}`);
+    const finalConfidence = reconcileFactCheckConfidence(alignment.confidence, finalExec.factCheck);
+    if (!finalExec.factCheck) {
+      logs.push(`🧪 Confiabilidade final da resposta: ${alignment.confidence}`);
+    }
 
     // Convert logs to thinking paragraph
     const thinking = convertLogsToThinking(logs);
@@ -6634,7 +6781,7 @@ async function handler(req, res) {
     const payload = {
       response: displayResponse || 'Desculpe, não consegui gerar uma resposta confiável.',
       thinking,
-      confidence: alignment.confidence,
+      confidence: finalConfidence,
       logs,
       media: finalExec.media || [],
       sources: finalExec.sources || [],
