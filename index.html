@@ -1819,7 +1819,20 @@
     padding: 0 0.2rem;
   }
   .toolbar-left { display: flex; align-items: center; gap: 0.4rem; }
-  .toolbar-right { display: flex; align-items: center; gap: 0.5rem; }
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    min-width: 0;
+    flex: 1;
+  }
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-shrink: 0;
+  }
 
   .icon-btn {
     width: 2.1rem; height: 2.1rem;
@@ -2136,6 +2149,8 @@
     color: #c4b5fd;
     position: relative;
     overflow: hidden;
+    flex-shrink: 1;
+    min-width: 0;
   }
   .model-badge::before {
     content: '';
@@ -2271,6 +2286,9 @@
     .sidebar { display: none; }
     .input-wrapper { left: 0; }
     .header { left: 0 !important; }
+    .input-model-badge {
+      display: none;
+    }
   }
 </style>
 </head>
@@ -2477,16 +2495,18 @@
             </div>
 
             <div class="toolbar-right">
-              <div class="model-badge">
+              <div class="model-badge input-model-badge">
                 <div class="model-badge-dot"></div>
                 <span class="model-badge-text">Drekee AI 1.5 Pro</span>
               </div>
-              <div class="context-meter" id="contextMeter" title="Uso estimado do contexto do modelo rápido">
-                <span class="context-meter-label" id="contextMeterLabel">0%</span>
+              <div class="toolbar-actions">
+                <div class="context-meter" id="contextMeter" title="Uso estimado do contexto do modelo rápido">
+                  <span class="context-meter-label" id="contextMeterLabel">0%</span>
+                </div>
+                <button class="send-btn" id="sendButton" title="Enviar">
+                  <span class="material-icons-outlined">arrow_upward</span>
+                </button>
               </div>
-              <button class="send-btn" id="sendButton" title="Enviar">
-                <span class="material-icons-outlined">arrow_upward</span>
-              </button>
             </div>
           </div>
         </div>
