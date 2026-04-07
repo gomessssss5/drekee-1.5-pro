@@ -959,6 +959,123 @@ function filterSupportedConnectors(connectors = []) {
   return [...new Set((connectors || []).filter(key => key && SUPPORTED_CONNECTORS.has(key) && !CONNECTORS_IN_MAINTENANCE.has(key)))];
 }
 
+function detectSpecializedKnowledgeDomain(userQuestion = '', actionPlan = {}, visionContext = '') {
+  const text = `${userQuestion}\n${actionPlan?.objetivo || ''}\n${actionPlan?.area_cientifica || ''}\n${actionPlan?.tema_fact_check || ''}\n${visionContext || ''}`.toLowerCase();
+  if (/\b(cancer|câncer|tumor|oncologia|quimioterapia|metastase|metástase)\b/.test(text)) return 'oncologia';
+  if (/\b(saude|saúde|vacina|virus|vírus|doenca|doença|tratamento|medicamento|sus|anvisa|hospital|epidem|genetica|genética|clinico|clínico)\b/.test(text)) return 'saude';
+  if (/\b(astronomia|espaco|espaço|planeta|estrela|galaxia|galáxia|orbita|órbita|nasa|esa|jpl|exoplaneta|kepler|tess|lua|sol|marte|jupiter|saturno|eclipse|cosmologia|astrofisica|astrofísica)\b/.test(text)) return 'astronomia';
+  if (/\b(clima|meteorologia|temperatura|chuva|umidade|frente fria|onda de calor|aquecimento global|mudanca climatica|mudança climática|noaa|open-meteo|co2|emissao|emissão|enchente|seca)\b/.test(text)) return 'clima';
+  if (/\b(geografia|mapa|territorio|território|regiao|região|estado|cidade|pais|país|populacao|população|ibge|censo|bioma|relevo|latitude|longitude|hidrografia|cartografia)\b/.test(text)) return 'geografia';
+  if (/\b(governo|politica publica|política pública|lei|camara|câmara|senado|tcu|transparencia|transparência|gasto publico|gasto público|indicador social|dados publicos|dados públicos|ibge|gov\\.br)\b/.test(text)) return 'dados_publicos';
+  if (/\b(ciencia|ciência|cientifico|científico|pesquisa|experimento|hipotese|hipótese|teoria|física|fisica|química|quimica|biologia|geologia|ecologia)\b/.test(text)) return 'ciencia';
+  return 'geral';
+}
+
+function getSpecializedDomainPolicy(domain = 'geral') {
+  const base = {
+    required: [],
+    optional: [],
+    forbidden: [],
+    tavilyDomains: [],
+    strictValidation: false,
+    promptGuardrails: '',
+    queryBoostTerms: [],
+  };
+
+  switch (domain) {
+    case 'oncologia':
+      return {
+        ...base,
+        required: ['google-cse-authority', 'pubmed', 'datasus'],
+        optional: ['scielo', 'wikidata'],
+        forbidden: ['picsum'],
+        tavilyDomains: ['inca.gov.br', 'cancer.gov', 'who.int', 'opas.org.br', 'pubmed.ncbi.nlm.nih.gov', 'gov.br'],
+        strictValidation: true,
+        queryBoostTerms: ['oncologia', 'evidencia clinica', 'fonte oficial'],
+        promptGuardrails: 'Tema de oncologia/saude: explique o mecanismo biologico correto, cite evidencia clinica ou institucional e nunca trate alimento, suplemento ou habito isolado como cura sem fonte primaria.',
+      };
+    case 'saude':
+      return {
+        ...base,
+        required: ['google-cse-authority', 'pubmed', 'datasus'],
+        optional: ['scielo', 'wikidata', 'openfda'],
+        forbidden: ['picsum'],
+        tavilyDomains: ['gov.br', 'saude.gov.br', 'who.int', 'opas.org.br', 'nih.gov', 'pubmed.ncbi.nlm.nih.gov'],
+        strictValidation: true,
+        queryBoostTerms: ['evidencia clinica', 'guia oficial'],
+        promptGuardrails: 'Tema de saude: priorize consenso medico, orgaos oficiais e literatura cientifica; se a evidencia for insuficiente, diga isso explicitamente.',
+      };
+    case 'astronomia':
+      return {
+        ...base,
+        required: ['nasa', 'solarsystem'],
+        optional: ['horizons', 'exoplanets', 'kepler', 'stellarium', 'esa', 'wikidata'],
+        forbidden: ['ibge', 'camara', 'brasilapi', 'picsum'],
+        tavilyDomains: ['nasa.gov', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'esa.int', 'science.nasa.gov'],
+        strictValidation: true,
+        queryBoostTerms: ['site:nasa.gov', 'fonte primaria'],
+        promptGuardrails: 'Tema de astronomia: priorize dados e catalogos espaciais primarios; evite curiosidades vagas e responda com fatos observacionais ou catalograficos.',
+      };
+    case 'clima':
+      return {
+        ...base,
+        required: ['open-meteo', 'noaa-climate'],
+        optional: ['worldbank-climate', 'openaq', 'modis', 'ibge'],
+        forbidden: ['picsum'],
+        tavilyDomains: ['climate.gov', 'ncei.noaa.gov', 'open-meteo.com', 'worldbank.org', 'ipcc.ch', 'gov.br'],
+        strictValidation: true,
+        queryBoostTerms: ['serie historica', 'dados oficiais'],
+        promptGuardrails: 'Tema de clima: diferencie observacao atual, serie historica e inferencia; nao generalize clima local a partir de uma unica medicao.',
+      };
+    case 'geografia':
+      return {
+        ...base,
+        required: ['ibge', 'wikidata'],
+        optional: ['wikipedia', 'open-meteo', 'google-cse-authority'],
+        forbidden: ['nasa', 'spacex', 'picsum'],
+        tavilyDomains: ['ibge.gov.br', 'gov.br', 'ipea.gov.br', 'inep.gov.br'],
+        strictValidation: true,
+        queryBoostTerms: ['dados territoriais', 'estatistica oficial'],
+        promptGuardrails: 'Tema de geografia: priorize dados territoriais e estatisticos oficiais; diferencie conceito geografico de opiniao ou curiosidade enciclopedica.',
+      };
+    case 'dados_publicos':
+      return {
+        ...base,
+        required: ['ibge', 'transparencia', 'camara'],
+        optional: ['brasilapi', 'tcu', 'google-cse-authority'],
+        forbidden: ['nasa', 'picsum'],
+        tavilyDomains: ['gov.br', 'ibge.gov.br', 'camara.leg.br', 'senado.leg.br', 'dadosabertos.tcu.gov.br', 'portaldatransparencia.gov.br'],
+        strictValidation: true,
+        queryBoostTerms: ['base oficial', 'dados abertos'],
+        promptGuardrails: 'Tema de dados publicos: use base oficial e distinga dado institucional de interpretacao politica; cite numero, periodo e orgao responsavel.',
+      };
+    case 'ciencia':
+      return {
+        ...base,
+        required: ['wikidata'],
+        optional: ['arxiv', 'scielo', 'pubmed', 'wikipedia', 'google-cse-authority'],
+        forbidden: ['picsum'],
+        tavilyDomains: ['nature.com', 'science.org', 'scielo.org', 'pubmed.ncbi.nlm.nih.gov', 'gov.br', 'who.int'],
+        strictValidation: true,
+        queryBoostTerms: ['mecanismo', 'evidencia', 'fonte primaria'],
+        promptGuardrails: 'Tema cientifico: responda com mecanismo, definicao correta e limite da evidencia; evite floreio sem sustentacao.',
+      };
+    default:
+      return base;
+  }
+}
+
+function buildSpecializedSearchQuery(baseQuery = '', domain = 'geral', actionPlan = {}) {
+  const seeds = [
+    String(actionPlan?.alegacao_principal || '').trim(),
+    String(actionPlan?.termo_de_busca || '').trim(),
+    String(baseQuery || '').trim(),
+    ...(Array.isArray(actionPlan?.entidades_citadas) ? actionPlan.entidades_citadas.map(item => String(item || '').trim()) : [])
+  ].filter(Boolean);
+  const policy = getSpecializedDomainPolicy(domain);
+  return [...new Set([...seeds, ...policy.queryBoostTerms])].join(' ').trim() || String(baseQuery || '').trim();
+}
+
 async function buscarGeneric(key, query) {
   const config = GENERIC_API_MAP[key];
   if (!config) return null;
@@ -3035,6 +3152,8 @@ Retorne APENAS JSON valido:
   try {
     const parsed = JSON.parse(rawPlan);
     if (!parsed.intent) parsed.intent = likelyFactCheck ? 'fact_check' : 'answer';
+    parsed.dominio_especializado = parsed.dominio_especializado || detectSpecializedKnowledgeDomain(userQuestion, parsed, visionContext);
+    parsed.validacao_rigorosa = parsed.validacao_rigorosa === true || getSpecializedDomainPolicy(parsed.dominio_especializado).strictValidation;
     if (parsed.intent === 'fact_check') {
     parsed.alegacao_principal = parsed.alegacao_principal || normalizedFactCheckClaim || userQuestion;
       parsed.entidades_citadas = Array.isArray(parsed.entidades_citadas) ? parsed.entidades_citadas : [];
@@ -3049,6 +3168,8 @@ Retorne APENAS JSON valido:
       objetivo: likelyFactCheck ? 'Verificar a veracidade da alegacao enviada' : 'Responder a pergunta',
       area_cientifica: likelyFactCheck ? 'Verificacao de fatos' : 'Geral',
       intent: likelyFactCheck ? 'fact_check' : 'answer',
+      dominio_especializado: detectSpecializedKnowledgeDomain(userQuestion, {}, visionContext),
+      validacao_rigorosa: !likelyFactCheck && getSpecializedDomainPolicy(detectSpecializedKnowledgeDomain(userQuestion, {}, visionContext)).strictValidation,
       alegacao_principal: likelyFactCheck ? (normalizedFactCheckClaim || userQuestion) : null,
       entidades_citadas: [],
       tema_fact_check: null,
@@ -3376,6 +3497,8 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     : '';
   const missingImageInterpretation = Boolean(isFactCheck && options.factCheckImageUrl && !String(factCheckClaim || '').trim());
   const factCheckTopic = getFactCheckTopic(`${factCheckClaim}\n${userQuestion}\n${options.visionContext || ''}`);
+  const specializedDomain = detectSpecializedKnowledgeDomain(userQuestion, actionPlan, options.visionContext || '');
+  const domainPolicy = getSpecializedDomainPolicy(specializedDomain);
 
   const autoDetectedConnectors = [];
   const normalizedText = (userQuestion || '').toLowerCase();
@@ -3479,13 +3602,17 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(astronomia|astrônomo|telescópio|nebulosa|galáxia|via láctea|big bang|cosmologia|supernova|quasar|pulsar|anã branca|gigante vermelha|matéria escura|energia escura|radiação cósmica|espectro|magnitude|parsec|ano-luz|órbita|periélio|afélio|eclipse|equinócio|solstício|precessão|astrofísica|radioastronomia|astrobiologia)\b/.test(normalizedText)) {
     autoDetectedConnectors.push('nasa', 'solarsystem', 'stellarium', 'exoplanets', 'kepler', 'wikipedia');
   }
+  autoDetectedConnectors.push(...domainPolicy.required, ...domainPolicy.optional);
 
   let requestedConnectors;
   if (connectorAuto) {
     if (recoveryMode) {
       const heuristicSet = new Set([...autoDetectedConnectors, ...baseRecoveryConnectors]);
+      domainPolicy.forbidden.forEach(key => heuristicSet.delete(key));
       overrideForbiddenConnectors.forEach(key => heuristicSet.delete(key));
+      domainPolicy.required.forEach(key => heuristicSet.add(key));
       overrideRequiredConnectors.forEach(key => heuristicSet.add(key));
+      domainPolicy.optional.forEach(key => heuristicSet.add(key));
       overrideOptionalConnectors.forEach(key => heuristicSet.add(key));
       requestedConnectors = [...heuristicSet];
       logs.push(`🤖 Recuperação autônoma: conectores reajustados (${requestedConnectors.join(', ') || 'nenhum'})`);
@@ -3496,8 +3623,11 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
       const routingAnalysis = await analyzeConnectorRouting(userQuestion, autoDetectedConnectors, actionPlan, options.history || [], logs);
       if (routingAnalysis) {
         const heuristicSet = new Set(autoDetectedConnectors);
+        domainPolicy.forbidden.forEach(key => heuristicSet.delete(key));
         routingAnalysis.connectors_forbidden.forEach(key => heuristicSet.delete(key));
+        domainPolicy.required.forEach(key => heuristicSet.add(key));
         routingAnalysis.connectors_required.forEach(key => heuristicSet.add(key));
+        domainPolicy.optional.forEach(key => heuristicSet.add(key));
         routingAnalysis.connectors_optional.forEach(key => heuristicSet.add(key));
         requestedConnectors = [...heuristicSet];
         if (routingAnalysis.area || routingAnalysis.intent) {
@@ -3510,14 +3640,20 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
           logs.push(`📈 Sinal visual do roteador: ${routingAnalysis.visual_type}`);
         }
       } else {
-        requestedConnectors = [...new Set(autoDetectedConnectors)];
+        const heuristicSet = new Set(autoDetectedConnectors);
+        domainPolicy.forbidden.forEach(key => heuristicSet.delete(key));
+        domainPolicy.required.forEach(key => heuristicSet.add(key));
+        domainPolicy.optional.forEach(key => heuristicSet.add(key));
+        requestedConnectors = [...heuristicSet];
       }
     }
   } else {
     requestedConnectors = [...new Set(userConnectors.map(c => c.toLowerCase()))];
   }
-  const removedMaintenanceConnectors = requestedConnectors.filter(key => CONNECTORS_IN_MAINTENANCE.has(key));
-  const selectedConnectors = filterSupportedConnectors(requestedConnectors);
+  domainPolicy.forbidden.forEach(key => overrideForbiddenConnectors.add(key));
+  const sanitizedRequestedConnectors = requestedConnectors.filter(key => !overrideForbiddenConnectors.has(key));
+  const removedMaintenanceConnectors = sanitizedRequestedConnectors.filter(key => CONNECTORS_IN_MAINTENANCE.has(key));
+  const selectedConnectors = filterSupportedConnectors(sanitizedRequestedConnectors);
 
   const useNasa = options.useNasa === true || selectedConnectors.includes('nasa');
 
@@ -3555,6 +3691,9 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     return source;
   }
 logs.push('🧠 Iniciando raciocínio (processo interno)');
+  if (specializedDomain !== 'geral') {
+    logs.push(`🧬 Trilha especializada ativada: ${specializedDomain}`);
+  }
   if (removedMaintenanceConnectors.length > 0) {
     logs.push(`🛠️ Conectores em manutencao e temporariamente ignorados: ${removedMaintenanceConnectors.join(', ')}`);
   }
@@ -3564,9 +3703,10 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   const media = [];
   const phetSuggestion = detectPhetSimulation(userQuestion, '', selectedConnectors);
   
-  const queryParaBuscar = overrideQuery
+  const queryParaBuscarBase = overrideQuery
     || (isFactCheck && factCheckClaim ? factCheckClaim : '')
     || (actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion);
+  const queryParaBuscar = buildSpecializedSearchQuery(queryParaBuscarBase, specializedDomain, actionPlan);
 
   if (phetSuggestion) {
     const phetTitle = formatPhetTitle(phetSuggestion.slug);
@@ -3667,18 +3807,26 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   if (podeBuscarWeb) {
     logs.push(`🌐 Buscando na web: "${queryParaBuscar}"`);
-    const searchResult = await searchTavily(queryParaBuscar);
+    const searchResult = domainPolicy.tavilyDomains.length > 0
+      ? await searchTavilyScoped(queryParaBuscar, {
+          includeDomains: domainPolicy.tavilyDomains,
+          maxResults: 8,
+          includeAnswer: true,
+        })
+      : await searchTavily(queryParaBuscar);
     if (searchResult) {
-      context += `\n\n📰 Resultados de busca web (use apenas como complemento, NUNCA para dados em tempo real como terremotos ou clima):\n`;
+      context += domainPolicy.tavilyDomains.length > 0
+        ? `\n\n📰 Resultados de busca especializada por domínio (apoio adicional às fontes primárias):\n`
+        : `\n\n📰 Resultados de busca web (use apenas como complemento, NUNCA para dados em tempo real como terremotos ou clima):\n`;
       context += `Resposta resumida: ${searchResult.answer}\n\n`;
       searchResult.results.forEach((r, i) => {
         context += `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.url}\n`;
       });
-      addSource('WEB-SUMMARY', 'Resumo da busca web (Tavily)', 'web', searchResult.answer, null);
+      addSource('WEB-SUMMARY', domainPolicy.tavilyDomains.length > 0 ? 'Resumo da busca especializada (Tavily)' : 'Resumo da busca web (Tavily)', 'web', searchResult.answer, null);
       searchResult.results.forEach((r, i) => {
         addSource(`WEB-${i + 1}`, r.title || `Web resultado ${i + 1}`, 'web', r.snippet, r.url);
       });
-      logs.push('✅ Dados da web coletados');
+      logs.push(domainPolicy.tavilyDomains.length > 0 ? '✅ Dados especializados coletados na web' : '✅ Dados da web coletados');
     } else {
       logs.push('⚠️ Tavily API não disponível');
     }
@@ -4649,6 +4797,8 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   const graphIntent = detectTimeSeriesIntent(userQuestion, '') || detectCategoryComparisonIntent(userQuestion, '');
   const conceptualIntent = detectConceptualVisualIntent(userQuestion);
+  const executionDomain = specializedDomain;
+  const executionDomainPolicy = getSpecializedDomainPolicy(executionDomain);
   const visualGuidance = graphIntent
     ? '\nSINAL VISUAL: esta pergunta pede comparacao, ranking ou tendencia. Se houver dados confiaveis no contexto, gere um grafico LaTeX apropriado.\n'
     : (conceptualIntent
@@ -4668,6 +4818,11 @@ FONTES DISPONÍVEIS PARA CITAÇÃO:
 ${sources.slice(0, 14).map(s => `${s.id}: ${s.label} - ${String(s.detail || '').slice(0, 220)}`).join('\n')}
 
 PERGUNTA ATUAL DO USUÁRIO: "${userQuestion}"
+
+TRILHA ESPECIALIZADA DE DOMINIO:
+- dominio detectado: ${executionDomain}
+- validacao rigorosa: ${actionPlan?.validacao_rigorosa === true || executionDomainPolicy.strictValidation ? 'sim' : 'nao'}
+- regra central: ${executionDomainPolicy.promptGuardrails || 'Responda com precisao e use as melhores fontes disponiveis.'}
 
 INSTRUÇÕES FINAIS:
 1. Abra com um parágrafo objetivo de no máximo 3 frases, respondendo diretamente ao pedido do usuário.
@@ -4689,6 +4844,9 @@ INSTRUÇÕES FINAIS:
 17. Se o usuário pedir um período completo e você só tiver parte dele, não use linha sugerindo continuidade. Prefira barras apenas para os anos realmente disponíveis e avise no texto quais anos ficaram sem dado.
 18. NÃO gere gráfico para listas factuais simples, respostas curtas, enumeração de descobertas, definição direta ou perguntas que não peçam comparação/tendência/organização visual.
 19. NÃO gere mapa mental a menos que o pedido seja conceitual, explicativo ou explicitamente peça organização visual.
+20. Em ciencia, saude, astronomia, clima, geografia e dados publicos, prefira mecanismo, dado oficial, catalogo, serie ou artigo; evite resposta bonita mas genérica.
+21. Se houver fonte primaria melhor no contexto, não baseie a resposta em Wikipedia ou web aberta.
+22. Se a evidência estiver incompleta, diga exatamente o que falta confirmar em vez de preencher lacunas com texto genérico.
 
 Seja honesto. Não invente. Use as fontes.`;
 
@@ -5202,6 +5360,8 @@ async function analyzeConnectorRouting(userQuestion, heuristicConnectors = [], a
         content: String(item?.content || item?.payload?.response || '').slice(0, 280),
       })).filter(item => item.content)
     : [];
+  const specializedDomain = detectSpecializedKnowledgeDomain(userQuestion, actionPlan);
+  const policy = getSpecializedDomainPolicy(specializedDomain);
 
   const prompt = `Voce e um roteador tecnico de conectores do Drekee AI.
 
@@ -5232,10 +5392,17 @@ Regras:
 - para comparacoes estatisticas/geograficas, priorize bases oficiais
 - para astronomia, priorize conectores espaciais
 - para ciencia, priorize conectores cientificos primarios
+- respeite o dominio especializado detectado e evite conectores genericos quando houver fonte primaria melhor
 - visual_type deve ser "graph", "mindmap" ou "none"
 - needs_visual true apenas quando isso realmente ajudar
 
 Pergunta do usuario: ${JSON.stringify(String(userQuestion || ''))}
+Dominio especializado detectado: ${JSON.stringify(specializedDomain)}
+Politica local do dominio: ${JSON.stringify({
+  required: policy.required,
+  optional: policy.optional,
+  forbidden: policy.forbidden
+})}
 Plano de busca atual: ${JSON.stringify({
   objetivo: actionPlan?.objetivo || '',
   area: actionPlan?.area || '',
