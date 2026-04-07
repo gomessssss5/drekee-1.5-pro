@@ -2100,12 +2100,22 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
 
     const json = await res.json();
     if (!res.ok) {
-        const error = new Error(`GROQ error ${res.status}: ${JSON.stringify(json)}`);
-        error.status = res.status;
-        error.payload = json;
-        throw error;
+      const error = new Error(`GROQ error ${res.status}: ${JSON.stringify(json)}`);
+      error.status = res.status;
+      error.payload = json;
+      throw error;
     }
     return json.choices?.[0]?.message?.content || null;
+  };
+
+  const trySambaNovaFallback = async (reason = '') => {
+    console.warn(`Falling back to SambaNova${reason ? `: ${reason}` : ''}`);
+    const sambaFallback = await callSambaNova(messages, options);
+    if (sambaFallback) {
+      console.log('Recovered using SambaNova fallback');
+      return sambaFallback;
+    }
+    return null;
   };
 
   try {
@@ -2114,22 +2124,29 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
     const messageText = String(err?.message || '');
     const tooLarge = /GROQ error 413|Request too large|tokens per minute|rate_limit_exceeded/i.test(messageText);
     const rateLimited = /GROQ error 429|Rate limit reached|Please try again in/i.test(messageText);
-    
+    const dailyTokenLimitReached = /tokens per day|TPD|Used \d+, Requested \d+/i.test(messageText);
+
+    if (dailyTokenLimitReached) {
+      const sambaRecovered = await trySambaNovaFallback('Groq TPD esgotado');
+      if (sambaRecovered) return sambaRecovered;
+      throw err;
+    }
+
     if (rateLimited) {
       const waitMatch = messageText.match(/Please try again in\s+([\d.]+)s/i);
       const waitMs = waitMatch ? Math.min(Math.ceil(Number(waitMatch[1]) * 1000) + 400, 8000) : 3000;
-      console.warn(`⚠️ GROQ Rate Limit. Waiting ${waitMs}ms before retry...`);
+      console.warn(`GROQ Rate Limit. Waiting ${waitMs}ms before retry...`);
       await sleep(waitMs);
       try {
         return await tryRequest(primaryKey, messages);
       } catch (retryErr) {
-        console.warn('🚨 GROQ retry also failed. Escalating to secondary key or SambaNova fallback...');
+        console.warn('GROQ retry also failed. Escalating to secondary key or SambaNova fallback...');
         err = retryErr;
       }
     }
 
     if (secondaryKey && secondaryKey !== primaryKey) {
-      console.warn('⚠️ GROQ Primary failed, trying secondary key...');
+      console.warn('GROQ Primary failed, trying secondary key...');
       try {
         return await tryRequest(secondaryKey, tooLarge ? shrinkMessages(messages) : messages);
       } catch (err2) {
@@ -2137,14 +2154,8 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
       }
     }
 
-    // CROSS-PROVIDER FALLBACK: Se todas as chaves GROQ falharem, tenta SambaNova como última instância
-    console.warn('🚨 All GROQ keys failed. Falling back to SambaNova...');
-    
-    const sambaFallback = await callSambaNova(messages, options);
-    if (sambaFallback) {
-      console.log('✅ Recovered using SambaNova fallback');
-      return sambaFallback;
-    }
+    const sambaFallback = await trySambaNovaFallback('Groq indisponivel');
+    if (sambaFallback) return sambaFallback;
 
     throw err;
   }
@@ -6898,3 +6909,4 @@ handler.getAdminDiagnostics = getAdminDiagnostics;
 handler.probeConnector = probeConnector;
 handler.supportedConnectors = [...SUPPORTED_CONNECTORS];
 module.exports = handler;
+
