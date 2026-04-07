@@ -2118,6 +2118,33 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
     return null;
   };
 
+  const tryOpenRouterFallback = async (reason = '') => {
+    console.warn(`Falling back to OpenRouter${reason ? `: ${reason}` : ''}`);
+    const prompt = Array.isArray(messages)
+      ? messages.map(message => {
+          if (Array.isArray(message?.content)) {
+            return message.content
+              .filter(part => part?.type === 'text' && part?.text)
+              .map(part => String(part.text || '').trim())
+              .filter(Boolean)
+              .join('\n');
+          }
+          return String(message?.content || '').trim();
+        }).filter(Boolean).join('\n\n')
+      : String(messages || '');
+    const openRouterFallback = await callOpenRouter(prompt, [], {
+      model: 'nvidia/nemotron-3-super-120b-a12b:free',
+      maxTokens: options.maxTokens || 4096,
+      temperature: options.temperature !== undefined ? options.temperature : 0.25,
+      disableGroqFallback: true,
+    });
+    if (openRouterFallback) {
+      console.log('Recovered using OpenRouter Nemotron fallback');
+      return openRouterFallback;
+    }
+    return null;
+  };
+
   try {
     return await tryRequest(primaryKey, messages);
   } catch (err) {
@@ -2127,6 +2154,8 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
     const dailyTokenLimitReached = /tokens per day|TPD|Used \d+, Requested \d+/i.test(messageText);
 
     if (dailyTokenLimitReached) {
+      const openRouterRecovered = await tryOpenRouterFallback('Groq TPD esgotado');
+      if (openRouterRecovered) return openRouterRecovered;
       const sambaRecovered = await trySambaNovaFallback('Groq TPD esgotado');
       if (sambaRecovered) return sambaRecovered;
       throw err;
@@ -2154,6 +2183,8 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
       }
     }
 
+    const openRouterFallback = await tryOpenRouterFallback('Groq indisponivel');
+    if (openRouterFallback) return openRouterFallback;
     const sambaFallback = await trySambaNovaFallback('Groq indisponivel');
     if (sambaFallback) return sambaFallback;
 
@@ -2269,7 +2300,7 @@ async function callOpenRouter(prompt, logs = [], options = {}) {
     process.env.OPENROUTER_API_KEY_2
   ].filter(Boolean);
   
-  const model = options.model || 'qwen/qwen3.6-plus:free';
+  const model = options.model || 'nvidia/nemotron-3-super-120b-a12b:free';
   
   for (let i = 0; i < keys.length; i++) {
     try {
@@ -2299,6 +2330,11 @@ async function callOpenRouter(prompt, logs = [], options = {}) {
   }
 
   // Final Emergency Fallback to Groq for text tasks
+  if (options.disableGroqFallback === true) {
+    console.warn('OpenRouter failed and Groq fallback is disabled for this call.');
+    if (logs) logs.push('⚠️ OpenRouter falhou e o retorno para Groq foi desativado nesta rota.');
+    return null;
+  }
   console.warn('🚨 All OpenRouter keys failed, falling back to emergency GROQ...');
   if (logs) logs.push('🚨 OpenRouter indisponível, usando motor de emergência Groq...');
   return await callGroq([{ role: 'user', content: prompt }], 'GROQ_API_KEY_2', { maxTokens: 4096 });
@@ -4780,7 +4816,7 @@ ${sourceDigest || 'Sem fontes registradas'}
 Resposta para auditar:
 ${String(response || '')}`;
 
-  const raw = await callOpenRouter(prompt, logs, { model: 'qwen/qwen3.6-plus:free' });
+  const raw = await callOpenRouter(prompt, logs, { model: 'nvidia/nemotron-3-super-120b-a12b:free' });
   const parsed = extractJsonObject(raw) || {};
   return {
     approved: parsed.approved !== false,
@@ -6479,7 +6515,7 @@ async function testOpenRouterKey(envName) {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: 'qwen/qwen3.6-plus:free', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 }),
+      body: JSON.stringify({ model: 'nvidia/nemotron-3-super-120b-a12b:free', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 }),
       signal: AbortSignal.timeout(12000),
     });
     const json = await res.json();
