@@ -4882,6 +4882,7 @@
 
   const connectorOptions = [
     { key: 'tavily',     label: 'Busca Geral (Tavily)', img: 'tavily.png', description: 'Pesquisa na web e agrega resultados recentes.' },
+    { key: 'google-cse-authority', label: 'Google CSE (Autoridade)', icon: 'policy', description: 'Busca restrita em fontes oficiais e de alta autoridade.' },
     { key: 'serpapi-news', label: 'Google News (SerpApi)', icon: 'newspaper', description: 'Agrupa cobertura jornalística e matérias relacionadas.' },
     { key: 'serpapi-lens', label: 'Google Lens (SerpApi)', icon: 'image_search', description: 'Busca reversa de imagem para prints e manchetes.' },
     { key: 'wikipedia',  label: 'Wikipedia',   img: 'wikipedia.png',   description: 'Resumos e conteúdos enciclopédicos estruturados.' },
@@ -4969,6 +4970,7 @@
   ];
   const supportedConnectors = new Set([
     'tavily',
+    'google-cse-authority',
     'serpapi-news',
     'serpapi-lens',
     'wikipedia',

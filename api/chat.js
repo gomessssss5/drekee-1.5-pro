@@ -912,6 +912,7 @@ const SUPPORTED_CONNECTORS = new Set([
   'libras',
   'serpapi-news',
   'serpapi-lens',
+  'google-cse-authority',
 ]);
 
 const CONNECTORS_IN_MAINTENANCE = new Set([]);
@@ -2318,6 +2319,54 @@ Retorne APENAS um parágrafo conciso com a análise.`;
   }
 }
 
+async function searchGoogleCustomSearch(query, options = {}) {
+  const apiKey = process.env.GOOGLE_CSE_API_KEY;
+  const searchEngineId = process.env.GOOGLE_CSE_CX;
+  if (!apiKey) return { error: 'missing_api_key', key: 'GOOGLE_CSE_API_KEY' };
+  if (!searchEngineId) return { error: 'missing_api_key', key: 'GOOGLE_CSE_CX' };
+
+  const includeDomains = Array.isArray(options.includeDomains) ? options.includeDomains.filter(Boolean) : [];
+  const excludeDomains = Array.isArray(options.excludeDomains) ? options.excludeDomains.filter(Boolean) : [];
+  const maxResults = Math.min(Math.max(Number(options.maxResults) || 5, 1), 10);
+  const siteQuery = [
+    String(query || '').trim(),
+    ...includeDomains.map(domain => `site:${domain}`),
+    ...excludeDomains.map(domain => `-site:${domain}`),
+  ].filter(Boolean).join(' ');
+
+  try {
+    const url = new URL('https://www.googleapis.com/customsearch/v1');
+    url.searchParams.set('key', apiKey);
+    url.searchParams.set('cx', searchEngineId);
+    url.searchParams.set('q', siteQuery);
+    url.searchParams.set('num', String(maxResults));
+    url.searchParams.set('safe', 'active');
+    url.searchParams.set('hl', 'pt-BR');
+    url.searchParams.set('gl', 'br');
+
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(12000) });
+    const data = await res.json();
+    if (!res.ok) {
+      return { error: `HTTP ${res.status}`, details: data };
+    }
+
+    const items = Array.isArray(data?.items) ? data.items : [];
+    return {
+      query: siteQuery,
+      searchInformation: data?.searchInformation || null,
+      results: items.map(item => ({
+        title: item?.title || 'Sem título',
+        url: item?.link || '',
+        snippet: item?.snippet || item?.htmlSnippet || '',
+        displayLink: item?.displayLink || '',
+      })),
+    };
+  } catch (err) {
+    console.error('Google Custom Search error:', err);
+    return { error: err.message || 'fetch_failed' };
+  }
+}
+
 async function analyzeUserFilesWithGroqVision(files, userQuestion, logs = []) {
   if (!files || files.length === 0) return null;
 
@@ -2583,6 +2632,7 @@ function scoreFactCheckSource(source = {}, topic = 'geral') {
   if (/blog|wordpress|medium\.com/.test(url)) score -= 25;
 
   if (type === 'fact-check') score += 22;
+  if (type === 'google-cse-authority') score += 18;
   if (type === 'web') score -= 8;
   if (type === 'serpapi-news') score -= 6;
   if (type === 'serpapi-lens') score -= 10;
@@ -2627,18 +2677,21 @@ function buildFactCheckMethodSummary({ factCheck = null, sources = [], usedVisio
   const usedLens = connectors.has('serpapi-lens');
   const usedNews = connectors.has('serpapi-news');
   const usedScopedChecks = connectors.has('fact-check');
+  const usedAuthoritySearch = connectors.has('google-cse-authority');
   const methods = [];
 
   if (hasImage && usedVision) methods.push('analisei a imagem enviada com visão computacional');
   else if (hasImage) methods.push('não consegui extrair texto confiável da imagem e tratei a checagem com base apenas nas fontes externas');
   if (usedLens) methods.push('rodei busca reversa no Google Lens');
   if (usedNews) methods.push('comparei com cobertura jornalística indexada no Google News');
+  if (usedAuthoritySearch) methods.push('busquei fontes de autoridade via Google Custom Search');
   if (usedScopedChecks) methods.push('priorizei agências de checagem e fontes oficiais');
   if (methods.length === 0 && factCheck?.primaryLink) methods.push('comparei a alegação com fontes rastreáveis');
 
   return {
     usedLens,
     usedNews,
+    usedAuthoritySearch,
     usedScopedChecks,
     text: methods.length > 0 ? methods.join('; ') : 'comparei a alegação com as evidências encontradas',
   };
@@ -3283,7 +3336,7 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const normalizedText = (userQuestion || '').toLowerCase();
 
   if (isFactCheck) {
-    autoDetectedConnectors.push('tavily', 'wikipedia', 'wikidata', 'serpapi-news');
+    autoDetectedConnectors.push('tavily', 'wikipedia', 'wikidata', 'serpapi-news', 'google-cse-authority');
     if (actionPlan?.exige_busca_reversa || options.factCheckImageUrl) {
       autoDetectedConnectors.push('serpapi-lens');
     }
@@ -3483,6 +3536,23 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     logs.push(`Modo fact-check ativado para a alegacao: "${claimQuery}"`);
     if (missingImageInterpretation) {
       logs.push('⚠️ A imagem não foi interpretada com sucesso; buscas genéricas foram bloqueadas.');
+    }
+
+    if (!missingImageInterpretation && selectedConnectors.includes('google-cse-authority')) {
+      logs.push('Buscando fontes de autoridade via Google Custom Search...');
+      const cseResult = await searchGoogleCustomSearch(claimQuery, {
+        includeDomains: getFactCheckPriorityRules(factCheckTopic).domains,
+        excludeDomains: ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'x.com', 'twitter.com'],
+        maxResults: 8,
+      });
+      if (Array.isArray(cseResult?.results) && cseResult.results.length > 0) {
+        context += `\n\nFontes de autoridade (Google Custom Search):\n`;
+        cseResult.results.forEach((item, index) => {
+          context += `${index + 1}. ${item.title}\n${item.snippet || ''}\nLink: ${item.url}\n`;
+          addSource(`CSE-${index + 1}`, item.title || `Google CSE ${index + 1}`, 'google-cse-authority', `${item.displayLink || ''} - ${item.snippet || ''}`.trim(), item.url);
+        });
+        logs.push(`${cseResult.results.length} resultados autoritativos coletados via Google CSE`);
+      }
     }
 
     if (!missingImageInterpretation && selectedConnectors.includes('serpapi-news')) {
@@ -4610,6 +4680,7 @@ Seja honesto. Não invente. Use as fontes.`;
       vision: usedVisionExtraction,
       lens: factCheckConnectors.has('serpapi-lens'),
       news: factCheckConnectors.has('serpapi-news'),
+      authoritySearch: factCheckConnectors.has('google-cse-authority'),
       officialChecks: factCheckConnectors.has('fact-check'),
     };
   }
@@ -6132,6 +6203,7 @@ const CONNECTOR_REQUIRES_KEYS = {
   wolfram: ['WOLFRAM_APP_ID'],
   'serpapi-news': ['SERPAPI_API_KEY_2'],
   'serpapi-lens': ['SERPAPI_API_KEY'],
+  'google-cse-authority': ['GOOGLE_CSE_API_KEY', 'GOOGLE_CSE_CX'],
 };
 
 const AUTO_DETECTED_CONNECTORS = new Set([
@@ -6143,7 +6215,7 @@ const AUTO_DETECTED_CONNECTORS = new Set([
   'datasus', 'covid-jhu', 'clinvar', 'cosmic', 'noaa-climate', 'worldbank-climate',
   'usgs-water', 'firms', 'edx', 'mit-ocw', 'mec-ejovem', 'educ4share', 'tcu', 'transparencia',
   'metmuseum', 'getty', 'libras', 'sketchfab', 'timelapse', 'arxiv', 'scielo', 'ibge',
-  'pubmed', 'wikipedia', 'wikidata', 'rcsb', 'newton', 'nasa', 'spacex', 'serpapi-news', 'serpapi-lens'
+  'pubmed', 'wikipedia', 'wikidata', 'rcsb', 'newton', 'nasa', 'spacex', 'serpapi-news', 'serpapi-lens', 'google-cse-authority'
 ]);
 
 const CONNECTOR_PROBE_QUERIES = {
@@ -6216,6 +6288,7 @@ function getConnectorProbeQuery(key) {
 
 CONNECTOR_PROBE_QUERIES['serpapi-news'] = 'nasa 3 dias de escuridao';
 CONNECTOR_PROBE_QUERIES['serpapi-lens'] = 'https://upload.wikimedia.org/wikipedia/commons/8/87/Example_of_fake_news.jpg';
+CONNECTOR_PROBE_QUERIES['google-cse-authority'] = 'limao cura cancer';
 
 function summarizeProbeData(value) {
   if (value == null) return 'Sem dados';
@@ -6266,6 +6339,7 @@ async function probeConnector(key, options = {}) {
       case 'tavily': data = await searchTavily(query); break;
       case 'serpapi-news': data = await searchSerpApiGoogleNews(query); break;
       case 'serpapi-lens': data = await searchSerpApiGoogleLens(query); break;
+      case 'google-cse-authority': data = await searchGoogleCustomSearch(query, { includeDomains: ['gov.br', 'who.int', 'aosfatos.org'], maxResults: 5 }); break;
       case 'wikipedia': data = await buscarWikipedia(query); break;
       case 'arxiv': data = await buscarArxiv(query); break;
       case 'scielo': data = await buscarSciELORobusto(query); break;
@@ -6458,6 +6532,7 @@ async function getAdminDiagnostics() {
       testTavilyKey(),
       testOptionalKey('SERPAPI_API_KEY', () => searchSerpApiGoogleLens('https://upload.wikimedia.org/wikipedia/commons/8/87/Example_of_fake_news.jpg')),
       testOptionalKey('SERPAPI_API_KEY_2', () => searchSerpApiGoogleNews('nasa')),
+      testOptionalKey('GOOGLE_CSE_API_KEY', () => searchGoogleCustomSearch('limao cura cancer', { includeDomains: ['inca.gov.br', 'who.int'], maxResults: 2 })),
       testOptionalKey('WOLFRAM_APP_ID', () => buscarWolframAlpha('2+2')),
     ]),
     connectors: supportedConnectors.map(key => ({
