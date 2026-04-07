@@ -1102,6 +1102,25 @@ function applyGeographySanityCorrections(response = '', userQuestion = '', sourc
   return draft;
 }
 
+function applyAmazonClimateCorrections(response = '', userQuestion = '', sources = [], logs = []) {
+  const question = String(userQuestion || '').toLowerCase();
+  const draft = String(response || '');
+
+  if (/\bamaz[oô]nia\b/.test(question) && /\b(oxig[eê]nio|oxigenio|pulm[aã]o do mundo|clima|chuva|rios voadores|carbono)\b/.test(question)) {
+    const primarySourceId = pickBestSourceId(sources, ['amazonia-clima-1', 'gov.br', 'carbono', 'rios voadores', 'sumidouro']) || 'AMAZONIA-CLIMA-1';
+    if (/\bpulm[aã]o do mundo\b/i.test(draft) || /\bprincipal produtora de oxig[eê]nio\b/i.test(draft) || /\bf[aá]brica de oxig[eê]nio\b/i.test(draft)) {
+      logs.push('🛑 Correção climática aplicada: Amazônia não deve ser descrita como fonte líquida dominante de oxigênio.');
+      return [
+        `A Floresta Amazônica é fundamental para o equilíbrio climático principalmente por atuar como sumidouro de carbono, ajudando a retirar CO2 da atmosfera e a armazená-lo na biomassa [ID-DA-FONTE: ${primarySourceId}].`,
+        `Também desempenha papel central no ciclo hidrológico por meio da evapotranspiração, que ajuda a formar os chamados rios voadores e influencia o regime de chuvas em outras regiões da América do Sul [ID-DA-FONTE: ${primarySourceId}].`,
+        `Embora a fotossíntese produza oxigênio, em uma floresta madura grande parte desse oxigênio é reconsumida pela própria respiração do ecossistema e pela decomposição; por isso, a descrição mais correta é reguladora climática e hidrológica, e não "pulmão do mundo" em sentido literal [ID-DA-FONTE: ${primarySourceId}].`
+      ].join('\n\n');
+    }
+  }
+
+  return draft;
+}
+
 function injectKnownGeographyFacts(userQuestion = '', addSource = () => null, logs = []) {
   const question = String(userQuestion || '').toLowerCase();
   if (/\bbioma\b/.test(question) && /\bmato grosso do sul\b/.test(question)) {
@@ -1114,6 +1133,22 @@ function injectKnownGeographyFacts(userQuestion = '', addSource = () => null, lo
     );
     logs.push('🗺️ Fato geográfico oficial injetado: biomas de Mato Grosso do Sul (IBGE).');
     return `\n\n🗺️ Fato geográfico oficial validado:\n- Em Mato Grosso do Sul, o Cerrado ocupa mais da metade do estado, cerca de 61%.\n- O Pantanal ocupa uma porcao menor, aproximadamente 25%, concentrada no oeste.\n- Ha ainda areas de Mata Atlantica na porcao leste/sudeste.\nUse isso como referencia prioritaria para responder.\nFonte principal: ${source?.id || 'GEO-MS-BIOMAS'}\n`;
+  }
+  return '';
+}
+
+function injectKnownAmazonClimateFacts(userQuestion = '', addSource = () => null, logs = []) {
+  const question = String(userQuestion || '').toLowerCase();
+  if (/\bamaz[oô]nia\b/.test(question) && /\b(oxig[eê]nio|oxigenio|pulm[aã]o do mundo|clima|chuva|rios voadores|carbono)\b/.test(question)) {
+    const source = addSource(
+      'AMAZONIA-CLIMA-1',
+      'Síntese científica sobre Amazônia, carbono e rios voadores',
+      'science',
+      'A Amazônia deve ser explicada principalmente como sumidouro de carbono e reguladora do ciclo hidrológico por evapotranspiração e rios voadores, não como fonte líquida dominante de oxigênio para o planeta.',
+      'https://www.gov.br/mma/pt-br'
+    );
+    logs.push('🌧️ Fato climático amazônico injetado: sumidouro de carbono e rios voadores.');
+    return `\n\n🌳 Fato climático amazônico validado:\n- Evite tratar a Amazônia como "pulmao do mundo" em sentido literal.\n- O papel mais robusto da floresta e atuar como sumidouro de carbono e reguladora do clima.\n- A evapotranspiracao das arvores ajuda a formar os rios voadores, que redistribuem umidade e influenciam chuvas em outras regioes do Brasil.\n- Em uma floresta madura, grande parte do oxigenio produzido e reconsumida pelo proprio sistema ecologico.\nFonte principal: ${source?.id || 'AMAZONIA-CLIMA-1'}\n`;
   }
   return '';
 }
@@ -3758,6 +3793,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     || (actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion);
   const queryParaBuscar = buildSpecializedSearchQuery(queryParaBuscarBase, specializedDomain, actionPlan);
   context += injectKnownGeographyFacts(userQuestion, addSource, logs);
+  context += injectKnownAmazonClimateFacts(userQuestion, addSource, logs);
 
   if (phetSuggestion) {
     const phetTitle = formatPhetTitle(phetSuggestion.slug);
@@ -4918,6 +4954,7 @@ INSTRUÇÕES FINAIS:
 21. Se houver fonte primaria melhor no contexto, não baseie a resposta em Wikipedia ou web aberta.
 22. Se a evidência estiver incompleta, diga exatamente o que falta confirmar em vez de preencher lacunas com texto genérico.
 23. Se existirem IDs de fontes oficiais ou autoritativas como AUTH-*, IBGE-*, PUBMED-*, NASA-*, HORIZONS-*, DATASUS-* ou CSE-*, prefira esses IDs nas citações em vez de WEB-*.
+24. Em perguntas sobre Amazônia, oxigênio e clima, evite o clichê "pulmão do mundo" como descrição literal; priorize sumidouro de carbono, evapotranspiração e rios voadores.
 
 Seja honesto. Não invente. Use as fontes.`;
 
@@ -4931,6 +4968,7 @@ Seja honesto. Não invente. Use as fontes.`;
   if (specializedDomain === 'geografia') {
     response = applyGeographySanityCorrections(response, userQuestion, sources, logs);
   }
+  response = applyAmazonClimateCorrections(response, userQuestion, sources, logs);
 
   logs.push('✅ Resposta gerada pela IA principal');
   let factCheck = null;
