@@ -1105,6 +1105,30 @@ function applyGeographySanityCorrections(response = '', userQuestion = '', sourc
   return draft;
 }
 
+function injectKnownGeographyFacts(userQuestion = '', addSource = () => null, logs = []) {
+  const question = String(userQuestion || '').toLowerCase();
+  if (/\bbioma\b/.test(question) && /\bmato grosso do sul\b/.test(question)) {
+    const source = addSource(
+      'GEO-MS-BIOMAS',
+      'IBGE - Mapa de Biomas do Brasil',
+      'ibge',
+      'Mapa oficial de biomas com indicacao de que o Cerrado ocupa mais da metade de Mato Grosso do Sul e o Pantanal corresponde a uma porcao menor no oeste do estado.',
+      'https://agenciadenoticias.ibge.gov.br/agencia-sala-de-imprensa/2013-agencia-de-noticias/releases/12789-asi-ibge-lanca-o-mapa-de-biomas-do-brasil-e-o-mapa-de-vegetacao-do-brasil-em-comemoracao-ao-dia-mundial-da-biodiversidade'
+    );
+    logs.push('🗺️ Fato geográfico oficial injetado: biomas de Mato Grosso do Sul (IBGE).');
+    return `\n\n🗺️ Fato geográfico oficial validado:\n- Em Mato Grosso do Sul, o Cerrado ocupa mais da metade do estado, cerca de 61%.\n- O Pantanal ocupa uma porcao menor, aproximadamente 25%, concentrada no oeste.\n- Ha ainda areas de Mata Atlantica na porcao leste/sudeste.\nUse isso como referencia prioritaria para responder.\nFonte principal: ${source?.id || 'GEO-MS-BIOMAS'}\n`;
+  }
+  return '';
+}
+
+function enforceCanonicalCitationTags(response = '', sources = []) {
+  const lookup = buildSourceLookup(sources);
+  return String(response || '').replace(/\[([A-Z0-9]+(?:[-_][A-Z0-9]+)+)\s*:\s*([^\]]+)\]/gi, (match, left, right) => {
+    const source = resolveSourceReference(left, lookup) || resolveSourceReference(right, lookup);
+    return source ? `[ID-DA-FONTE: ${source.id}]` : match;
+  });
+}
+
 async function buscarGeneric(key, query) {
   const config = GENERIC_API_MAP[key];
   if (!config) return null;
@@ -3736,6 +3760,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     || (isFactCheck && factCheckClaim ? factCheckClaim : '')
     || (actionPlan?.termo_de_busca && actionPlan.termo_de_busca !== 'null' ? actionPlan.termo_de_busca : userQuestion);
   const queryParaBuscar = buildSpecializedSearchQuery(queryParaBuscarBase, specializedDomain, actionPlan);
+  context += injectKnownGeographyFacts(userQuestion, addSource, logs);
 
   if (phetSuggestion) {
     const phetTitle = formatPhetTitle(phetSuggestion.slug);
@@ -6943,6 +6968,7 @@ async function handler(req, res) {
     const exec = await executeAgentPlan(userQuestion, actionPlan, logs, { connectorAuto, connectors, useNasa: body?.nasa, history, visionContext, userContext, factCheckImageUrl });
     exec.response = normalizeMarkdownLatexFences(exec.response);
     exec.response = normalizeResponseCitations(exec.response, exec.sources || []);
+    exec.response = enforceCanonicalCitationTags(exec.response, exec.sources || []);
 
     // 1-b: Streaming parcial — enviar rascunho ao usuário enquanto audit/review rodam
     if (wantsStream) {
@@ -7030,6 +7056,7 @@ async function handler(req, res) {
             });
             retryExec.response = normalizeMarkdownLatexFences(retryExec.response);
             retryExec.response = normalizeResponseCitations(retryExec.response, retryExec.sources || []);
+            retryExec.response = enforceCanonicalCitationTags(retryExec.response, retryExec.sources || []);
             finalExec = mergeExecutionResults(exec, retryExec);
             finalExec.response = retryExec.response || exec.response;
           }
@@ -7046,6 +7073,7 @@ async function handler(req, res) {
           });
           finalExec.response = normalizeMarkdownLatexFences(finalExec.response);
           finalExec.response = normalizeResponseCitations(finalExec.response, finalExec.sources || []);
+          finalExec.response = enforceCanonicalCitationTags(finalExec.response, finalExec.sources || []);
         } else {
           logs.push('⚠️ GROQ Agent concluiu que uma nova rodada não aumentaria a confiabilidade.');
         }
@@ -7077,6 +7105,7 @@ async function handler(req, res) {
 
     response = ensureInteractiveTags(response, userQuestion, finalExec.selectedConnectors || []);
     response = normalizeResponseCitations(response, finalExec.sources || []);
+    response = enforceCanonicalCitationTags(response, finalExec.sources || []);
     response = removeUnsupportedAnalyticalParagraphs(response);
     response = softenUnsupportedSuperlatives(response, finalExec.sources || []);
     response = sanitizeFinalResponse(response);
