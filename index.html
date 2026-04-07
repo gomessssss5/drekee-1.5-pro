@@ -2190,36 +2190,64 @@
   .send-btn:active { transform: scale(0.94); }
   .send-btn .material-icons-outlined { font-size: 1rem; }
   .context-meter {
-    width: 38px;
-    height: 38px;
+    width: 18px;
+    height: 18px;
     border-radius: 999px;
-    display: grid;
-    place-items: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     position: relative;
-    background: conic-gradient(#60a5fa var(--context-progress, 0deg), rgba(30,41,59,0.9) 0deg);
-    box-shadow: inset 0 0 0 1px rgba(148,163,184,0.16);
-    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(248,250,252,0.18) 0%, rgba(148,163,184,0.08) 52%, transparent 53%),
+      conic-gradient(from 180deg, #60a5fa var(--context-progress, 0deg), rgba(51,65,85,0.34) 0deg);
+    box-shadow:
+      inset 0 0 0 1px rgba(148,163,184,0.2),
+      0 0 0 3px rgba(15,23,42,0.55),
+      0 10px 24px rgba(2,6,23,0.22);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, opacity 0.18s ease;
     cursor: default;
     flex-shrink: 0;
+    opacity: 0.96;
   }
   .context-meter::before {
     content: '';
     position: absolute;
-    inset: 4px;
+    inset: 3px;
     border-radius: inherit;
-    background: rgba(15,23,42,0.96);
-    box-shadow: inset 0 0 0 1px rgba(148,163,184,0.08);
+    background:
+      radial-gradient(circle at 35% 30%, rgba(255,255,255,0.22), transparent 45%),
+      rgba(15,23,42,0.98);
+    box-shadow:
+      inset 0 0 0 1px rgba(148,163,184,0.12),
+      inset 0 -2px 6px rgba(15,23,42,0.55);
   }
-  .context-meter:hover { transform: translateY(-1px); box-shadow: inset 0 0 0 1px rgba(96,165,250,0.18), 0 10px 20px rgba(2,6,23,0.2); }
-  .context-meter[data-state="warn"] { background: conic-gradient(#f59e0b var(--context-progress, 0deg), rgba(30,41,59,0.9) 0deg); }
-  .context-meter[data-state="danger"] { background: conic-gradient(#ef4444 var(--context-progress, 0deg), rgba(30,41,59,0.9) 0deg); }
+  .context-meter::after {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border-radius: inherit;
+    background: rgba(226,232,240,0.9);
+    opacity: 0.9;
+  }
+  .context-meter:hover {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow:
+      inset 0 0 0 1px rgba(96,165,250,0.24),
+      0 0 0 4px rgba(15,23,42,0.62),
+      0 12px 28px rgba(2,6,23,0.26);
+  }
+  .context-meter[data-state="warn"] {
+    background:
+      radial-gradient(circle at 50% 50%, rgba(254,240,138,0.18) 0%, rgba(245,158,11,0.08) 52%, transparent 53%),
+      conic-gradient(from 180deg, #f59e0b var(--context-progress, 0deg), rgba(51,65,85,0.34) 0deg);
+  }
+  .context-meter[data-state="danger"] {
+    background:
+      radial-gradient(circle at 50% 50%, rgba(254,202,202,0.18) 0%, rgba(239,68,68,0.08) 52%, transparent 53%),
+      conic-gradient(from 180deg, #ef4444 var(--context-progress, 0deg), rgba(51,65,85,0.34) 0deg);
+  }
   .context-meter-label {
-    position: relative;
-    z-index: 1;
-    font-size: 0.62rem;
-    font-weight: 800;
-    color: #cbd5e1;
-    letter-spacing: 0.01em;
+    display: none;
   }
 
   /* Attach dropdown */
@@ -2286,9 +2314,6 @@
     .sidebar { display: none; }
     .input-wrapper { left: 0; }
     .header { left: 0 !important; }
-    .input-model-badge {
-      display: none;
-    }
   }
 </style>
 </head>
@@ -2495,10 +2520,6 @@
             </div>
 
             <div class="toolbar-right">
-              <div class="model-badge input-model-badge">
-                <div class="model-badge-dot"></div>
-                <span class="model-badge-text">Drekee AI 1.5 Pro</span>
-              </div>
               <div class="toolbar-actions">
                 <div class="context-meter" id="contextMeter" title="Uso estimado do contexto do modelo rápido">
                   <span class="context-meter-label" id="contextMeterLabel">0%</span>
@@ -2603,11 +2624,12 @@
     const { ratio } = buildBoundedHistory(draftText, attachedFiles);
     const percent = Math.max(0, Math.min(100, Math.round(ratio * 100)));
     contextMeter.style.setProperty('--context-progress', `${Math.max(0, Math.min(360, ratio * 360))}deg`);
-    contextMeterLabel.textContent = `${percent}%`;
+    contextMeterLabel.textContent = '';
+    contextMeter.setAttribute('aria-label', `Uso estimado do contexto: ${percent}%`);
     contextMeter.dataset.state = ratio >= CONTEXT_PRUNE_THRESHOLD ? 'danger' : (ratio >= 0.75 ? 'warn' : 'normal');
     contextMeter.title = ratio >= CONTEXT_PRUNE_THRESHOLD
-      ? 'Uso estimado acima de 90%. O historico mais antigo sera descartado no envio.'
-      : 'Uso estimado do contexto do modelo rapido';
+      ? `Uso estimado do contexto: ${percent}%. Acima de 90%, o historico mais antigo sera descartado no envio.`
+      : `Uso estimado do contexto do modelo rapido: ${percent}%`;
   }
 
   textarea.addEventListener('input', () => {
