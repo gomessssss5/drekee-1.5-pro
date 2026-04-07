@@ -2174,6 +2174,38 @@
   .send-btn:hover { transform: scale(1.08); box-shadow: 0 6px 18px rgba(37,99,235,0.5); }
   .send-btn:active { transform: scale(0.94); }
   .send-btn .material-icons-outlined { font-size: 1rem; }
+  .context-meter {
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    position: relative;
+    background: conic-gradient(#60a5fa var(--context-progress, 0deg), rgba(30,41,59,0.9) 0deg);
+    box-shadow: inset 0 0 0 1px rgba(148,163,184,0.16);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    cursor: default;
+    flex-shrink: 0;
+  }
+  .context-meter::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: inherit;
+    background: rgba(15,23,42,0.96);
+    box-shadow: inset 0 0 0 1px rgba(148,163,184,0.08);
+  }
+  .context-meter:hover { transform: translateY(-1px); box-shadow: inset 0 0 0 1px rgba(96,165,250,0.18), 0 10px 20px rgba(2,6,23,0.2); }
+  .context-meter[data-state="warn"] { background: conic-gradient(#f59e0b var(--context-progress, 0deg), rgba(30,41,59,0.9) 0deg); }
+  .context-meter[data-state="danger"] { background: conic-gradient(#ef4444 var(--context-progress, 0deg), rgba(30,41,59,0.9) 0deg); }
+  .context-meter-label {
+    position: relative;
+    z-index: 1;
+    font-size: 0.62rem;
+    font-weight: 800;
+    color: #cbd5e1;
+    letter-spacing: 0.01em;
+  }
 
   /* Attach dropdown */
   .attach-dropdown {
@@ -2449,6 +2481,9 @@
                 <div class="model-badge-dot"></div>
                 <span class="model-badge-text">Drekee AI 1.5 Pro</span>
               </div>
+              <div class="context-meter" id="contextMeter" title="Uso estimado do contexto do modelo rápido">
+                <span class="context-meter-label" id="contextMeterLabel">0%</span>
+              </div>
               <button class="send-btn" id="sendButton" title="Enviar">
                 <span class="material-icons-outlined">arrow_upward</span>
               </button>
@@ -2474,9 +2509,91 @@
 
   // ── Textarea auto-resize ──────────────────────────────────
   const textarea = document.getElementById('userInput');
+  const contextMeter = document.getElementById('contextMeter');
+  const contextMeterLabel = document.getElementById('contextMeterLabel');
+  const FAST_MODEL_CONTEXT_LIMIT = 262144;
+  const CONTEXT_PRUNE_THRESHOLD = 0.9;
+
+  function getHistoryEntryText(entry) {
+    if (!entry) return '';
+    if (entry.type === 'ai-sequence') {
+      return String(entry.payload?.response || '');
+    }
+    return String(entry.content || entry.metadata?.response || '');
+  }
+
+  function normalizeHistoryRole(entry) {
+    const rawRole = String(entry?.role || entry?.payload?.role || '').toLowerCase();
+    return rawRole === 'ai' || rawRole === 'assistant' ? 'assistant' : 'user';
+  }
+
+  function estimateTokenCount(text = '') {
+    const normalized = String(text || '').trim();
+    if (!normalized) return 0;
+    return Math.ceil(normalized.length / 4);
+  }
+
+  function estimateFileTokenOverhead(files = []) {
+    return Array.from(files || []).reduce((total, file) => {
+      const baseCost = 1200;
+      const sizeCost = Math.min(Math.ceil((Number(file?.size) || 0) / 2048), 5000);
+      return total + baseCost + sizeCost;
+    }, 0);
+  }
+
+  function buildBoundedHistory(currentText = '', files = attachedFiles, historyEntries = chatHistory) {
+    const budget = Math.floor(FAST_MODEL_CONTEXT_LIMIT * CONTEXT_PRUNE_THRESHOLD);
+    const reservedForCurrentTurn = estimateTokenCount(currentText) + estimateFileTokenOverhead(files) + 1200;
+    const availableForHistory = Math.max(0, budget - reservedForCurrentTurn);
+    const bounded = [];
+    let used = 0;
+
+    for (let i = historyEntries.length - 1; i >= 0; i -= 1) {
+      const entry = historyEntries[i];
+      const content = getHistoryEntryText(entry);
+      if (!content) continue;
+      const entryCost = estimateTokenCount(content) + 16;
+      if (bounded.length > 0 && used + entryCost > availableForHistory) continue;
+      if (bounded.length === 0 && entryCost > availableForHistory) {
+        bounded.unshift({
+          role: normalizeHistoryRole(entry),
+          content: content.slice(-Math.max(1200, availableForHistory * 4))
+        });
+        used = Math.min(entryCost, availableForHistory);
+        break;
+      }
+      bounded.unshift({
+        role: normalizeHistoryRole(entry),
+        content
+      });
+      used += entryCost;
+    }
+
+    const totalEstimatedTokens = Math.min(FAST_MODEL_CONTEXT_LIMIT, used + reservedForCurrentTurn);
+    return {
+      history: bounded,
+      estimatedTokens: totalEstimatedTokens,
+      ratio: totalEstimatedTokens / FAST_MODEL_CONTEXT_LIMIT
+    };
+  }
+
+  function updateContextMeter() {
+    if (!contextMeter || !contextMeterLabel) return;
+    const draftText = textarea?.value || '';
+    const { ratio } = buildBoundedHistory(draftText, attachedFiles);
+    const percent = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+    contextMeter.style.setProperty('--context-progress', `${Math.max(0, Math.min(360, ratio * 360))}deg`);
+    contextMeterLabel.textContent = `${percent}%`;
+    contextMeter.dataset.state = ratio >= CONTEXT_PRUNE_THRESHOLD ? 'danger' : (ratio >= 0.75 ? 'warn' : 'normal');
+    contextMeter.title = ratio >= CONTEXT_PRUNE_THRESHOLD
+      ? 'Uso estimado acima de 90%. O historico mais antigo sera descartado no envio.'
+      : 'Uso estimado do contexto do modelo rapido';
+  }
+
   textarea.addEventListener('input', () => {
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+    updateContextMeter();
   });
 
   // ── Attach dropdown ───────────────────────────────────────
@@ -2519,6 +2636,7 @@
       attachedFiles.push(file);
       renderFileChip(file);
     });
+    updateContextMeter();
   }
   function renderFileChip(file) {
     attachedFilesContainer.style.display = 'flex';
@@ -2529,6 +2647,7 @@
       attachedFiles = attachedFiles.filter(f => f !== file);
       chip.remove();
       if (attachedFiles.length === 0) attachedFilesContainer.style.display = 'none';
+      updateContextMeter();
     });
     attachedFilesContainer.appendChild(chip);
   }
@@ -2562,6 +2681,7 @@
   function saveHistory() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory)); }
     catch (err) { console.warn('Failed to save chat history', err); }
+    updateContextMeter();
   }
 
   function showMessages() {
@@ -2618,6 +2738,7 @@
       chatHistory.push({ role, content, metadata });
       saveHistory();
     }
+    updateContextMeter();
     if (role === 'user' && !convTitle.textContent) {
       const short = content.length > 50 ? content.slice(0, 50) + '…' : content;
       convTitle.textContent = short;
@@ -3708,14 +3829,6 @@
     }
   }
 
-  function formatFactCheckConfidence(confidence) {
-    switch (String(confidence || '').toUpperCase()) {
-      case 'HIGH': return 'Confiança alta';
-      case 'LOW': return 'Confiança baixa';
-      default: return 'Confiança média';
-    }
-  }
-
   function formatFactCheckAnalysisMode(mode) {
     switch (String(mode || '').toLowerCase()) {
       case 'vision_plus_lens': return 'Visão + Google Lens + fontes externas';
@@ -3729,7 +3842,6 @@
     if (!factCheck) return '';
 
     const verdict = String(factCheck.verdict || 'nao_verificado').toLowerCase();
-    const confidence = escapeHtml(formatFactCheckConfidence(factCheck.confidence || 'MEDIUM'));
     const claim = escapeHtml(String(factCheck.claim || 'Alegação não identificada.'));
     const summary = escapeHtml(String(factCheck.summary || 'Não foi possível consolidar um resumo desta checagem.'));
     const scientificExplanation = escapeHtml(String(factCheck.scientificExplanation || ''));
@@ -3762,7 +3874,7 @@
             <div class="fact-check-kicker">Verificação de notícia</div>
             <div class="fact-check-claim">${claim}</div>
           </div>
-          <div class="fact-check-pill" data-verdict="${escapeHtml(verdict)}">${escapeHtml(formatFactCheckVerdict(verdict))} · ${confidence}</div>
+          <div class="fact-check-pill" data-verdict="${escapeHtml(verdict)}">${escapeHtml(formatFactCheckVerdict(verdict))}</div>
         </div>
         <div class="fact-check-body">
           ${preview}
@@ -5290,14 +5402,12 @@
     attachedFilesContainer.innerHTML = '';
     attachedFilesContainer.style.display = 'none';
     fileInput.value = '';
+    updateContextMeter();
 
     document.getElementById('thinkingIndicator').classList.add('show');
 
     try {
-      const prevHistory = chatHistory.slice(0, -1).slice(-10).map(msg => ({
-        role: msg.role === 'ai' ? 'assistant' : 'user',
-        content: msg.content
-      }));
+      const { history: prevHistory } = buildBoundedHistory(text, filesToSend, chatHistory.slice(0, -1));
 
       const payload = {
         text,
@@ -5376,6 +5486,7 @@
     attachedFilesContainer.style.display = 'none';
     chatHistory = [];
     localStorage.removeItem(STORAGE_KEY);
+    updateContextMeter();
   }
 
   document.getElementById('newChatBtn').addEventListener('click', startNewChat);
@@ -5385,6 +5496,7 @@
   }
 
   applyPromptFromUrl();
+  updateContextMeter();
 
 
   // ── Scroll ────────────────────────────────────────────────

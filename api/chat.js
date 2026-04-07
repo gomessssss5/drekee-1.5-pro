@@ -2705,7 +2705,6 @@ function formatFactCheckConfidenceLabel(confidence = '') {
       return 'Médio';
   }
 }
-
 function formatFactCheckVerdictLabel(verdict = '') {
   switch (normalizeFactCheckVerdict(verdict)) {
     case 'verdadeiro':
@@ -2791,7 +2790,6 @@ function buildFactCheckFinalResponse({ factCheck = null, sources = [], visionCon
 
   const lines = [
     `Veredito: ${verdictLabel}`,
-    `Nível de confiança: ${formatFactCheckConfidenceLabel(factCheck.confidence)}`,
     claim ? `Alegação principal identificada:\n${claim}` : '',
     scientificExplanation ? `Por que isso está certo ou errado cientificamente:\n${scientificExplanation}` : '',
     fakeSignals.length > 0 ? `Sinais de fake news encontrados na imagem/texto:\n${fakeSignals.map(item => `* ${item}`).join('\n')}` : '',
@@ -6893,9 +6891,6 @@ async function handler(req, res) {
     response = sanitizeFinalResponse(alignment.response);
     const displayResponse = response;
     const finalConfidence = reconcileFactCheckConfidence(alignment.confidence, finalExec.factCheck);
-    if (!finalExec.factCheck) {
-      logs.push(`🧪 Confiabilidade final da resposta: ${alignment.confidence}`);
-    }
 
     // Convert logs to thinking paragraph
     const thinking = convertLogsToThinking(logs);
