@@ -2929,6 +2929,7 @@
     const decoder = new TextDecoder();
     let buffer = '';
     let finalPayload = null;
+    let draftPayload = null;
     let streamError = null;
 
     while (true) {
@@ -2947,6 +2948,8 @@
           liveCard.setSubtitle(parsed.data.message);
         } else if (parsed.event === 'log' && parsed.data?.message) {
           liveCard.addLog(parsed.data.message);
+        } else if (parsed.event === 'draft' && parsed.data) {
+          draftPayload = parsed.data;
         } else if (parsed.event === 'error') {
           streamError = parsed.data?.message || 'Erro no fluxo do agente.';
           void liveCard.fail(streamError);
@@ -2960,6 +2963,15 @@
       throw new Error(streamError);
     }
     if (!finalPayload) {
+      if (draftPayload?.response) {
+        return {
+          response: draftPayload.response,
+          thinking: 'Fluxo encerrado antes do pacote final; exibindo o último rascunho gerado.',
+          logs: [],
+          media: draftPayload.media || [],
+          sources: draftPayload.sources || [],
+        };
+      }
       throw new Error('Fluxo do agente foi encerrado sem resposta final.');
     }
 
