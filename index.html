@@ -2931,6 +2931,21 @@
     let finalPayload = null;
     let draftPayload = null;
     let streamError = null;
+    const consumeParsedEvent = (parsed) => {
+      if (!parsed) return;
+      if (parsed.event === 'status' && parsed.data?.message) {
+        liveCard.setSubtitle(parsed.data.message);
+      } else if (parsed.event === 'log' && parsed.data?.message) {
+        liveCard.addLog(parsed.data.message);
+      } else if (parsed.event === 'draft' && parsed.data) {
+        draftPayload = parsed.data;
+      } else if (parsed.event === 'error') {
+        streamError = parsed.data?.message || 'Erro no fluxo do agente.';
+        void liveCard.fail(streamError);
+      } else if (parsed.event === 'final') {
+        finalPayload = parsed.data;
+      }
+    };
 
     while (true) {
       const { value, done } = await reader.read();
@@ -2941,22 +2956,13 @@
       buffer = parts.pop() || '';
 
       parts.forEach(part => {
-        const parsed = parseEventStreamChunk(part);
-        if (!parsed) return;
-
-        if (parsed.event === 'status' && parsed.data?.message) {
-          liveCard.setSubtitle(parsed.data.message);
-        } else if (parsed.event === 'log' && parsed.data?.message) {
-          liveCard.addLog(parsed.data.message);
-        } else if (parsed.event === 'draft' && parsed.data) {
-          draftPayload = parsed.data;
-        } else if (parsed.event === 'error') {
-          streamError = parsed.data?.message || 'Erro no fluxo do agente.';
-          void liveCard.fail(streamError);
-        } else if (parsed.event === 'final') {
-          finalPayload = parsed.data;
-        }
+        consumeParsedEvent(parseEventStreamChunk(part));
       });
+    }
+
+    const trailingChunk = buffer.trim();
+    if (trailingChunk) {
+      consumeParsedEvent(parseEventStreamChunk(trailingChunk));
     }
 
     if (streamError && !finalPayload) {
@@ -2972,7 +2978,14 @@
           sources: draftPayload.sources || [],
         };
       }
-      throw new Error('Fluxo do agente foi encerrado sem resposta final.');
+      return {
+        response: 'O fluxo do agente foi encerrado antes da resposta final. Tente novamente em alguns instantes.',
+        thinking: 'A conexao de streaming terminou antes da entrega final.',
+        logs: [],
+        media: [],
+        sources: [],
+        error: 'Fluxo do agente foi encerrado sem resposta final.',
+      };
     }
 
     return finalPayload;
