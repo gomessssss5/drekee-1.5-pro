@@ -3789,6 +3789,25 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     }
   }
 
+  if (!isFactCheck && selectedConnectors.includes('google-cse-authority') && domainPolicy.tavilyDomains.length > 0) {
+    logs.push(`🔎 Buscando fontes autoritativas para ${specializedDomain} via Google Custom Search...`);
+    const authoritySearch = await searchGoogleCustomSearch(queryParaBuscar, {
+      includeDomains: domainPolicy.tavilyDomains,
+      excludeDomains: ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'x.com', 'twitter.com'],
+      maxResults: 6,
+    });
+    if (Array.isArray(authoritySearch?.results) && authoritySearch.results.length > 0) {
+      context += `\n\n📚 Fontes autoritativas priorizadas:\n`;
+      authoritySearch.results.forEach((item, index) => {
+        context += `${index + 1}. ${item.title}\n${item.snippet || ''}\nLink: ${item.url}\n`;
+        addSource(`AUTH-${index + 1}`, item.title || `Fonte autoritativa ${index + 1}`, 'google-cse-authority', `${item.displayLink || ''} - ${item.snippet || ''}`.trim(), item.url);
+      });
+      logs.push(`${authoritySearch.results.length} fontes autoritativas coletadas`);
+    } else {
+      logs.push('⚠️ Google CSE não retornou fontes autoritativas para esta trilha');
+    }
+  }
+
   const isEarthquakeQuery = selectedConnectors.includes('usgs') && 
     /terremoto|sismo|tremor|abalo|sism|quake/i.test(userQuestion);
   const isSunQuery = selectedConnectors.includes('sunrise') &&
@@ -4847,6 +4866,7 @@ INSTRUÇÕES FINAIS:
 20. Em ciencia, saude, astronomia, clima, geografia e dados publicos, prefira mecanismo, dado oficial, catalogo, serie ou artigo; evite resposta bonita mas genérica.
 21. Se houver fonte primaria melhor no contexto, não baseie a resposta em Wikipedia ou web aberta.
 22. Se a evidência estiver incompleta, diga exatamente o que falta confirmar em vez de preencher lacunas com texto genérico.
+23. Se existirem IDs de fontes oficiais ou autoritativas como AUTH-*, IBGE-*, PUBMED-*, NASA-*, HORIZONS-*, DATASUS-* ou CSE-*, prefira esses IDs nas citações em vez de WEB-*.
 
 Seja honesto. Não invente. Use as fontes.`;
 
