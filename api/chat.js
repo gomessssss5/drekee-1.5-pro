@@ -1090,16 +1090,13 @@ function applyGeographySanityCorrections(response = '', userQuestion = '', sourc
   const draft = String(response || '');
 
   if (/\bbioma\b/.test(question) && /\bmato grosso do sul\b/.test(question)) {
-    const claimsPantanal = /\bpantanal\b/.test(draft) && /\b(predominante|dominante|maior|dois ter[cç]os|2\/3)\b/i.test(draft);
-    if (claimsPantanal) {
-      const primarySourceId = pickBestSourceId(sources, ['ibge.gov.br', 'gov.br', 'bioma', 'cerrado', 'mato grosso do sul', 'auth-', 'cse-']) || 'AUTH-1';
-      logs.push('🛑 Correção factual geográfica aplicada: MS não tem o Pantanal como bioma predominante.');
-      return [
-        `O bioma predominante em Mato Grosso do Sul é o Cerrado [ID-DA-FONTE: ${primarySourceId}].`,
-        `O Pantanal é o bioma mais icônico do estado, mas não ocupa a maior parte do território; ele se concentra principalmente na porção oeste, enquanto o Cerrado domina a maior extensão territorial [ID-DA-FONTE: ${primarySourceId}].`,
-        `Se quiser, eu posso detalhar também a distribuição aproximada entre Cerrado, Pantanal e Mata Atlântica no estado [ID-DA-FONTE: ${primarySourceId}].`
-      ].join('\n\n');
-    }
+    const primarySourceId = pickBestSourceId(sources, ['geo-ms-biomas', 'ibge.gov.br', 'bioma', 'cerrado', 'mato grosso do sul', 'auth-', 'cse-']) || 'GEO-MS-BIOMAS';
+    logs.push('🛑 Resposta geográfica determinística aplicada: bioma predominante de MS = Cerrado.');
+    return [
+      `O bioma predominante em Mato Grosso do Sul é o Cerrado [ID-DA-FONTE: ${primarySourceId}].`,
+      `O Pantanal é um bioma muito importante e marcante no estado, mas ocupa uma porção menor, concentrada principalmente no oeste, enquanto o Cerrado cobre a maior parte do território estadual [ID-DA-FONTE: ${primarySourceId}].`,
+      `Em Mato Grosso do Sul também há áreas de Mata Atlântica, sobretudo na faixa leste e sudeste [ID-DA-FONTE: ${primarySourceId}].`
+    ].join('\n\n');
   }
 
   return draft;
