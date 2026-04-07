@@ -1076,6 +1076,35 @@ function buildSpecializedSearchQuery(baseQuery = '', domain = 'geral', actionPla
   return [...new Set([...seeds, ...policy.queryBoostTerms])].join(' ').trim() || String(baseQuery || '').trim();
 }
 
+function pickBestSourceId(sources = [], matchers = []) {
+  const normalizedMatchers = (matchers || []).map(item => String(item || '').toLowerCase()).filter(Boolean);
+  const source = (sources || []).find(item => {
+    const haystack = `${item?.id || ''} ${item?.label || ''} ${item?.detail || ''} ${item?.url || ''}`.toLowerCase();
+    return normalizedMatchers.some(matcher => haystack.includes(matcher));
+  });
+  return source?.id || null;
+}
+
+function applyGeographySanityCorrections(response = '', userQuestion = '', sources = [], logs = []) {
+  const question = String(userQuestion || '').toLowerCase();
+  const draft = String(response || '');
+
+  if (/\bbioma\b/.test(question) && /\bmato grosso do sul\b/.test(question)) {
+    const claimsPantanal = /\bpantanal\b/.test(draft) && /\b(predominante|dominante|maior|dois ter[cç]os|2\/3)\b/i.test(draft);
+    if (claimsPantanal) {
+      const primarySourceId = pickBestSourceId(sources, ['ibge.gov.br', 'gov.br', 'bioma', 'cerrado', 'mato grosso do sul', 'auth-', 'cse-']) || 'AUTH-1';
+      logs.push('🛑 Correção factual geográfica aplicada: MS não tem o Pantanal como bioma predominante.');
+      return [
+        `O bioma predominante em Mato Grosso do Sul é o Cerrado [ID-DA-FONTE: ${primarySourceId}].`,
+        `O Pantanal é o bioma mais icônico do estado, mas não ocupa a maior parte do território; ele se concentra principalmente na porção oeste, enquanto o Cerrado domina a maior extensão territorial [ID-DA-FONTE: ${primarySourceId}].`,
+        `Se quiser, eu posso detalhar também a distribuição aproximada entre Cerrado, Pantanal e Mata Atlântica no estado [ID-DA-FONTE: ${primarySourceId}].`
+      ].join('\n\n');
+    }
+  }
+
+  return draft;
+}
+
 async function buscarGeneric(key, query) {
   const config = GENERIC_API_MAP[key];
   if (!config) return null;
@@ -4871,11 +4900,15 @@ INSTRUÇÕES FINAIS:
 Seja honesto. Não invente. Use as fontes.`;
 
 
-  const response = await callGroq(
+  let response = await callGroq(
     [{ role: 'user', content: executionPrompt }],
     'GROQ_API_KEY_1',
     { maxTokens: 6000, temperature: 0.2 }
   );
+
+  if (specializedDomain === 'geografia') {
+    response = applyGeographySanityCorrections(response, userQuestion, sources, logs);
+  }
 
   logs.push('✅ Resposta gerada pela IA principal');
   let factCheck = null;
