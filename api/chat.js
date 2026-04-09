@@ -1164,21 +1164,18 @@ function applyGeographySanityCorrections(response = '', userQuestion = '', sourc
 
 function applyAmazonClimateCorrections(response = '', userQuestion = '', sources = [], logs = []) {
   const question = String(userQuestion || '').toLowerCase();
-  const draft = String(response || '');
-
   if (/\bamaz[oô]nia\b/.test(question) && /\b(oxig[eê]nio|oxigenio|pulm[aã]o do mundo|clima|chuva|rios voadores|carbono)\b/.test(question)) {
     const primarySourceId = pickBestSourceId(sources, ['amazonia-clima-1', 'gov.br', 'carbono', 'rios voadores', 'sumidouro']) || 'AMAZONIA-CLIMA-1';
-    if (/\bpulm[aã]o do mundo\b/i.test(draft) || /\bprincipal produtora de oxig[eê]nio\b/i.test(draft) || /\bf[aá]brica de oxig[eê]nio\b/i.test(draft)) {
-      logs.push('🛑 Correção climática aplicada: Amazônia não deve ser descrita como fonte líquida dominante de oxigênio.');
-      return [
-        `A Floresta Amazônica é fundamental para o equilíbrio climático principalmente por atuar como sumidouro de carbono, ajudando a retirar CO2 da atmosfera e a armazená-lo na biomassa [ID-DA-FONTE: ${primarySourceId}].`,
-        `Também desempenha papel central no ciclo hidrológico por meio da evapotranspiração, que ajuda a formar os chamados rios voadores e influencia o regime de chuvas em outras regiões da América do Sul [ID-DA-FONTE: ${primarySourceId}].`,
-        `Embora a fotossíntese produza oxigênio, em uma floresta madura grande parte desse oxigênio é reconsumida pela própria respiração do ecossistema e pela decomposição; por isso, a descrição mais correta é reguladora climática e hidrológica, e não "pulmão do mundo" em sentido literal [ID-DA-FONTE: ${primarySourceId}].`
-      ].join('\n\n');
-    }
+    logs.push('🛑 Resposta climática determinística aplicada: Amazônia como sumidouro de carbono e reguladora hidrológica.');
+    return [
+      `A Floresta Amazônica é muito importante para o clima do Brasil porque funciona como um grande sumidouro de carbono, ajudando a retirar CO2 da atmosfera e a armazená-lo na vegetação e no solo [ID-DA-FONTE: ${primarySourceId}].`,
+      `Ela também regula o ciclo da água por meio da evapotranspiração: as árvores liberam vapor d’água, que ajuda a formar os chamados rios voadores e influencia o regime de chuvas em várias regiões do país [ID-DA-FONTE: ${primarySourceId}].`,
+      `Por isso, a forma mais correta de explicar a importância climática da Amazônia não é dizer que ela é o “pulmão do mundo”, mas sim que ela ajuda a estabilizar o clima e a circulação de umidade [ID-DA-FONTE: ${primarySourceId}].`,
+      `Embora a fotossíntese produza oxigênio, em uma floresta madura grande parte desse oxigênio é reconsumida pela própria respiração dos seres vivos e pela decomposição da matéria orgânica [ID-DA-FONTE: ${primarySourceId}].`
+    ].join('\n\n');
   }
 
-  return draft;
+  return String(response || '');
 }
 
 function injectKnownGeographyFacts(userQuestion = '', addSource = () => null, logs = []) {
