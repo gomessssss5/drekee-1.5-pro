@@ -1076,6 +1076,66 @@ function buildSpecializedSearchQuery(baseQuery = '', domain = 'geral', actionPla
   return [...new Set([...seeds, ...policy.queryBoostTerms])].join(' ').trim() || String(baseQuery || '').trim();
 }
 
+function buildSpecializedDomainResponseTemplate(domain = 'geral') {
+  switch (domain) {
+    case 'ciencia':
+      return [
+        '- Estrutura recomendada: resposta direta + mecanismo científico + evidência/fonte + limite da evidência.',
+        '- Se o usuário pedir explicação, priorize causa, processo, relação entre variáveis e o que a fonte realmente sustenta.',
+        '- Evite metáforas antes de explicar o mecanismo real.'
+      ].join('\n');
+    case 'astronomia':
+      return [
+        '- Estrutura recomendada: resposta direta + objeto/fenômeno + dado observacional/catálogo + contexto astronômico mínimo.',
+        '- Se houver medida, priorize valor, unidade, referência e comparação simples.',
+        '- Não preencha lacunas com curiosidade genérica.'
+      ].join('\n');
+    case 'geografia':
+      return [
+        '- Estrutura recomendada: resposta direta + localização/distribuição territorial + dado oficial + diferença entre conceito e exemplo local.',
+        '- Em bioma, clima, território ou população, priorize proporção, área, recorte espacial e fonte oficial.',
+        '- Não confunda bioma icônico com predominância territorial.'
+      ].join('\n');
+    case 'clima':
+      return [
+        '- Estrutura recomendada: resposta direta + distinção entre dado atual e tendência histórica + mecanismo climático + limite da inferência.',
+        '- Diferencie clima de meteorologia e evento local de padrão regional.'
+      ].join('\n');
+    case 'saude':
+    case 'oncologia':
+      return [
+        '- Estrutura recomendada: resposta direta + mecanismo biológico + evidência clínica/institucional + cautela/limite.',
+        '- Não tratar hipótese, correlação ou hábito isolado como prova terapêutica.'
+      ].join('\n');
+    case 'dados_publicos':
+      return [
+        '- Estrutura recomendada: resposta direta + número principal + período + órgão responsável + nota de escopo.',
+        '- Separar dado oficial de interpretação.'
+      ].join('\n');
+    default:
+      return '- Estrutura recomendada: resposta direta + explicação curta + fonte quando houver.';
+  }
+}
+
+function stripGenericDomainFluff(response = '', domain = 'geral') {
+  if (!['ciencia', 'astronomia', 'geografia', 'clima', 'saude', 'oncologia', 'dados_publicos'].includes(domain)) {
+    return String(response || '');
+  }
+
+  const lines = String(response || '')
+    .split('\n')
+    .filter(line => {
+      const clean = line.trim();
+      if (!clean) return true;
+      if (/\b(boa exploração|boa exploracao|lembre-se|pense nisso|vale lembrar que|é interessante notar que|e também|além disso[, ]*de forma geral)\b/i.test(clean) && !/\[ID-DA-FONTE:/i.test(clean)) {
+        return false;
+      }
+      return true;
+    });
+
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function pickBestSourceId(sources = [], matchers = []) {
   const normalizedMatchers = (matchers || []).map(item => String(item || '').toLowerCase()).filter(Boolean);
   const source = (sources || []).find(item => {
@@ -4905,6 +4965,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   const conceptualIntent = detectConceptualVisualIntent(userQuestion);
   const executionDomain = specializedDomain;
   const executionDomainPolicy = getSpecializedDomainPolicy(executionDomain);
+  const domainTemplate = buildSpecializedDomainResponseTemplate(executionDomain);
   const visualGuidance = graphIntent
     ? '\nSINAL VISUAL: esta pergunta pede comparacao, ranking ou tendencia. Se houver dados confiaveis no contexto, gere um grafico LaTeX apropriado.\n'
     : (conceptualIntent
@@ -4929,6 +4990,8 @@ TRILHA ESPECIALIZADA DE DOMINIO:
 - dominio detectado: ${executionDomain}
 - validacao rigorosa: ${actionPlan?.validacao_rigorosa === true || executionDomainPolicy.strictValidation ? 'sim' : 'nao'}
 - regra central: ${executionDomainPolicy.promptGuardrails || 'Responda com precisao e use as melhores fontes disponiveis.'}
+- template de resposta:
+${domainTemplate}
 
 INSTRUÇÕES FINAIS:
 1. Abra com um parágrafo objetivo de no máximo 3 frases, respondendo diretamente ao pedido do usuário.
@@ -5005,6 +5068,8 @@ Seja honesto. Não invente. Use as fontes.`;
 
 // ============ STEP 3: Audit with Gemini / Polish with Groq ============
 async function reviewResponse(response, { userQuestion = '', sources = [] } = {}) {
+  const reviewDomain = detectSpecializedKnowledgeDomain(userQuestion, {});
+  const reviewTemplate = buildSpecializedDomainResponseTemplate(reviewDomain);
   const sourceDigest = (sources || [])
     .slice(0, 12)
     .map(source => `${source.id}: ${source.label} - ${source.detail}`)
@@ -5030,6 +5095,8 @@ REGRAS CRUCIAIS (RESPEITE 100%):
 7) PRESERVE integralmente, se existirem, os blocos [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE] e [MINDMAP_TITLE: ...][MINDMAP_CODE]...[/MINDMAP_CODE], além de [PHET:...] e [PDB:...]. Também preserve blocos \`\`\`latex ... \`\`\` e \`\`\`tikz ... \`\`\` intactos. Você pode melhorar o texto ao redor, mas não corrompa essas tags nem blocos de código.
 8) Se a pergunta pedir propriedades físicas, astronômicas, geográficas ou quantitativas, prefira trazer valor absoluto + comparação relativa quando as fontes sustentarem isso.
 9) Se houver fontes disponíveis, a resposta final deve sair com boa densidade de citações, especialmente nas frases numéricas e comparativas.
+10) Se o domínio for especializado, reescreva seguindo este template:
+${reviewTemplate}
 
 PERGUNTA DO USUÁRIO:
 ${userQuestion}
@@ -7143,6 +7210,7 @@ async function handler(req, res) {
     response = enforceCanonicalCitationTags(response, finalExec.sources || []);
     response = removeUnsupportedAnalyticalParagraphs(response);
     response = softenUnsupportedSuperlatives(response, finalExec.sources || []);
+    response = stripGenericDomainFluff(response, detectSpecializedKnowledgeDomain(userQuestion, actionPlan, finalExec.factCheck?.claim || ''));
     response = sanitizeFinalResponse(response);
     if (finalExec.factCheck) {
       const structuredFactCheckResponse = buildFactCheckFinalResponse({
