@@ -2659,6 +2659,14 @@ async function callOpenRouter(prompt, logs = [], options = {}) {
 // Alias para manter compatibilidade onde callGemini era usado
 const callGemini = (...args) => callOpenRouter(...args);
 
+function shrinkPromptForFastFallback(prompt = '', budget = 5400) {
+  const text = String(prompt || '').trim();
+  if (text.length <= budget) return text;
+  const headBudget = Math.floor(budget * 0.68);
+  const tailBudget = Math.max(400, budget - headBudget - 40);
+  return `${text.slice(0, headBudget)}\n\n[TRUNCATED_FOR_FAST_FALLBACK]\n\n${text.slice(-tailBudget)}`;
+}
+
 async function callPrimaryResponseModel(prompt, logs = [], options = {}) {
   const primaryResponse = await callOpenRouter(prompt, logs, {
     model: 'nvidia/nemotron-3-super-120b-a12b:free',
@@ -2670,17 +2678,29 @@ async function callPrimaryResponseModel(prompt, logs = [], options = {}) {
 
   if (primaryResponse) return primaryResponse;
 
-  if (logs) logs.push('⚠️ Nemotron indisponivel, tentando fallback Groq Llama 3.1 8B...');
-  return await callGroq(
-    [{ role: 'user', content: prompt }],
-    'GROQ_API_KEY_1',
-    {
-      model: 'llama-3.1-8b-instant',
+  if (logs) logs.push('Nemotron indisponivel, tentando fallback Groq Llama 3.1 8B...');
+  try {
+    return await callGroq(
+      [{ role: 'user', content: shrinkPromptForFastFallback(prompt) }],
+      'GROQ_API_KEY_1',
+      {
+        model: 'llama-3.1-8b-instant',
+        maxTokens: Math.min(options.maxTokens || 7000, 4200),
+        temperature: 0.25,
+        disableExternalFallbacks: true,
+      }
+    );
+  } catch (error) {
+    console.warn('Groq 8B fallback failed, trying OpenRouter free router:', error.message);
+    if (logs) logs.push('Groq 3.1 8B falhou, tentando OpenRouter/free...');
+    return await callOpenRouter(prompt, logs, {
+      model: 'openrouter/free',
+      temperature: options.temperature !== undefined ? options.temperature : 0.3,
+      topP: options.topP !== undefined ? options.topP : 0.9,
       maxTokens: Math.min(options.maxTokens || 7000, 5000),
-      temperature: 0.25,
-      disableExternalFallbacks: true,
-    }
-  );
+      disableGroqFallback: true,
+    });
+  }
 }
 
 async function callFinalApprovalModel(prompt, logs = [], options = {}) {
