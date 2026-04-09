@@ -4057,54 +4057,63 @@
   }
 
   async function requestLatexGraphRender(latexCode) {
-    const response = await fetch('./api/render-latex', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: latexCode, format: 'png' }),
-    });
+    const attemptRender = async (format = 'png') => {
+      const response = await fetch('./api/render-latex', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: latexCode, format }),
+      });
 
-    const contentType = response.headers.get('content-type') || '';
-    if (!response.ok) {
-      let errorText = '';
-      if (contentType.includes('json')) {
-        const data = await response.json().catch(() => null);
-        errorText = data?.details
-          ? `${data.error || 'Falha ao renderizar grafico LaTeX.'}\n\n${data.details}`
-          : (data?.error || '');
-      } else {
-        errorText = await response.text().catch(() => '');
+      const contentType = response.headers.get('content-type') || '';
+      if (!response.ok) {
+        let errorText = '';
+        if (contentType.includes('json')) {
+          const data = await response.json().catch(() => null);
+          errorText = data?.details
+            ? `${data.error || 'Falha ao renderizar grafico LaTeX.'}\n\n${data.details}`
+            : (data?.error || '');
+        } else {
+          errorText = await response.text().catch(() => '');
+        }
+        throw new Error(errorText || `Falha ao renderizar grafico (${response.status})`);
       }
-      throw new Error(errorText || `Falha ao renderizar grafico (${response.status})`);
+
+      if (contentType.startsWith('image/')) {
+        const blob = await response.blob();
+        return { imageUrl: URL.createObjectURL(blob), revokeOnUnload: true };
+      }
+
+      if (contentType.includes('pdf')) {
+        const blob = await response.blob();
+        return await renderPdfBlobAsPng(blob);
+      }
+
+      if (!contentType.includes('json')) {
+        const rawText = await response.text().catch(() => '');
+        throw new Error(rawText || 'A API de LaTeX retornou uma resposta invalida.');
+      }
+
+      const data = await response.json().catch(() => null);
+      if (!data) throw new Error('A API de LaTeX retornou uma resposta invalida.');
+
+      const rawImage = data.imageUrl || data.url || data.image || data.png || data.data || data.base64 || '';
+      if (!rawImage) {
+        throw new Error(data.error || 'A API de LaTeX nao retornou a imagem do grafico.');
+      }
+
+      if (/^data:image\//i.test(rawImage) || /^https?:\/\//i.test(rawImage)) {
+        return { imageUrl: rawImage, revokeOnUnload: false };
+      }
+
+      return { imageUrl: `data:image/png;base64,${rawImage}`, revokeOnUnload: false };
+    };
+
+    try {
+      return await attemptRender('png');
+    } catch (pngError) {
+      console.warn('Render PNG falhou, tentando fallback PDF:', pngError);
+      return await attemptRender('pdf');
     }
-
-    if (contentType.startsWith('image/')) {
-      const blob = await response.blob();
-      return { imageUrl: URL.createObjectURL(blob), revokeOnUnload: true };
-    }
-
-    if (contentType.includes('pdf')) {
-      const blob = await response.blob();
-      return await renderPdfBlobAsPng(blob);
-    }
-
-    if (!contentType.includes('json')) {
-      const rawText = await response.text().catch(() => '');
-      throw new Error(rawText || 'A API de LaTeX retornou uma resposta invalida.');
-    }
-
-    const data = await response.json().catch(() => null);
-    if (!data) throw new Error('A API de LaTeX retornou uma resposta invalida.');
-
-    const rawImage = data.imageUrl || data.url || data.image || data.png || data.data || data.base64 || '';
-    if (!rawImage) {
-      throw new Error(data.error || 'A API de LaTeX nao retornou a imagem do grafico.');
-    }
-
-    if (/^data:image\//i.test(rawImage) || /^https?:\/\//i.test(rawImage)) {
-      return { imageUrl: rawImage, revokeOnUnload: false };
-    }
-
-    return { imageUrl: `data:image/png;base64,${rawImage}`, revokeOnUnload: false };
   }
 
   async function renderPdfBlobAsPng(pdfBlob) {

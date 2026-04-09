@@ -6681,12 +6681,17 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
   }
 
   response = enforceSingleVisualChoice(response, userQuestion);
-  if (!shouldKeepAnalyticalVisualCalibrated(response, sources, userQuestion)) {
-    logs.push('🛑 Visual removido: a pergunta nao exigia grafico/mapa mental com clareza suficiente.');
-    return { response: stripAllVisualBlocks(response), confidence: assessResponseReliability(response, sources) };
-  }
   const graphBlocks = extractLatexGraphBlocks(response);
   const mindMapBlocks = extractMindMapBlocks(response);
+  const hasAnyVisualBlock = graphBlocks.length > 0 || mindMapBlocks.length > 0;
+  if (!shouldKeepAnalyticalVisualCalibrated(response, sources, userQuestion)) {
+    if (hasAnyVisualBlock && Array.isArray(sources) && sources.length > 0) {
+      logs.push('O filtro de visualizacao ficou conservador demais; mantendo o visual porque ha fontes suficientes para sustenta-lo.');
+    } else {
+      logs.push('Visual removido: a pergunta nao exigia grafico/mapa mental com clareza suficiente.');
+      return { response: stripAllVisualBlocks(response), confidence: assessResponseReliability(response, sources) };
+    }
+  }
   if (graphBlocks.length === 0 && mindMapBlocks.length > 0) {
     const confidence = assessResponseReliability(response, sources);
     const stripMindMap = () => String(response || '').replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ').trim();
