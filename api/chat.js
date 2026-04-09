@@ -6271,19 +6271,22 @@ function buildGraphBlockFromSpec(spec = {}) {
 function deriveMindMapSpecFallback(response = '', userQuestion = '') {
   const cleaned = String(response || '')
     .replace(/\[ID-DA-FONTE:\s*[^\]]+\]/gi, ' ')
+    .replace(/([.:;!?])\s{2,}/g, '$1\n')
     .replace(/\s{2,}/g, ' ')
     .trim();
-  const lines = cleaned
-    .split(/\n+/)
+  const rawSegments = cleaned
+    .split(/\n+|(?<=[.:;!?])\s+(?=[A-ZÀ-Ú])/)
     .map(line => line.replace(/^[*\-\u2022]\s*/, '').trim())
+    .filter(Boolean);
+  const lines = rawSegments
+    .flatMap(line => line.split(/\s{2,}/g).map(item => item.trim()).filter(Boolean))
     .filter(Boolean);
   const center = String(userQuestion || '')
     .replace(/[?!.]+$/g, '')
     .trim() || 'Tema central';
 
   const branchPool = lines
-    .filter(line => line.length >= 6 && line.length <= 90)
-    .slice(0, 5)
+    .filter(line => line.length >= 6 && line.length <= 120)
     .map(line => ({
       label: line.split(':')[0].trim().slice(0, 24),
       subtopics: line.includes(':')
@@ -6292,10 +6295,32 @@ function deriveMindMapSpecFallback(response = '', userQuestion = '') {
     }))
     .filter(branch => branch.label);
 
-  const branches = branchPool.map((branch, index) => ({
+  let branches = branchPool.map((branch, index) => ({
     label: branch.label || `Topico ${index + 1}`,
     subtopics: (branch.subtopics.length > 0 ? branch.subtopics : ['definicao', 'importancia']).slice(0, 3),
   })).slice(0, 5);
+
+  if (branches.length < 3) {
+    const sentencePool = cleaned
+      .split(/[.?!;]+/)
+      .map(item => item.trim())
+      .filter(item => item.length >= 10)
+      .slice(0, 5);
+    branches = sentencePool.map((sentence, index) => {
+      const pieces = sentence.split(/,|:| - /).map(item => item.trim()).filter(Boolean);
+      return {
+        label: (pieces[0] || `Topico ${index + 1}`).slice(0, 24),
+        subtopics: pieces.slice(1, 4).length > 0 ? pieces.slice(1, 4) : ['conceito', 'aplicacao'],
+      };
+    }).slice(0, 5);
+  }
+
+  while (branches.length < 3) {
+    branches.push({
+      label: `Topico ${branches.length + 1}`,
+      subtopics: ['conceito', 'relacao', 'exemplo'],
+    });
+  }
 
   return {
     title: `Mapa mental: ${center.slice(0, 42)}`,
