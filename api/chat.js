@@ -6248,36 +6248,131 @@ function buildGraphBlockFromSpec(spec = {}) {
   ].join('\n');
 }
 
+function deriveMindMapSpecFallback(response = '', userQuestion = '') {
+  const cleaned = String(response || '')
+    .replace(/\[ID-DA-FONTE:\s*[^\]]+\]/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  const lines = cleaned
+    .split(/\n+/)
+    .map(line => line.replace(/^[*\-\u2022]\s*/, '').trim())
+    .filter(Boolean);
+  const center = String(userQuestion || '')
+    .replace(/[?!.]+$/g, '')
+    .trim() || 'Tema central';
+
+  const branchPool = lines
+    .filter(line => line.length >= 6 && line.length <= 90)
+    .slice(0, 5)
+    .map(line => ({
+      label: line.split(':')[0].trim().slice(0, 24),
+      subtopics: line.includes(':')
+        ? line.split(':').slice(1).join(':').split(/,|;|\./).map(item => item.trim()).filter(Boolean).slice(0, 3)
+        : [],
+    }))
+    .filter(branch => branch.label);
+
+  const branches = branchPool.map((branch, index) => ({
+    label: branch.label || `Topico ${index + 1}`,
+    subtopics: (branch.subtopics.length > 0 ? branch.subtopics : ['definicao', 'importancia']).slice(0, 3),
+  })).slice(0, 5);
+
+  return {
+    title: `Mapa mental: ${center.slice(0, 42)}`,
+    center,
+    branches,
+  };
+}
+
 async function buildStructuredMindMapSpec(response = '', sources = [], userQuestion = '', logs = []) {
   const sourceDigest = (sources || [])
     .slice(0, 8)
     .map(source => `${source.id}: ${source.label} - ${source.detail}`)
     .join('\n');
 
-  const prompt = `Você é um extrator confiável para mapas mentais científicos.
-Sua tarefa é extrair os conceitos principais e sub-tópicos de uma resposta e suas fontes para criar um mapa mental RADIAL e HIERÁRQUICO.
+  const prompt = `Voce e um extrator confiavel para mapas mentais cientificos.
+Sua tarefa e extrair os conceitos principais e subtopicos de uma resposta e suas fontes para criar um mapa mental radial e hierarquico.
 
-Retorne APENAS um JSON válido no seguinte formato:
+Retorne APENAS um JSON valido no seguinte formato:
 {
-  "title": "Título do Mapa",
-  "center": "Conceito Central",
+  "title": "Titulo do mapa",
+  "center": "Conceito central",
   "branches": [
     {
-      "label": "Tópico Principal 1",
-      "subtopics": ["Sub 1.1", "Sub 1.2", "Sub 1.3"]
+      "label": "Topico principal 1",
+      "subtopics": ["Sub 1", "Sub 2", "Sub 3"]
     }
   ]
 }
 
-REGRAS:
-1. "center" deve ser o tema central da pergunta/resposta.
-2. "branches" deve ter entre 3 e 5 tópicos principais.
-3. Cada branch deve ter entre 2 e 3 subtopics curtos (máximo 4 palavras cada).
-4. NUNCA gere ASCII art ou TikZ aqui. Apenas o JSON.
-3. Marque oversimplified=true se o ramo reduzir demais um tema sensível ou ambíguo.
-4. approved só pode ser true se todos os ramos estiverem sustentados e sem vazamento causal.
-5. Em tema sensível, approved deve ser false se houver simplificação excessiva relevante.
-6. Não use markdown.
+Regras:
+- "center" deve ser o tema central da pergunta/resposta
+- "branches" deve ter entre 3 e 5 topicos principais
+- cada branch deve ter entre 2 e 3 subtopics curtos
+- nao gere ASCII art nem TikZ aqui; apenas JSON
+- nao use markdown
+
+PERGUNTA:
+${userQuestion}
+
+RESPOSTA BASE:
+${String(response || '').slice(0, 2600)}
+
+FONTES DISPONIVEIS:
+${sourceDigest || 'Sem fontes registradas'}
+`;
+
+  const parsed = extractJsonObject(await callGemini(prompt, logs)) || {};
+  const spec = {
+    title: String(parsed?.title || 'Mapa mental').trim(),
+    center: String(parsed?.center || '').trim(),
+    branches: Array.isArray(parsed?.branches) ? parsed.branches : [],
+  };
+  if (spec.center && Array.isArray(spec.branches) && spec.branches.length >= 3) {
+    return spec;
+  }
+  if (logs) logs.push('⚠️ Extrator do mapa mental falhou; usando estrutura heuristica de fallback.');
+  return deriveMindMapSpecFallback(response, userQuestion);
+}
+
+async function auditMindMapSemantics(spec = {}, response = '', sources = [], userQuestion = '', logs = []) {
+  const sourceDigest = (sources || [])
+    .slice(0, 8)
+    .map(source => `${source.id}: ${source.label} - ${source.detail}`)
+    .join('\n');
+
+  const prompt = `Voce e um auditor semantico de mapas mentais cientificos.
+
+Analise se a estrutura abaixo esta fiel a resposta e as fontes.
+
+Retorne APENAS JSON valido:
+{
+  "approved": true,
+  "sensitiveTopic": false,
+  "issues": [],
+  "branchChecks": [
+    { "label": "ramo", "supported": true, "causalLeak": false, "oversimplified": false }
+  ]
+}
+
+Regras:
+- supported=false se o ramo nao estiver claramente sustentado pela resposta ou pelas fontes
+- causalLeak=true se o ramo introduzir causa, efeito ou conclusao nao sustentada
+- oversimplified=true se simplificar demais um tema sensivel ou ambiguo
+- approved so pode ser true se todos os ramos estiverem sustentados e sem vazamento causal relevante
+- nao use markdown
+
+PERGUNTA:
+${userQuestion}
+
+RESPOSTA BASE:
+${String(response || '').slice(0, 2600)}
+
+FONTES DISPONIVEIS:
+${sourceDigest || 'Sem fontes registradas'}
+
+ESTRUTURA DO MAPA:
+${JSON.stringify(spec || {})}
 `;
 
   const audit = extractJsonObject(await callGemini(prompt, logs)) || {};
