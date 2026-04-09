@@ -3060,6 +3060,185 @@ function rankFactCheckSources(sources = [], topic = 'geral') {
   return [...(sources || [])].sort((a, b) => scoreFactCheckSource(b, topic) - scoreFactCheckSource(a, topic));
 }
 
+function normalizeAuthorityDomain(domain = '') {
+  const normalized = String(domain || '').trim().toLowerCase();
+  if (['oncologia', 'saude'].includes(normalized)) return 'saude';
+  if (['espaco', 'astronomia'].includes(normalized)) return 'astronomia';
+  if (['institucional', 'dados_publicos'].includes(normalized)) return 'dados_publicos';
+  return normalized || 'geral';
+}
+
+function getAuthorityPriorityRules(domain = 'geral') {
+  switch (normalizeAuthorityDomain(domain)) {
+    case 'saude':
+      return {
+        preferredDomains: ['inca.gov.br', 'saude.gov.br', 'gov.br', 'who.int', 'opas.org.br', 'nih.gov', 'pubmed.ncbi.nlm.nih.gov', 'cancer.gov'],
+        supportDomains: ['aosfatos.org', 'lupa.uol.com.br', 'g1.globo.com', 'bbc.com', 'nature.com', 'thelancet.com'],
+        blockedDomains: ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'x.com', 'twitter.com', 'blogspot.com', 'wordpress.com', 'medium.com'],
+      };
+    case 'astronomia':
+      return {
+        preferredDomains: ['nasa.gov', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'esa.int', 'iau.org', 'exoplanetarchive.ipac.caltech.edu'],
+        supportDomains: ['aosfatos.org', 'g1.globo.com', 'space.com', 'scientificamerican.com'],
+        blockedDomains: ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'x.com', 'twitter.com', 'blogspot.com', 'wordpress.com', 'medium.com'],
+      };
+    case 'geografia':
+      return {
+        preferredDomains: ['ibge.gov.br', 'gov.br', 'mma.gov.br', 'mapbiomas.org', 'inpe.br', 'ipea.gov.br'],
+        supportDomains: ['aosfatos.org', 'g1.globo.com', 'bbc.com'],
+        blockedDomains: ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'x.com', 'twitter.com', 'blogspot.com', 'wordpress.com', 'medium.com'],
+      };
+    case 'clima':
+      return {
+        preferredDomains: ['inpe.br', 'gov.br', 'ipcc.ch', 'wmo.int', 'noaa.gov', 'climate.nasa.gov', 'copernicus.eu'],
+        supportDomains: ['aosfatos.org', 'g1.globo.com', 'bbc.com', 'nature.com'],
+        blockedDomains: ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'x.com', 'twitter.com', 'blogspot.com', 'wordpress.com', 'medium.com'],
+      };
+    case 'dados_publicos':
+      return {
+        preferredDomains: ['gov.br', 'ibge.gov.br', 'camara.leg.br', 'senado.leg.br', 'tcu.gov.br', 'portaldatransparencia.gov.br', 'dados.gov.br'],
+        supportDomains: ['aosfatos.org', 'lupa.uol.com.br', 'g1.globo.com', 'bbc.com'],
+        blockedDomains: ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'x.com', 'twitter.com', 'blogspot.com', 'wordpress.com', 'medium.com'],
+      };
+    case 'ciencia':
+      return {
+        preferredDomains: ['pubmed.ncbi.nlm.nih.gov', 'nih.gov', 'who.int', 'nature.com', 'science.org', 'scielo.br', 'gov.br'],
+        supportDomains: ['aosfatos.org', 'lupa.uol.com.br', 'g1.globo.com', 'bbc.com'],
+        blockedDomains: ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'x.com', 'twitter.com', 'blogspot.com', 'wordpress.com', 'medium.com'],
+      };
+    default:
+      return {
+        preferredDomains: ['gov.br', 'ibge.gov.br', 'who.int', 'nasa.gov', 'pubmed.ncbi.nlm.nih.gov'],
+        supportDomains: ['aosfatos.org', 'lupa.uol.com.br', 'g1.globo.com', 'bbc.com'],
+        blockedDomains: ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'x.com', 'twitter.com', 'blogspot.com', 'wordpress.com', 'medium.com'],
+      };
+  }
+}
+
+function scoreAuthoritySource(source = {}, domain = 'geral', userQuestion = '') {
+  const url = String(source?.url || '').toLowerCase();
+  const label = String(source?.label || '').toLowerCase();
+  const detail = String(source?.detail || '').toLowerCase();
+  const type = String(source?.type || source?.connector || '').toLowerCase();
+  const id = String(source?.id || '').toLowerCase();
+  const question = String(userQuestion || '').toLowerCase();
+  const rules = getAuthorityPriorityRules(domain);
+  let score = 0;
+  let bucket = 'apoio';
+
+  const preferredIndex = rules.preferredDomains.findIndex(item => url.includes(item));
+  if (preferredIndex >= 0) {
+    score += 180 - preferredIndex * 8;
+    bucket = 'oficial';
+  } else {
+    const supportIndex = rules.supportDomains.findIndex(item => url.includes(item));
+    if (supportIndex >= 0) {
+      score += 110 - supportIndex * 5;
+      bucket = /aosfatos|lupa/i.test(url) ? 'checagem' : 'imprensa';
+    }
+  }
+
+  if (/\.gov(\.|\/|$)|\.gov\.br|\.edu(\.|\/|$)|\.edu\.br/.test(url)) {
+    score += 48;
+    bucket = bucket === 'apoio' ? 'oficial' : bucket;
+  }
+  if (/pubmed\.ncbi\.nlm\.nih\.gov|nature\.com|science\.org|thelancet\.com|nejm\.org|scielo\.br/.test(url)) {
+    score += 54;
+    bucket = 'cientifica';
+  }
+  if (/aosfatos\.org|lupa\.uol\.com\.br/.test(url)) {
+    score += 34;
+    bucket = 'checagem';
+  }
+  if (rules.blockedDomains.some(item => url.includes(item))) score -= 85;
+  if (/blog|wordpress|medium\.com|substack\.com/.test(url)) score -= 35;
+
+  if (type === 'google-cse-authority') score += 28;
+  if (type === 'fact-check') {
+    score += 26;
+    bucket = 'checagem';
+  }
+  if (type === 'web') score -= 10;
+  if (type === 'serpapi-news') score -= 4;
+  if (type === 'serpapi-lens') score -= 12;
+  if (['ibge', 'pubmed', 'datasus', 'nasa', 'horizons', 'esa', 'scielo', 'camara', 'transparencia', 'tcu', 'noaa-space', 'modis', 'sentinel'].includes(type)) {
+    score += 26;
+    if (bucket === 'apoio') bucket = 'oficial';
+  }
+
+  if (/^auth-|^cse-|^ibge-|^pubmed-|^nasa-|^horizons-|^datasus-|^tcu-|^transparencia-/i.test(id)) score += 18;
+  if (/\b(estudo|ensaio|diretriz|catalogo|serie historica|atlas|mapa oficial|instituto|minist[eé]rio|organiza[cç][aã]o mundial)\b/.test(`${label} ${detail}`)) score += 12;
+  if (/\b(v[ií]deo|canal|shorts|reels)\b/.test(`${label} ${detail}`)) score -= 18;
+
+  const questionTokens = [...new Set(question.split(/[^a-z0-9áéíóúâêôãõç]+/i).filter(token => token.length >= 5))];
+  const relevanceHits = questionTokens.reduce((acc, token) => acc + ((label.includes(token) || detail.includes(token)) ? 1 : 0), 0);
+  score += Math.min(relevanceHits * 6, 24);
+
+  return { score, bucket };
+}
+
+function rankSourcesByAuthority(sources = [], domain = 'geral', userQuestion = '') {
+  return [...(sources || [])]
+    .map(source => {
+      const scored = scoreAuthoritySource(source, domain, userQuestion);
+      return { ...source, authorityScore: scored.score, authorityBucket: scored.bucket };
+    })
+    .sort((a, b) => (b.authorityScore || 0) - (a.authorityScore || 0));
+}
+
+async function chooseAuthorityLeadSourceWithGroq(sources = [], { domain = 'geral', userQuestion = '', logs = [] } = {}) {
+  const candidates = (sources || []).slice(0, 3);
+  if (candidates.length < 2) return candidates[0] || null;
+  const first = Number(candidates[0].authorityScore || 0);
+  const second = Number(candidates[1].authorityScore || 0);
+  if (first - second >= 18) return candidates[0];
+
+  try {
+    const prompt = `Escolha APENAS um source_id entre os candidatos abaixo para ser a fonte principal da resposta.
+
+Critérios:
+- prefira fonte primaria, oficial ou cientifica
+- prefira a fonte que melhor sustenta a pergunta do usuario
+- evite video, blog, agregador ou resumo web se houver opcao melhor
+- responda APENAS JSON valido: {"source_id":"ID_EXATO","reason":"motivo curto"}
+
+Dominio: ${JSON.stringify(domain)}
+Pergunta do usuario: ${JSON.stringify(String(userQuestion || ''))}
+
+Candidatos:
+${candidates.map(source => `${source.id} | bucket=${source.authorityBucket} | score=${source.authorityScore} | ${source.label} | ${String(source.detail || '').slice(0, 180)} | ${source.url || ''}`).join('\n')}
+`;
+
+    const raw = await callGroq(
+      [{ role: 'user', content: prompt }],
+      'GROQ_API_KEY_1',
+      { model: 'llama-3.1-8b-instant', maxTokens: 240, temperature: 0.1, disableExternalFallbacks: true }
+    );
+    const parsed = extractJsonObject(raw) || {};
+    const chosenId = String(parsed.source_id || '').trim();
+    const chosen = candidates.find(source => source.id === chosenId);
+    if (chosen) {
+      if (logs) logs.push(`🧭 Juiz rapido de fontes escolheu ${chosen.id} como fonte principal.`);
+      return chosen;
+    }
+  } catch (error) {
+    console.warn('Authority lead source selection failed:', error.message);
+  }
+
+  return candidates[0];
+}
+
+async function buildAuthoritySourcePackage(sources = [], { domain = 'geral', userQuestion = '', logs = [] } = {}) {
+  const ranked = rankSourcesByAuthority(sources, domain, userQuestion);
+  const primarySource = await chooseAuthorityLeadSourceWithGroq(ranked, { domain, userQuestion, logs });
+  const secondarySources = ranked.filter(source => !primarySource || source.id !== primarySource.id).slice(0, 7);
+  return {
+    ranked,
+    primarySource,
+    secondarySources,
+  };
+}
+
 function formatFactCheckConfidenceLabel(confidence = '') {
   switch (String(confidence || '').toUpperCase()) {
     case 'HIGH':
@@ -5069,6 +5248,20 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   const executionDomain = specializedDomain;
   const executionDomainPolicy = getSpecializedDomainPolicy(executionDomain);
   const domainTemplate = buildSpecializedDomainResponseTemplate(executionDomain);
+  const authorityPackage = await buildAuthoritySourcePackage(sources, {
+    domain: executionDomain,
+    userQuestion,
+    logs,
+  });
+  const rankedSourcesForAnswer = authorityPackage.ranked;
+  const primarySource = authorityPackage.primarySource;
+  const authorityPrimaryLine = primarySource
+    ? `${primarySource.id}: ${primarySource.label} - ${String(primarySource.detail || '').slice(0, 260)}${primarySource.url ? ` | ${primarySource.url}` : ''}`
+    : 'Nenhuma fonte principal claramente superior foi identificada.';
+  const authorityDigest = rankedSourcesForAnswer
+    .slice(0, 8)
+    .map(s => `${s.id}: [${s.authorityBucket || 'apoio'} | score=${s.authorityScore || 0}] ${s.label} - ${String(s.detail || '').slice(0, 200)}${s.url ? ` | ${s.url}` : ''}`)
+    .join('\n');
   const visualGuidance = graphIntent
     ? '\nSINAL VISUAL: esta pergunta pede comparacao, ranking ou tendencia. Se houver dados confiaveis no contexto, gere um grafico LaTeX apropriado.\n'
     : (conceptualIntent
@@ -5125,7 +5318,21 @@ INSTRUÇÕES FINAIS:
 Seja honesto. Não invente. Use as fontes.`;
 
 
-  let response = await callPrimaryResponseModel(executionPrompt, logs, {
+  const executionPromptWithAuthority = `${executionPrompt}
+
+CAMADA DE AUTORIDADE DAS FONTES:
+Fonte principal priorizada:
+${authorityPrimaryLine}
+
+Fontes com melhor autoridade para esta resposta:
+${authorityDigest || 'Sem fontes autoritativas suficientes.'}
+
+REGRAS EXTRAS DE AUTORIDADE:
+- se existir fonte principal oficial, cientifica ou institucional forte, ela deve governar a resposta
+- quando duas fontes divergirem, explique qual tem maior autoridade e por que
+- nao cite video, blog, agregador ou resumo web como base central se houver fonte melhor`;
+
+  let response = await callPrimaryResponseModel(executionPromptWithAuthority, logs, {
     maxTokens: 7000,
     temperature: 0.35,
     topP: 0.9,
@@ -5144,14 +5351,14 @@ Seja honesto. Não invente. Use as fontes.`;
       userQuestion,
       actionPlan,
       visionContext: options.visionContext || '',
-      sources,
+      sources: rankedSourcesForAnswer,
       logs,
       hasImage: Boolean(options.factCheckImageUrl),
     });
     if (options.factCheckImageUrl) {
       factCheck.inputPreviewUrl = options.factCheckImageUrl;
     }
-    const factCheckConnectors = new Set((sources || []).map(source => String(source?.connector || '').trim().toLowerCase()).filter(Boolean));
+    const factCheckConnectors = new Set((rankedSourcesForAnswer || []).map(source => String(source?.connector || '').trim().toLowerCase()).filter(Boolean));
     const usedVisionExtraction = hasImageVisionExtraction(options.visionContext || '');
     factCheck.analysisMode = options.factCheckImageUrl
       ? (usedVisionExtraction
@@ -5166,7 +5373,14 @@ Seja honesto. Não invente. Use as fontes.`;
       officialChecks: factCheckConnectors.has('fact-check'),
     };
   }
-  return { response, media: [...media, ...nasaMedia], sources, selectedConnectors, factCheck };
+  return {
+    response,
+    media: [...media, ...nasaMedia],
+    sources: rankedSourcesForAnswer,
+    primarySource,
+    selectedConnectors,
+    factCheck,
+  };
 }
 
 // ============ STEP 3: Audit with Gemini / Polish with Groq ============
@@ -7359,6 +7573,7 @@ async function handler(req, res) {
       logs,
       media: finalExec.media || [],
       sources: finalExec.sources || [],
+      primarySource: finalExec.primarySource || null,
       factCheck: finalExec.factCheck || null,
     };
     if (wantsStream) {
