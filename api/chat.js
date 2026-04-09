@@ -63,6 +63,55 @@ DIRETRIZES DE OURO (MODO MENTOR):
     - Quando pedido um resumo, crie uma "Apostila de Estudo" completa, estruturada e pronta para impressão.
 `;
 
+const SCIENCE_SYSTEM_PROMPT_V2 = `Voce e o Drekee AI 1.5 Pro, o mentor cientifico de elite para estudantes brasileiros.
+
+MISSAO:
+- Transformar conceitos complexos em descobertas claras, visuais e fascinantes.
+- Ensinar com rigor cientifico, sem soar como robo e sem simplificar errado.
+- Ser especialmente util para alunos que estudam com poucos recursos praticos.
+
+DIRETRIZES DE OURO:
+1. VOZ PEDAGOGICA:
+   - Fale como um mentor entusiasmado, claro e seguro.
+   - Abra respondendo a pergunta de forma direta.
+   - Depois aprofunde com explicacao, mecanismo e contexto.
+
+2. PLANEJAMENTO INTERNO ANTIGENERICO:
+   - Antes de responder, organize internamente:
+     1. qual e o conceito-base;
+     2. como isso aparece na vida real ou no cotidiano do aluno;
+     3. qual evidencia, experimento, dado ou observacao torna isso verificavel.
+   - Use essa logica na estrutura final, sem revelar cadeia de pensamento.
+
+3. DIDATICA COM RIGOR:
+   - Explique primeiro o mecanismo real; analogias entram depois, apenas para iluminar.
+   - Se o tema for abstrato, crie imagem mental clara.
+   - Evite floreio, mito escolar e frases bonitas sem base.
+
+4. ESTRUTURA ADAPTATIVA:
+   - Em perguntas explicativas, prefira blocos curtos e claros.
+   - Em comparacoes, use tabela Markdown quando ela realmente ajudar.
+   - Em perguntas objetivas, nao transforme tudo em aula longa.
+   - Sugira laboratorio caseiro ou experimento simples apenas quando isso realmente ajudar o aluno a entender ou testar a ideia.
+
+5. RIGOR CIENTIFICO:
+   - Conecte areas quando isso aumentar a compreensao.
+   - Se houver fonte primaria melhor, prefira ela.
+   - Nao invente dado, estudo, catalogo ou citacao.
+   - Use apenas IDs de fonte realmente disponiveis no formato [ID-DA-FONTE: ID_EXATO].
+
+6. RECURSOS VISUAIS E TAGS:
+   - Use [PHET:slug|Guia|Teoria] apenas se o tema central realmente pedir simulacao.
+   - Use [OFFLINE_DOC: ...] apenas quando o usuario pedir material de estudo completo.
+   - Se houver imagens da NASA no contexto, insira [NASA_IMG: ID-DA-FONTE] logo apos o paragrafo que descreve a imagem.
+   - Se houver visual, ele deve servir a explicacao; nao enfeitar.
+
+7. FORMATACAO:
+   - Prefira paragrafos curtos.
+   - Para listas Markdown, use sempre * item.
+   - Deixe uma linha em branco antes de listas.
+`;
+
 // ============ TAVILY API (Web Search) ============
 async function searchTavily(query) {
   const apiKey = process.env.TAVILY_API_KEY;
@@ -2413,6 +2462,9 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
     const dailyTokenLimitReached = /tokens per day|TPD|Used \d+, Requested \d+/i.test(messageText);
 
     if (dailyTokenLimitReached) {
+      if (options.disableExternalFallbacks === true) {
+        throw err;
+      }
       const openRouterRecovered = await tryOpenRouterFallback('Groq TPD esgotado');
       if (openRouterRecovered) return openRouterRecovered;
       const sambaRecovered = await trySambaNovaFallback('Groq TPD esgotado');
@@ -2440,6 +2492,10 @@ async function callGroq(messages, apiKeyVar = 'GROQ_API_KEY_1', options = {}) {
       } catch (err2) {
         err = err2;
       }
+    }
+
+    if (options.disableExternalFallbacks === true) {
+      throw err;
     }
 
     const openRouterFallback = await tryOpenRouterFallback('Groq indisponivel');
@@ -2575,6 +2631,7 @@ async function callOpenRouter(prompt, logs = [], options = {}) {
           model: model,
           messages: [{ role: 'user', content: prompt }],
           temperature: options.temperature || 0.2,
+          top_p: options.topP || 1,
           max_tokens: options.maxTokens || 4096
         }),
       });
@@ -2601,6 +2658,55 @@ async function callOpenRouter(prompt, logs = [], options = {}) {
 
 // Alias para manter compatibilidade onde callGemini era usado
 const callGemini = (...args) => callOpenRouter(...args);
+
+async function callPrimaryResponseModel(prompt, logs = [], options = {}) {
+  const primaryResponse = await callOpenRouter(prompt, logs, {
+    model: 'nvidia/nemotron-3-super-120b-a12b:free',
+    temperature: options.temperature !== undefined ? options.temperature : 0.35,
+    topP: options.topP !== undefined ? options.topP : 0.9,
+    maxTokens: options.maxTokens || 7000,
+    disableGroqFallback: true,
+  });
+
+  if (primaryResponse) return primaryResponse;
+
+  if (logs) logs.push('⚠️ Nemotron indisponivel, tentando fallback Groq Llama 3.1 8B...');
+  return await callGroq(
+    [{ role: 'user', content: prompt }],
+    'GROQ_API_KEY_1',
+    {
+      model: 'llama-3.1-8b-instant',
+      maxTokens: Math.min(options.maxTokens || 7000, 5000),
+      temperature: 0.25,
+      disableExternalFallbacks: true,
+    }
+  );
+}
+
+async function callFinalApprovalModel(prompt, logs = [], options = {}) {
+  try {
+    return await callGroq(
+      [{ role: 'user', content: prompt }],
+      'GROQ_API_KEY_1',
+      {
+        model: 'llama-3.3-70b-versatile',
+        maxTokens: options.maxTokens || 3500,
+        temperature: options.temperature !== undefined ? options.temperature : 0.12,
+        disableExternalFallbacks: true,
+      }
+    );
+  } catch (error) {
+    console.warn('Final approval on Groq failed, using OpenRouter fallback:', error.message);
+    if (logs) logs.push('⚠️ Verificacao final na Groq falhou, tentando OpenRouter...');
+    return await callOpenRouter(prompt, logs, {
+      model: 'nvidia/nemotron-3-super-120b-a12b:free',
+      temperature: options.temperature !== undefined ? options.temperature : 0.12,
+      topP: 0.9,
+      maxTokens: options.maxTokens || 3500,
+      disableGroqFallback: true,
+    });
+  }
+}
 
 
 
@@ -4969,7 +5075,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       ? '\nSINAL VISUAL: esta pergunta e conceitual ou explicativa. Se isso realmente ajudar a sintese, voce pode usar mapa mental LaTeX.\n'
       : '\nSINAL VISUAL: priorize texto puro. So gere visual se ficar realmente necessario.\n');
 
-  const executionPrompt = `${SCIENCE_SYSTEM_PROMPT}
+  const executionPrompt = `${SCIENCE_SYSTEM_PROMPT_V2}
 
 ${dataAuthorityWarning}
 ${visualGuidance}
@@ -5019,11 +5125,11 @@ INSTRUÇÕES FINAIS:
 Seja honesto. Não invente. Use as fontes.`;
 
 
-  let response = await callGroq(
-    [{ role: 'user', content: executionPrompt }],
-    'GROQ_API_KEY_1',
-    { maxTokens: 6000, temperature: 0.2 }
-  );
+  let response = await callPrimaryResponseModel(executionPrompt, logs, {
+    maxTokens: 7000,
+    temperature: 0.35,
+    topP: 0.9,
+  });
 
   if (specializedDomain === 'geografia') {
     response = applyGeographySanityCorrections(response, userQuestion, sources, logs);
@@ -5105,11 +5211,10 @@ RESPOSTA A REVISAR:
 ${response}
 `;
 
-  return await callGroq(
-    [{ role: 'user', content: reviewPrompt }],
-    'GROQ_API_KEY_1',
-    { maxTokens: 5000, temperature: 0.15 }
-  );
+  return await callFinalApprovalModel(reviewPrompt, [], {
+    maxTokens: 5000,
+    temperature: 0.12,
+  });
 }
 
 async function auditResponseWithOpenRouter({ userQuestion = '', response = '', sources = [], logs = [] } = {}) {
@@ -5149,7 +5254,10 @@ ${sourceDigest || 'Sem fontes registradas'}
 Resposta para auditar:
 ${String(response || '')}`;
 
-  const raw = await callOpenRouter(prompt, logs, { model: 'nvidia/nemotron-3-super-120b-a12b:free' });
+  const raw = await callFinalApprovalModel(prompt, logs, {
+    maxTokens: 2200,
+    temperature: 0.1,
+  });
   const parsed = extractJsonObject(raw) || {};
   return {
     approved: parsed.approved !== false,
