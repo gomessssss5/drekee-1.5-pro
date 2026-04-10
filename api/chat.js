@@ -1,3 +1,5 @@
+require('../load-env');
+
 const fs = require('fs');
 const path = require('path');
 
@@ -3597,7 +3599,10 @@ Retorne APENAS JSON valido:
   }
 
   try {
-    const parsed = JSON.parse(rawPlan);
+    const parsed = extractJsonObject(rawPlan);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Plano invalido ou vazio');
+    }
     if (!parsed.intent) parsed.intent = likelyFactCheck ? 'fact_check' : 'answer';
     parsed.dominio_especializado = parsed.dominio_especializado || detectSpecializedKnowledgeDomain(userQuestion, parsed, visionContext);
     parsed.validacao_rigorosa = parsed.validacao_rigorosa === true || getSpecializedDomainPolicy(parsed.dominio_especializado).strictValidation;
@@ -6600,6 +6605,10 @@ function userRequestedMindMap(userQuestion = '') {
   return /\b(mapa\s*mental|mind\s*map|mindmap|mapa\s*de\s*conceitos|crie\s+um\s+mapa|faça\s+um\s+mapa|gerar\s+mapa)\b/i.test(q);
 }
 
+function userRequestedGraph(userQuestion = '') {
+  return /\b(grafico|gr[aá]fico|chart|bar\s*chart|line\s*chart|grafico\s+de\s+barras|grafico\s+de\s+linha)\b/i.test(String(userQuestion || ''));
+}
+
 function detectExplicitVisualRequest(userQuestion = '') {
 
   return /\b(grafico|gráfico|mapa mental|diagrama|esquema|visualiza[cç][aã]o|visual)\b/i.test(String(userQuestion || ''));
@@ -6607,6 +6616,11 @@ function detectExplicitVisualRequest(userQuestion = '') {
 
 function detectConceptualVisualIntent(userQuestion = '') {
   return /\b(o que e|o que Ã©|como funciona|explique|explica|resuma|organize|vis[aÃ£]o geral|panorama|relacione|etapas|processo|diferen[cÃ§]a)\b/i.test(String(userQuestion || ''));
+}
+
+function detectSensitiveConceptualTopic(userQuestion = '', response = '') {
+  const text = `${userQuestion}\n${stripLatexGraphBlocks(response)}`.toLowerCase();
+  return /\b(cancer|câncer|tumor|oncologia|tratamento|medicamento|vacina|doenca|doença|saude mental|saúde mental|suicidio|suicídio|abuso|violencia|violência|politica publica|política pública)\b/i.test(text);
 }
 
 function detectCompactMetricComparisonIntent(userQuestion = '', response = '') {
@@ -6681,6 +6695,56 @@ function shouldKeepAnalyticalVisualCalibrated(response = '', sources = [], userQ
   }
 
   return true;
+}
+
+function validateExistingGraphBlockLocally(graphBlock = {}, context = {}) {
+  const code = String(graphBlock?.code || '').trim();
+  if (!code) {
+    return { keep: false, issues: ['Bloco de grafico ausente.'], warnings: [], analysis: null };
+  }
+
+  const analysis = analyzeLatexGraph(code, context);
+  const fatalPatterns = [
+    /nao possui \\addplot/i,
+    /nao tem pontos suficientes/i,
+    /eixo Y nao foi rotulado/i,
+    /eixo Y esta generico demais/i,
+    /quantidade de r[oó]tulos/i,
+    /labels simbolicos/i,
+  ];
+  const issues = analysis.issues.filter(issue => fatalPatterns.some(pattern => pattern.test(issue)));
+  const warnings = analysis.issues.filter(issue => !issues.includes(issue));
+
+  return {
+    keep: issues.length === 0,
+    issues,
+    warnings,
+    analysis,
+  };
+}
+
+function validateExistingMindMapBlockLocally(mindMapBlock = {}) {
+  const code = String(mindMapBlock?.code || '').trim();
+  if (!code) {
+    return { keep: false, issues: ['Bloco de mapa mental ausente.'], warnings: [], analysis: null };
+  }
+
+  const analysis = analyzeMindMapCode(code);
+  const fatalPatterns = [
+    /poucos nos/i,
+    /conexoes insuficientes/i,
+    /fluxograma vertical/i,
+    /nao distribui ramos/i,
+  ];
+  const issues = analysis.issues.filter(issue => fatalPatterns.some(pattern => pattern.test(issue)));
+  const warnings = analysis.issues.filter(issue => !issues.includes(issue));
+
+  return {
+    keep: issues.length === 0,
+    issues,
+    warnings,
+    analysis,
+  };
 }
 
 function findLongestRepeatedNumericRun(values = []) {
@@ -6794,6 +6858,8 @@ function analyzeLatexGraph(code = '', context = {}) {
 
 async function alignGraphWithResponseReliability(response = '', sources = [], userQuestion = '', logs = []) {
   const wantsMindMap = userRequestedMindMap(userQuestion);
+  const wantsGraph = userRequestedGraph(userQuestion);
+  const hasGraphBlockInitially = extractLatexGraphBlocks(response).length > 0;
   const hasMindMapBlock = extractMindMapBlocks(response).length > 0;
 
   // Injeção automática se o usuário pediu e o modelo não gerou
@@ -6820,6 +6886,22 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
     }
   }
 
+  if (wantsGraph && !hasGraphBlockInitially && !hasMindMapBlock) {
+    try {
+      logs.push('Tentando gerar grafico automaticamente (solicitado pelo usuario)...');
+      const structuredGraph = await buildStructuredGraphSpec(response, sources, userQuestion, logs);
+      const graphValidation = validateStructuredGraphSpec(structuredGraph, { userQuestion, response });
+      if (graphValidation.issues.length === 0) {
+        logs.push('Grafico adicionado automaticamente.');
+        response = `${String(response || '').trim()}\n\n${buildGraphBlockFromSpec(graphValidation.spec)}`.trim();
+      } else {
+        logs.push(`Injecao de grafico cancelada: estrutura invalida (${graphValidation.issues.join(' | ')}).`);
+      }
+    } catch (err) {
+      console.error('Auto Graph Injection Error:', err);
+    }
+  }
+
   response = enforceSingleVisualChoice(response, userQuestion);
   const graphBlocks = extractLatexGraphBlocks(response);
   const mindMapBlocks = extractMindMapBlocks(response);
@@ -6835,6 +6917,7 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
   if (graphBlocks.length === 0 && mindMapBlocks.length > 0) {
     const confidence = assessResponseReliability(response, sources);
     const stripMindMap = () => String(response || '').replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ').trim();
+    const localMindMapValidation = validateExistingMindMapBlockLocally(mindMapBlocks[0]);
     if (confidence === 'LOW') {
       logs.push('🛑 Mapa mental removido: confiabilidade textual insuficiente para sustentar a visualizacao.');
       return {
@@ -6848,6 +6931,10 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
     if (mindMapValidation.issues.length === 0) {
       const semanticAudit = await auditMindMapSemantics(mindMapValidation.spec, response, sources, userQuestion, logs);
       if (!semanticAudit.approved) {
+        if (localMindMapValidation.keep) {
+          logs.push('Mantendo o mapa mental original: a auditoria externa falhou, mas a validacao estrutural local aprovou o bloco atual.');
+          return { response, confidence };
+        }
         logs.push(`🛑 Mapa mental removido: auditoria semantica reprovou a estrutura (${semanticAudit.issues.join(' | ')}).`);
         return {
           response: appendVisualSafetyNotice(stripMindMap(), 'o mapa mental foi removido porque alguns ramos nao puderam ser confirmados com seguranca a partir da resposta e das fontes.'),
@@ -6861,6 +6948,10 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
       };
     }
     logs.push(`🛑 Mapa mental removido: a estrutura validada nao fechou (${mindMapValidation.issues.join(' | ')}).`);
+    if (localMindMapValidation.keep) {
+      logs.push('Mantendo o mapa mental original: a estrutura extraida nao fechou, mas o bloco atual passou na validacao local.');
+      return { response, confidence };
+    }
     return {
       response: appendVisualSafetyNotice(stripMindMap(), 'o mapa mental nao foi exibido porque a estrutura extraida nao passou na validacao de clareza e fidelidade.'),
       confidence,
@@ -6871,6 +6962,7 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
   }
 
   const confidence = assessResponseReliability(response, sources);
+  const localGraphValidation = validateExistingGraphBlockLocally(graphBlocks[0], { userQuestion, response });
   if (confidence === 'LOW') {
     logs.push('🛑 Grafico removido: confiabilidade textual insuficiente para sustentar visualizacao numerica.');
     return {
@@ -6889,6 +6981,10 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
     };
   }
   logs.push(`🛑 Grafico removido: a tabela estruturada nao passou na validacao (${graphValidation.issues.join(' | ')}).`);
+  if (localGraphValidation.keep) {
+    logs.push('Mantendo o grafico original: a extracao estruturada falhou, mas a validacao local aprovou o bloco atual.');
+    return { response, confidence };
+  }
   return {
     response: appendVisualSafetyNotice(stripLatexGraphBlocks(response), 'o grafico nao foi exibido porque os dados extraidos nao passaram na validacao numerica e temporal.'),
     confidence,
@@ -7190,6 +7286,20 @@ async function probeConnector(key, options = {}) {
   const query = options.query || getConnectorProbeQuery(key);
   const userContext = options.userContext || { lat: -23.55, lon: -46.63, timezone: 'America/Sao_Paulo' };
   try {
+    const requiredKeys = CONNECTOR_REQUIRES_KEYS[key] || [];
+    const missingKey = requiredKeys.find(envName => !process.env[envName]);
+    if (missingKey) {
+      return {
+        key,
+        ok: false,
+        status: 'missing_key',
+        message: `Chave ausente: ${missingKey}`,
+        summary: 'missing_api_key',
+        autoDetected: AUTO_DETECTED_CONNECTORS.has(key),
+        requiresKeys: requiredKeys,
+      };
+    }
+
     let data = null;
     switch (key) {
       case 'tavily': data = await searchTavily(query); break;
@@ -7756,5 +7866,16 @@ async function handler(req, res) {
 handler.getAdminDiagnostics = getAdminDiagnostics;
 handler.probeConnector = probeConnector;
 handler.supportedConnectors = [...SUPPORTED_CONNECTORS];
+handler.__internals = {
+  alignGraphWithResponseReliability,
+  analyzeLatexGraph,
+  analyzeMindMapCode,
+  buildGraphBlockFromSpec,
+  buildMindMapBlockFromSpec,
+  renderStructuredGraphLatex,
+  renderStructuredMindMapLatex,
+  userRequestedGraph,
+  userRequestedMindMap,
+};
 module.exports = handler;
 
