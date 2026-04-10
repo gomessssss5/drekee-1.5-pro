@@ -3887,10 +3887,20 @@ function stripConfidenceTags(response = '') {
 }
 
 function sanitizeFinalResponse(response = '') {
-  return stripConfidenceTags(
-    String(response || '')
+  const protectedBlocks = [];
+  const tokenized = String(response || '')
+    .replace(
+      /(?:<artifact\b[^>]*>[\s\S]*?<\/artifact>|\[(?:LATEX_GRAPH_TITLE|MINDMAP_TITLE):\s*[^\]]+?\s*\]\s*\[(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\][\s\S]*?\[\/(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\])/gi,
+      match => {
+        const token = `__SANITIZED_VISUAL_BLOCK_${protectedBlocks.length}__`;
+        protectedBlocks.push(match);
+        return token;
+      }
+    );
+
+  const sanitized = stripConfidenceTags(
+    tokenized
       .replace(/^Como\s+Revisor[\s\S]*?\n/i, '')
-      .replace(/<artifact\b[^>]*>[\s\S]*?<\/artifact>/gi, ' ')
       .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_CODE\]|\[\/LATEX_GRAPH_CODE\]/gi, ' ')
       .replace(/\[\/MINDMAP_TITLE\]/gi, ' ')
@@ -3905,6 +3915,8 @@ function sanitizeFinalResponse(response = '') {
       .replace(/[ \t]{2,}/g, ' ')
       .trim()
   );
+
+  return sanitized.replace(/__SANITIZED_VISUAL_BLOCK_(\d+)__/g, (match, index) => protectedBlocks[Number(index)] || match);
 }
 
 function softenUnsupportedSuperlatives(response = '', sources = []) {
