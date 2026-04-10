@@ -1012,6 +1012,15 @@ function filterSupportedConnectors(connectors = []) {
 
 function detectSpecializedKnowledgeDomain(userQuestion = '', actionPlan = {}, visionContext = '') {
   const text = `${userQuestion}\n${actionPlan?.objetivo || ''}\n${actionPlan?.area_cientifica || ''}\n${actionPlan?.tema_fact_check || ''}\n${visionContext || ''}`.toLowerCase();
+  const textWithoutVisualPhrases = text
+    .replace(/\bmapa\s*mental\b/g, ' ')
+    .replace(/\bmind\s*map\b/g, ' ')
+    .replace(/\bmindmap\b/g, ' ')
+    .replace(/\bgr[aá]fico\b/g, ' ')
+    .replace(/\bdiagrama\b/g, ' ')
+    .replace(/\besquema\b/g, ' ');
+  const geographySignalWithoutVisualOnlyWords = /\b(geografia|territorio|territÃ³rio|regiao|regiÃ£o|estado|cidade|pais|paÃ­s|populacao|populaÃ§Ã£o|ibge|censo|bioma|relevo|latitude|longitude|hidrografia|cartografia)\b/.test(textWithoutVisualPhrases);
+  if (/\b(mapa\s*mental|mind\s*map|mindmap)\b/.test(text) && !geographySignalWithoutVisualOnlyWords) return 'ciencia';
   if (/\b(cancer|câncer|tumor|oncologia|quimioterapia|metastase|metástase)\b/.test(text)) return 'oncologia';
   if (/\b(saude|saúde|vacina|virus|vírus|doenca|doença|tratamento|medicamento|sus|anvisa|hospital|epidem|genetica|genética|clinico|clínico)\b/.test(text)) return 'saude';
   if (/\b(astronomia|espaco|espaço|planeta|estrela|galaxia|galáxia|orbita|órbita|nasa|esa|jpl|exoplaneta|kepler|tess|lua|sol|marte|jupiter|saturno|eclipse|cosmologia|astrofisica|astrofísica)\b/.test(text)) return 'astronomia';
@@ -3953,7 +3962,14 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const domainPolicy = getSpecializedDomainPolicy(specializedDomain);
 
   const autoDetectedConnectors = [];
-  const normalizedText = (userQuestion || '').toLowerCase();
+  const normalizedText = (userQuestion || '')
+    .toLowerCase()
+    .replace(/\bmapa\s*mental\b/g, ' ')
+    .replace(/\bmind\s*map\b/g, ' ')
+    .replace(/\bmindmap\b/g, ' ')
+    .replace(/\bgr[aá]fico\b/g, ' ')
+    .replace(/\bdiagrama\b/g, ' ')
+    .replace(/\besquema\b/g, ' ');
 
   if (isFactCheck) {
     autoDetectedConnectors.push('tavily', 'wikipedia', 'wikidata', 'serpapi-news', 'google-cse-authority');
@@ -6432,7 +6448,14 @@ ${JSON.stringify(spec || {})}
   const causalLeak = branchChecks.some(item => item?.causalLeak === true);
   const oversimplified = branchChecks.some(item => item?.oversimplified === true);
   const sensitiveTopic = audit.sensitiveTopic === true || detectSensitiveConceptualTopic(userQuestion, response);
-  const approved = audit.approved === true && !unsupportedBranch && !causalLeak && !(sensitiveTopic && oversimplified);
+  const auditUnavailable = branchChecks.length === 0 && issues.length === 0 && audit.approved !== true;
+  const approved = auditUnavailable
+    ? !sensitiveTopic
+    : (audit.approved === true && !unsupportedBranch && !causalLeak && !(sensitiveTopic && oversimplified));
+
+  if (auditUnavailable && logs) {
+    logs.push('Auditoria semantica do mapa mental indisponivel; aplicando fallback conservador local.');
+  }
 
   if (unsupportedBranch && !issues.some(issue => /ramo|suporte|fonte/i.test(issue))) {
     issues.push('Um ou mais ramos do mapa mental nao puderam ser rastreados de volta a resposta/fonte.');
@@ -6918,7 +6941,12 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
     const confidence = assessResponseReliability(response, sources);
     const stripMindMap = () => String(response || '').replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ').trim();
     const localMindMapValidation = validateExistingMindMapBlockLocally(mindMapBlocks[0]);
+    const shouldKeepExplicitMindMapDespiteLowConfidence = wantsMindMap && localMindMapValidation.keep;
     if (confidence === 'LOW') {
+      if (shouldKeepExplicitMindMapDespiteLowConfidence) {
+        logs.push('Mantendo o mapa mental solicitado apesar da confianca baixa: o bloco visual passou na validacao local.');
+        return { response, confidence };
+      }
       logs.push('🛑 Mapa mental removido: confiabilidade textual insuficiente para sustentar a visualizacao.');
       return {
         response: appendVisualSafetyNotice(stripMindMap(), 'o mapa mental foi ocultado porque a confiabilidade textual ficou baixa para sustentar essa sintese visual.'),
@@ -6963,7 +6991,12 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
 
   const confidence = assessResponseReliability(response, sources);
   const localGraphValidation = validateExistingGraphBlockLocally(graphBlocks[0], { userQuestion, response });
+  const shouldKeepExplicitGraphDespiteLowConfidence = wantsGraph && localGraphValidation.keep;
   if (confidence === 'LOW') {
+    if (shouldKeepExplicitGraphDespiteLowConfidence) {
+      logs.push('Mantendo o grafico solicitado apesar da confianca baixa: o bloco visual passou na validacao local.');
+      return { response, confidence };
+    }
     logs.push('🛑 Grafico removido: confiabilidade textual insuficiente para sustentar visualizacao numerica.');
     return {
       response: appendVisualSafetyNotice(stripLatexGraphBlocks(response), 'o grafico foi ocultado porque a confiabilidade textual ficou baixa para sustentar uma visualizacao numerica segura.'),
