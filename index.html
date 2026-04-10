@@ -3072,6 +3072,7 @@
 
     cleaned = cleaned
       .replace(/\[OFFLINE_DOC:[\s\S]*?\]/gi, ' ')
+      .replace(/<artifact\b[^>]*>[\s\S]*?<\/artifact>/gi, ' ')
       .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+\]/gi, ' ')
@@ -3958,6 +3959,13 @@
     const graphs = [];
     const mindMaps = [];
     let working = String(response || '');
+    const decodeArtifactAttribute = (value = '') => String(value || '')
+      .replace(/&quot;/gi, '"')
+      .replace(/&apos;/gi, '\'')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&amp;/gi, '&')
+      .trim();
 
     const pushGraph = (title, code) => {
       const safeCode = String(code || '').trim();
@@ -3976,6 +3984,28 @@
         code: safeCode,
       });
     };
+
+    working = working.replace(
+      /<artifact\b([^>]*)>([\s\S]*?)<\/artifact>/gi,
+      (match, rawAttrs, rawCode) => {
+        const safeCode = String(rawCode || '').trim();
+        if (!safeCode) return ' ';
+        const attrs = String(rawAttrs || '');
+        const type = decodeArtifactAttribute((attrs.match(/\btype\s*=\s*"([^"]+)"/i) || [])[1] || '').toLowerCase();
+        const title = decodeArtifactAttribute((attrs.match(/\btitle\s*=\s*"([^"]+)"/i) || [])[1] || '');
+        if (type === 'mindmap') {
+          const index = mindMaps.length;
+          pushMindMap(title || 'Mapa mental', safeCode);
+          return ` DREKEE_MINDMAP_SLOT_${index} `;
+        }
+        if (type === 'graph') {
+          const index = graphs.length;
+          pushGraph(title || 'Grafico informativo', safeCode);
+          return ` DREKEE_GRAPH_SLOT_${index} `;
+        }
+        return ' ';
+      }
+    );
 
     working = working.replace(
       /\[MINDMAP_TITLE:\s*([^\]]+?)\s*\]\s*\[MINDMAP_CODE\]\s*([\s\S]*?)\s*\[\/MINDMAP_CODE\]/gi,
@@ -4038,6 +4068,7 @@
     );
 
     const cleanedResponse = working
+      .replace(/<artifact\b[^>]*>[\s\S]*?<\/artifact>/gi, ' ')
       .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+\]/gi, ' ')
       .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
       .replace(/\[MINDMAP_TITLE:\s*[^\]]+\]/gi, ' ')

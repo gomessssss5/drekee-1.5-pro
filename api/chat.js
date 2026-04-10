@@ -3759,7 +3759,7 @@ function normalizeResponseCitations(response, sources = []) {
 
   const protectedBlocks = [];
   const protectedResponse = String(response).replace(
-    /\[(?:LATEX_GRAPH_TITLE|MINDMAP_TITLE):\s*[^\]]+?\s*\]\s*\[(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\][\s\S]*?\[\/(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\]/gi,
+    /(?:<artifact\b[^>]*>[\s\S]*?<\/artifact>|\[(?:LATEX_GRAPH_TITLE|MINDMAP_TITLE):\s*[^\]]+?\s*\]\s*\[(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\][\s\S]*?\[\/(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\])/gi,
     match => {
       const token = `__LATEX_VISUAL_BLOCK_${protectedBlocks.length}__`;
       protectedBlocks.push(match);
@@ -3890,6 +3890,7 @@ function sanitizeFinalResponse(response = '') {
   return stripConfidenceTags(
     String(response || '')
       .replace(/^Como\s+Revisor[\s\S]*?\n/i, '')
+      .replace(/<artifact\b[^>]*>[\s\S]*?<\/artifact>/gi, ' ')
       .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
       .replace(/\[LATEX_GRAPH_CODE\]|\[\/LATEX_GRAPH_CODE\]/gi, ' ')
       .replace(/\[\/MINDMAP_TITLE\]/gi, ' ')
@@ -5450,7 +5451,7 @@ REGRAS CRUCIAIS (RESPEITE 100%):
 4) NÃO inclua títulos artificiais, listas de etapas ou qualquer prefácio sobre revisão. Apenas a resposta final ao usuário.
 5) Se não for possível afirmar com certeza, seja honesto e explique por que.
 6) IMPORTANTE: NÃO REMOVA as tags [ID-DA-FONTE: ID_EXATO] presentes no texto original. Se o texto estiver afirmando informações sem as tags apropriadas originais, ADICIONE tags no mesmo formato exato [ID-DA-FONTE: ID_EXATO]. Nunca use [FONTE: nome] nem rótulos livres. É vital manter o rastreio das fontes.
-7) PRESERVE integralmente, se existirem, os blocos [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE] e [MINDMAP_TITLE: ...][MINDMAP_CODE]...[/MINDMAP_CODE], além de [PHET:...] e [PDB:...]. Também preserve blocos \`\`\`latex ... \`\`\` e \`\`\`tikz ... \`\`\` intactos. Você pode melhorar o texto ao redor, mas não corrompa essas tags nem blocos de código.
+7) PRESERVE integralmente, se existirem, os blocos <artifact type="graph" format="latex" title="...">...</artifact> e <artifact type="mindmap" format="latex" title="...">...</artifact>, além do formato legado [LATEX_GRAPH_TITLE: ...][LATEX_GRAPH_CODE]...[/LATEX_GRAPH_CODE] e [MINDMAP_TITLE: ...][MINDMAP_CODE]...[/MINDMAP_CODE], mais [PHET:...] e [PDB:...]. Também preserve blocos \`\`\`latex ... \`\`\` e \`\`\`tikz ... \`\`\` intactos. Você pode melhorar o texto ao redor, mas não corrompa essas tags nem blocos de código.
 8) Se a pergunta pedir propriedades físicas, astronômicas, geográficas ou quantitativas, prefira trazer valor absoluto + comparação relativa quando as fontes sustentarem isso.
 9) Se houver fontes disponíveis, a resposta final deve sair com boa densidade de citações, especialmente nas frases numéricas e comparativas.
 10) Se o domínio for especializado, reescreva seguindo este template:
@@ -5676,10 +5677,10 @@ Sua missão é transformar dados técnicos em conhecimento encantador para um al
 DIRETRIZES DE REDAÇÃO:
 1. FOCO NA ANALOGIA: A explicação DEVE girar em torno de uma analogia clara e criativa.
 2. INTEGRAÇÃO VISUAL: Se você decidir gerar um mapa mental ou gráfico, use EXCLUSIVAMENTE os formatos abaixo. NUNCA gere ASCII art, desenhos de texto simples, ou blocos markdown com \`\`\`latex\`\`\`. Use APENAS os formatos específicos:
-   - Para Mapas Mentais: Use [MINDMAP_TITLE: Título] [MINDMAP_CODE] código TikZ LaTeX aqui [/MINDMAP_CODE].
-   - Para Gráficos: Use [LATEX_GRAPH_TITLE: Título] [LATEX_GRAPH_CODE] código TikZ LaTeX aqui [/LATEX_GRAPH_CODE].
+   - Para Mapas Mentais: Use <artifact type="mindmap" format="latex" title="Título"> código TikZ LaTeX aqui </artifact>.
+   - Para Gráficos: Use <artifact type="graph" format="latex" title="Título"> código TikZ LaTeX aqui </artifact>.
 3. FORMATO TIKZ: Use a biblioteca 'mindmap' do TikZ. Exemplo: \begin{tikzpicture}[mindmap, concept color=blue!20] \node[concept] {Raiz} child { node[concept] {Ramo} }; \end{tikzpicture}.
-4. PROIBIÇÃO TOTAL: NUNCA use \`\`\`latex\`\`\` ou qualquer outro bloco markdown. Use APENAS os formatos [MINDMAP_CODE] e [LATEX_GRAPH_CODE] especificados acima.
+4. PROIBIÇÃO TOTAL: NUNCA use \`\`\`latex\`\`\` ou qualquer outro bloco markdown. Use APENAS os blocos <artifact ...> especificados acima.
 5. TOM DE MENTOR: Use frases como "Imagine que...", "Você sabia que...?", "Isso é fascinante porque...".
 6. DESAFIO PRÁTICO: Sempre termine ou inclua uma seção "🧪 Desafio Prático" com algo que o aluno possa testar.
 7. CITAÇÕES: Mantenha as citações [ID-DA-FONTE: ID_EXATO] de forma natural.
@@ -5722,7 +5723,7 @@ ${sourceDigest || 'Sem fontes registradas'}
       
       // Tentar SambaNova imediatamente
       try {
-        const sambaPrompt = `${prompt}\n\nURGENTE: O usuário pediu explicitamente um MAPA MENTAL e você NÃO gerou! Use o formato [MINDMAP_TITLE: Título] [MINDMAP_CODE] código TikZ LaTeX aqui [/MINDMAP_CODE]. NUNCA use ASCII art.`;
+        const sambaPrompt = `${prompt}\n\nURGENTE: O usuário pediu explicitamente um MAPA MENTAL e você NÃO gerou! Use o formato <artifact type="mindmap" format="latex" title="Título"> código TikZ LaTeX aqui </artifact>. NUNCA use ASCII art.`;
         const sambaResponse = await callSambaNova(
           [{ role: 'user', content: sambaPrompt }],
           { model: 'Meta-Llama-3.3-70B-Instruct', maxTokens: 3000, temperature: 0.3 }
@@ -5746,7 +5747,7 @@ ${sourceDigest || 'Sem fontes registradas'}
     // Fallback para SambaNova
     try {
       console.log('🔄 Trying SambaNova fallback for synthesis...');
-      const sambaPrompt = `${prompt}\n\nURGENTE: O usuário recebeu um ASCII art anteriormente e ficou muito insatisfeito. NUNCA use ASCII art. Use APENAS TikZ LaTeX dentro de [MINDMAP_CODE] ou [LATEX_GRAPH_CODE]. Se não puder gerar TikZ perfeito, não gere nada visual.`;
+      const sambaPrompt = `${prompt}\n\nURGENTE: O usuário recebeu um ASCII art anteriormente e ficou muito insatisfeito. NUNCA use ASCII art. Use APENAS TikZ LaTeX dentro de <artifact type="mindmap" format="latex" title="Título">...</artifact> ou <artifact type="graph" format="latex" title="Título">...</artifact>. Se não puder gerar TikZ perfeito, não gere nada visual.`;
       const sambaResponse = await callSambaNova(
         [{ role: 'user', content: sambaPrompt }],
         { model: 'Meta-Llama-3.3-70B-Instruct', maxTokens: 3000, temperature: 0.3 }
@@ -5773,6 +5774,63 @@ ${sourceDigest || 'Sem fontes registradas'}
 
 // Normalize markdown code fences (```latex```, ```tikz```) into custom tags
 // so all downstream extraction/validation/stripping works uniformly.
+function decodeArtifactAttribute(value = '') {
+  return String(value || '')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&')
+    .trim();
+}
+
+function escapeArtifactAttribute(value = '') {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function buildArtifactBlock({ type = 'graph', format = 'latex', title = '', code = '' } = {}) {
+  const safeCode = String(code || '').trim();
+  if (!safeCode) return '';
+  const safeType = /mindmap/i.test(type) ? 'mindmap' : 'graph';
+  const safeFormat = String(format || 'latex').trim().toLowerCase() || 'latex';
+  const safeTitle = String(title || (safeType === 'mindmap' ? 'Mapa mental' : 'Grafico informativo')).trim();
+  return [
+    `<artifact type="${escapeArtifactAttribute(safeType)}" format="${escapeArtifactAttribute(safeFormat)}" title="${escapeArtifactAttribute(safeTitle)}">`,
+    safeCode,
+    '</artifact>',
+  ].join('\n');
+}
+
+function extractArtifactBlocks(response = '', expectedType = '') {
+  const matches = [];
+  const pattern = /<artifact\b([^>]*)>([\s\S]*?)<\/artifact>/gi;
+  let match;
+  while ((match = pattern.exec(String(response || ''))) !== null) {
+    const attrs = String(match[1] || '');
+    const code = String(match[2] || '').trim();
+    if (!code) continue;
+    const typeMatch = attrs.match(/\btype\s*=\s*"([^"]+)"/i);
+    const formatMatch = attrs.match(/\bformat\s*=\s*"([^"]+)"/i);
+    const titleMatch = attrs.match(/\btitle\s*=\s*"([^"]+)"/i);
+    const type = decodeArtifactAttribute(typeMatch?.[1] || '').toLowerCase();
+    const format = decodeArtifactAttribute(formatMatch?.[1] || 'latex').toLowerCase();
+    const title = decodeArtifactAttribute(titleMatch?.[1] || (type === 'mindmap' ? 'Mapa mental' : 'Grafico informativo'));
+    if (expectedType && type !== expectedType) continue;
+    matches.push({
+      raw: match[0],
+      type,
+      format,
+      title,
+      code,
+    });
+  }
+  return matches;
+}
+
 function normalizeMarkdownLatexFences(response = '') {
   let text = String(response || '');
   // Convert ```latex ... ``` and ```tikz ... ``` to custom tag format
@@ -5782,16 +5840,16 @@ function normalizeMarkdownLatexFences(response = '') {
       const trimmed = String(rawCode || '').trim();
       if (!trimmed) return ' ';
       if (/mindmap|mind\s*map/i.test(trimmed)) {
-        return `[MINDMAP_TITLE: Mapa mental] [MINDMAP_CODE]\n${trimmed}\n[/MINDMAP_CODE]`;
+        return buildArtifactBlock({ type: 'mindmap', format: 'latex', title: 'Mapa mental', code: trimmed });
       }
-      return `[LATEX_GRAPH_TITLE: Grafico informativo] [LATEX_GRAPH_CODE]\n${trimmed}\n[/LATEX_GRAPH_CODE]`;
+      return buildArtifactBlock({ type: 'graph', format: 'latex', title: 'Grafico informativo', code: trimmed });
     }
   );
   return text;
 }
 
 function extractLatexGraphBlocks(response = '') {
-  const matches = [];
+  const matches = extractArtifactBlocks(response, 'graph');
   const pattern = /\[LATEX_GRAPH_TITLE:\s*([^\]]+?)\s*\]\s*\[LATEX_GRAPH_CODE\]\s*([\s\S]*?)\s*\[\/LATEX_GRAPH_CODE\]/gi;
   let match;
   while ((match = pattern.exec(String(response || ''))) !== null) {
@@ -5805,7 +5863,7 @@ function extractLatexGraphBlocks(response = '') {
 }
 
 function extractMindMapBlocks(response = '') {
-  const matches = [];
+  const matches = extractArtifactBlocks(response, 'mindmap');
   const pattern = /\[MINDMAP_TITLE:\s*([^\]]+?)\s*\]\s*\[MINDMAP_CODE\]\s*([\s\S]*?)\s*\[\/MINDMAP_CODE\]/gi;
   let match;
   while ((match = pattern.exec(String(response || ''))) !== null) {
@@ -5820,6 +5878,7 @@ function extractMindMapBlocks(response = '') {
 
 function stripLatexGraphBlocks(response = '') {
   return String(response || '')
+    .replace(/<artifact\b[^>]*>[\s\S]*?<\/artifact>/gi, ' ')
     .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
     .replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ')
     .replace(/\[\/LATEX_GRAPH_TITLE\]/gi, ' ')
@@ -5830,16 +5889,26 @@ function stripLatexGraphBlocks(response = '') {
 }
 
 function replaceFirstLatexGraphBlock(response = '', graphBlock = '') {
+  const nextBlock = String(graphBlock || '').trim();
+  const artifactPattern = /<artifact\b[^>]*\btype\s*=\s*"graph"[^>]*>[\s\S]*?<\/artifact>/i;
+  if (artifactPattern.test(String(response || ''))) {
+    return String(response || '').replace(artifactPattern, nextBlock);
+  }
   return String(response || '').replace(
     /\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/i,
-    String(graphBlock || '').trim()
+    nextBlock
   );
 }
 
 function replaceFirstMindMapBlock(response = '', mindMapBlock = '') {
+  const nextBlock = String(mindMapBlock || '').trim();
+  const artifactPattern = /<artifact\b[^>]*\btype\s*=\s*"mindmap"[^>]*>[\s\S]*?<\/artifact>/i;
+  if (artifactPattern.test(String(response || ''))) {
+    return String(response || '').replace(artifactPattern, nextBlock);
+  }
   return String(response || '').replace(
     /\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/i,
-    String(mindMapBlock || '').trim()
+    nextBlock
   );
 }
 
@@ -6281,12 +6350,12 @@ function renderStructuredGraphLatex(spec = {}) {
 }
 
 function buildGraphBlockFromSpec(spec = {}) {
-  return [
-    `[LATEX_GRAPH_TITLE: ${String(spec.title || 'Grafico informativo').trim()}]`,
-    '[LATEX_GRAPH_CODE]',
-    renderStructuredGraphLatex(spec),
-    '[/LATEX_GRAPH_CODE]',
-  ].join('\n');
+  return buildArtifactBlock({
+    type: 'graph',
+    format: 'latex',
+    title: String(spec.title || 'Grafico informativo').trim(),
+    code: renderStructuredGraphLatex(spec),
+  });
 }
 
 function deriveMindMapSpecFallback(response = '', userQuestion = '') {
@@ -6540,12 +6609,12 @@ function renderStructuredMindMapLatex(spec = {}) {
 }
 
 function buildMindMapBlockFromSpec(spec = {}) {
-  return [
-    `[MINDMAP_TITLE: ${String(spec.title || 'Mapa mental').trim()}]`,
-    '[MINDMAP_CODE]',
-    renderStructuredMindMapLatex(spec),
-    '[/MINDMAP_CODE]',
-  ].join('\n');
+  return buildArtifactBlock({
+    type: 'mindmap',
+    format: 'latex',
+    title: String(spec.title || 'Mapa mental').trim(),
+    code: renderStructuredMindMapLatex(spec),
+  });
 }
 
 function countCitationTags(text = '') {
@@ -6560,7 +6629,7 @@ function assessResponseReliability(response = '', sources = []) {
     .split(/\n{2,}/)
     .map(part => part.trim())
     .filter(Boolean)
-    .filter(part => !/\[LATEX_GRAPH_TITLE:|\[LATEX_GRAPH_CODE\]|\[MINDMAP_TITLE:|\[MINDMAP_CODE\]|\[PHET:|\[PDB:/i.test(part))
+    .filter(part => !/(?:\[LATEX_GRAPH_TITLE:|\[LATEX_GRAPH_CODE\]|\[MINDMAP_TITLE:|\[MINDMAP_CODE\]|\[PHET:|\[PDB:|<artifact\b)/i.test(part))
     .filter(part =>
       !/\[ID-DA-FONTE:\s*[^\]]+\]/i.test(part) &&
       /\b(al[eé]m disso|impacto indireto|pode impactar|pode afetar|tende a|provavel|possivelmente|isso sugere|isso indica|consequ[eê]ncia|economia|setores? como)\b/i.test(part)
@@ -6574,7 +6643,7 @@ function assessResponseReliability(response = '', sources = []) {
 function removeUnsupportedAnalyticalParagraphs(response = '') {
   const protectedBlocks = [];
   let working = String(response || '').replace(
-    /\[(?:LATEX_GRAPH_TITLE|MINDMAP_TITLE):\s*[^\]]+?\s*\]\s*\[(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\][\s\S]*?\[\/(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\]/gi,
+    /(?:<artifact\b[^>]*>[\s\S]*?<\/artifact>|\[(?:LATEX_GRAPH_TITLE|MINDMAP_TITLE):\s*[^\]]+?\s*\]\s*\[(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\][\s\S]*?\[\/(?:LATEX_GRAPH_CODE|MINDMAP_CODE)\])/gi,
     match => {
       const token = `__GRAPH_BLOCK_${protectedBlocks.length}__`;
       protectedBlocks.push(match);
@@ -6617,10 +6686,16 @@ function enforceSingleVisualChoice(response = '', userQuestion = '') {
   if (graphBlocks.length === 0 || mindMapBlocks.length === 0) return String(response || '');
 
   if (detectTimeSeriesIntent(userQuestion, response) || detectCategoryComparisonIntent(userQuestion, response)) {
-    return String(response || '').replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ').trim();
+    return String(response || '')
+      .replace(/<artifact\b[^>]*\btype\s*=\s*"mindmap"[^>]*>[\s\S]*?<\/artifact>/gi, ' ')
+      .replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ')
+      .trim();
   }
 
-  return String(response || '').replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ').trim();
+  return String(response || '')
+    .replace(/<artifact\b[^>]*\btype\s*=\s*"graph"[^>]*>[\s\S]*?<\/artifact>/gi, ' ')
+    .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
+    .trim();
 }
 
 function userRequestedMindMap(userQuestion = '') {
@@ -6661,6 +6736,7 @@ function countResponseCitations(response = '') {
 
 function stripAllVisualBlocks(response = '') {
   return String(response || '')
+    .replace(/<artifact\b[^>]*>[\s\S]*?<\/artifact>/gi, ' ')
     .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\s*\]\s*\[LATEX_GRAPH_CODE\][\s\S]*?\[\/LATEX_GRAPH_CODE\]/gi, ' ')
     .replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ')
     .replace(/\[LATEX_GRAPH_TITLE:\s*[^\]]+?\]/gi, ' ')
@@ -6939,7 +7015,10 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
   }
   if (graphBlocks.length === 0 && mindMapBlocks.length > 0) {
     const confidence = assessResponseReliability(response, sources);
-    const stripMindMap = () => String(response || '').replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ').trim();
+    const stripMindMap = () => String(response || '')
+      .replace(/<artifact\b[^>]*\btype\s*=\s*"mindmap"[^>]*>[\s\S]*?<\/artifact>/gi, ' ')
+      .replace(/\[MINDMAP_TITLE:\s*[^\]]+?\s*\]\s*\[MINDMAP_CODE\][\s\S]*?\[\/MINDMAP_CODE\]/gi, ' ')
+      .trim();
     const localMindMapValidation = validateExistingMindMapBlockLocally(mindMapBlocks[0]);
     const shouldKeepExplicitMindMapDespiteLowConfidence = wantsMindMap && localMindMapValidation.keep;
     if (confidence === 'LOW') {
@@ -7129,7 +7208,7 @@ REGRAS OBRIGATÓRIAS:
 2. NÃO copie a última resposta como se ela fosse o resumo inteiro.
 3. Faça um resumo executivo curto e direto no início.
 4. Depois organize o conteúdo em seções claras, densas e úteis.
-5. NÃO use as tags [CONFIANÇA], [ID-DA-FONTE], [PHET], [PDB], [OFFLINE_DOC] ou blocos [LATEX_GRAPH_TITLE]/[LATEX_GRAPH_CODE].
+5. NÃO use as tags [CONFIANÇA], [ID-DA-FONTE], [PHET], [PDB], [OFFLINE_DOC], blocos [LATEX_GRAPH_TITLE]/[LATEX_GRAPH_CODE] ou <artifact>.
 6. Se houver fontes citadas ao longo da conversa, transforme isso em texto limpo na seção final "Fontes e referências mencionadas".
 7. Não fale sobre o processo de geração. Entregue apenas o documento.
 8. O documento precisa funcionar bem como PDF.
