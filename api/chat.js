@@ -6605,6 +6605,24 @@ function renderStructuredMindMapLatex(spec = {}) {
   ].join('\n');
 }
 
+function buildMindMapBlockFromSpec(spec = {}) {
+  return buildArtifactBlock({
+    type: 'mindmap',
+    format: 'latex',
+    title: String(spec.title || 'Mapa mental').trim(),
+    code: renderStructuredMindMapLatex(spec),
+  });
+}
+
+function buildMindMapBlockFromSpec(spec = {}) {
+  return buildArtifactBlock({
+    type: 'mindmap',
+    format: 'latex',
+    title: String(spec.title || 'Mapa mental').trim(),
+    code: renderStructuredMindMapLatex(spec),
+  });
+}
+
 async function validateSourceRelevance(response = '', sources = [], userQuestion = '', logs = []) {
   if (!Array.isArray(sources) || sources.length === 0) return { valid: true, issues: [] };
 
