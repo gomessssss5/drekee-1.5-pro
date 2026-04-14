@@ -3486,74 +3486,6 @@ ${sourceDigest || 'Sem fontes registradas'}
 
 // ============ STEP 1: Generate Action Plan (internal) ============
 async function generateActionPlan(userQuestion, history = [], visionContext = '') {
-  const historyText = history.length > 0 
-    ? `\nHISTÓRICO (Contexto prévio):\n${history.map(m => `${m.role === 'user' ? 'Usuário' : 'IA'}: ${m.content}`).join('\n')}\n`
-    : '';
-  const visionText = visionContext ? `\n${visionContext}\n` : '';
-
-  const prompt = `Você é um planejador científico. Para a pergunta, crie um plano de ação:
-${historyText}${visionText}
-Pergunta atual: "${userQuestion}"
-
-Dica de Autodetecção: 
-- "ibge": busca dados estatísticos/notícias do Brasil (termos: brasil, população, estado, economia, dados).
-- "scielo": busca artigos acadêmicos (termos: artigo, tese, periódico, científico, revista).
-- "openlibrary": busca livros e autores (termos: livro, autor, obra, literatura, biografia).
-- "gbif": busca seres vivos e biodiversidade (termos: espécie, animal, planta, biologia, taxonomia, nome científico).
-- "usgs": busca terremotos e sismicidade (termos: terremoto, sismo, tremor, abalo, vulcão).
-
-REGRA IMPORTANTE: Se a pergunta for sobre terremotos, sismos, sol (nascer/pôr), localização em tempo real, posição da ISS, ou qualquer dado ao vivo já coletado pelos conectores ativos, defina "precisa_busca_web" como false. Esses dados já estão disponíveis e são mais precisos do que a web.
-REGRA IMPORTANTE 2: Se a pergunta for astronômica e puder ser respondida por fontes primárias como NASA, Horizons, Solar System, Exoplanet Archive, Kepler/TESS ou ESA, prefira essas fontes e evite busca web genérica. Nesse caso, "precisa_busca_web" deve tender a false.
-
-${userRequestedMindMap(userQuestion) ? '🗺️ ATENÇÃO: O usuário pediu explicitamente um MAPA MENTAL! Inclua nos passos a geração de um mapa mental visual se o conteúdo permitir.' : ''}
-
-Retorne APENAS JSON válido (sem markdown):
-
-{
-  "objetivo": "Descrição clara do que responder",
-  "area_cientifica": "Área(s) científica(s)",
-  "passos": [ { "numero": 1, "nome": "Passo", "descricao": "O que fazer" } ],
-  "precisa_busca_web": true/false,
-  "termo_de_busca": "um termo de busca real para o Google (ex: 'Marte clima') se precisar de busca web (combine a pergunta atual com o histórico, se houver). Use null se não precisar pesquisar nada na internet para esta interação."
-}`;
-
-  const response = await callGroq(
-    [{ role: 'user', content: prompt }],
-    'GROQ_API_KEY_2',
-    { maxTokens: 800, temperature: 0.2 }
-  );
-
-  // Se GROQ falhar, tentar SambaNova como fallback
-  if (!response) {
-    console.warn('🚨 GROQ Agent failed, trying SambaNova fallback...');
-    try {
-      const sambaResponse = await callSambaNova(
-        [{ role: 'user', content: prompt }],
-        { model: 'Meta-Llama-3.1-8B-Instruct', maxTokens: 800, temperature: 0.2 }
-      );
-      if (sambaResponse) {
-        console.log('✅ Plan generated using SambaNova fallback');
-        return JSON.parse(sambaResponse);
-      }
-    } catch (err) {
-      console.error('SambaNova fallback failed:', err);
-    }
-  }
-
-  try {
-    return JSON.parse(response);
-  } catch (e) {
-    console.error('Plan parse error:', e);
-    return {
-      objetivo: 'Responder à pergunta',
-      area_cientifica: 'Geral',
-      passos: [{ numero: 1, nome: 'Responder', descricao: 'Gerar uma resposta clara e precisa' }],
-      precisa_busca_web: true,
-    };
-  }
-}
-
-async function generateActionPlan(userQuestion, history = [], visionContext = '') {
   const historyText = history.length > 0
     ? `\nHISTORICO (Contexto previo):\n${history.map(m => `${m.role === 'user' ? 'Usuario' : 'IA'}: ${m.content}`).join('\n')}\n`
     : '';
@@ -4135,6 +4067,7 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const sanitizedRequestedConnectors = requestedConnectors.filter(key => !overrideForbiddenConnectors.has(key));
   const removedMaintenanceConnectors = sanitizedRequestedConnectors.filter(key => CONNECTORS_IN_MAINTENANCE.has(key));
   const selectedConnectors = filterSupportedConnectors(sanitizedRequestedConnectors);
+  logs.push(`🔌 Conectores selecionados para uso: ${selectedConnectors.join(', ') || 'nenhum'}`);
 
   const useNasa = options.useNasa === true || selectedConnectors.includes('nasa');
 
@@ -6795,14 +6728,14 @@ function shouldKeepAnalyticalVisualCalibrated(response = '', sources = [], userQ
   const compactMetricComparison = detectCompactMetricComparisonIntent(userQuestion, response);
 
   if (graphBlocks.length > 0) {
-    if (!explicitVisual && compactMetricComparison) return false;
+    if (!explicitVisual && compactMetricComparison && sourceCount < 1) return false;
     if (!explicitVisual && !graphIntent) return false;
-    if (!explicitVisual && graphIntent && (sourceCount < 1 || citationCount < 2)) return false;
+    if (!explicitVisual && graphIntent && (sourceCount < 1 || citationCount < 1)) return false;
   }
 
   if (mindMapBlocks.length > 0) {
     if (!explicitVisual && !conceptualIntent) return false;
-    if (!explicitVisual && conceptualIntent && (sourceCount < 1 || citationCount < 2)) return false;
+    if (!explicitVisual && conceptualIntent && (sourceCount < 1 || citationCount < 1)) return false;
   }
 
   return true;
@@ -6972,11 +6905,18 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
   const wantsGraph = userRequestedGraph(userQuestion);
   const hasGraphBlockInitially = extractLatexGraphBlocks(response).length > 0;
   const hasMindMapBlock = extractMindMapBlocks(response).length > 0;
+  const sourceCount = Array.isArray(sources) ? sources.length : 0;
+  const citationCount = countResponseCitations(response);
+  const graphIntent = detectTimeSeriesIntent(userQuestion, response) || detectCategoryComparisonIntent(userQuestion, response);
+  const conceptualIntent = detectConceptualVisualIntent(userQuestion);
+  const explicitVisual = detectExplicitVisualRequest(userQuestion);
+  const autoGraphEnabled = !hasGraphBlockInitially && !hasMindMapBlock && (wantsGraph || (!explicitVisual && graphIntent && sourceCount >= 1));
+  const autoMindMapEnabled = !hasMindMapBlock && !hasGraphBlockInitially && (wantsMindMap || (!explicitVisual && !wantsGraph && conceptualIntent && sourceCount >= 1));
 
-  // Injeção automática se o usuário pediu e o modelo não gerou
-  if (wantsMindMap && !hasMindMapBlock) {
+  // Injeção automática se o usuário pediu ou se o fluxo indica que uma visualização implícita é relevante.
+  if (autoMindMapEnabled) {
     try {
-      logs.push('🧠 Tentando gerar mapa mental automaticamente (solicitado pelo usuário)...');
+      logs.push('🧠 Tentando gerar mapa mental automaticamente...');
       const structuredMindMap = await buildStructuredMindMapSpec(response, sources, userQuestion, logs);
       if (structuredMindMap) {
         const mindMapValidation = validateStructuredMindMapSpec(structuredMindMap);
@@ -6997,9 +6937,9 @@ async function alignGraphWithResponseReliability(response = '', sources = [], us
     }
   }
 
-  if (wantsGraph && !hasGraphBlockInitially && !hasMindMapBlock) {
+  if (autoGraphEnabled) {
     try {
-      logs.push('Tentando gerar grafico automaticamente (solicitado pelo usuario)...');
+      logs.push('Tentando gerar grafico automaticamente...');
       const structuredGraph = await buildStructuredGraphSpec(response, sources, userQuestion, logs);
       const graphValidation = validateStructuredGraphSpec(structuredGraph, { userQuestion, response });
       if (graphValidation.issues.length === 0) {
