@@ -6415,6 +6415,11 @@ ${sourceDigest || 'Sem fontes registradas'}
     branches: Array.isArray(parsed?.branches) ? parsed.branches : [],
   };
   if (spec.center && Array.isArray(spec.branches) && spec.branches.length >= 3) {
+    // Validação extra de fontes
+    const sourceValidation = await validateSourceRelevance(response, sources, userQuestion, logs);
+    if (!sourceValidation.valid && logs) {
+      logs.push(`Validação de fontes falhou: ${sourceValidation.issues.join('; ')}`);
+    }
     return spec;
   }
   if (logs) logs.push('⚠️ Extrator do mapa mental falhou; usando estrutura heuristica de fallback.');
@@ -6477,6 +6482,30 @@ ${JSON.stringify(spec || {})}
     logs.push('Auditoria semantica do mapa mental indisponivel; aplicando fallback conservador local.');
   }
 
+  // Ampliar auditoria: validar cada ramo individualmente contra fontes/resposta
+  const detailedBranchChecks = [];
+  for (const branch of spec.branches || []) {
+    const branchPrompt = `Verifique se o ramo "${branch.label}" e seus subtópicos (${branch.subtopics.join(', ')}) estão diretamente suportados pela resposta ou pelas fontes abaixo.
+
+Retorne apenas: {"supported": true/false, "reason": "breve explicacao"}
+
+PERGUNTA: ${userQuestion}
+RESPOSTA: ${String(response || '').slice(0, 1500)}
+FONTES: ${sourceDigest}
+`;
+    const branchAudit = extractJsonObject(await callGemini(branchPrompt, logs)) || {};
+    detailedBranchChecks.push({
+      label: branch.label,
+      supported: branchAudit.supported === true,
+      reason: String(branchAudit.reason || 'Auditoria detalhada indisponivel').trim()
+    });
+  }
+
+  const unsupportedDetailed = detailedBranchChecks.filter(check => !check.supported);
+  if (unsupportedDetailed.length > 0) {
+    issues.push(`Ramos nao suportados: ${unsupportedDetailed.map(b => `"${b.label}" (${b.reason})`).join(', ')}`);
+  }
+
   if (unsupportedBranch && !issues.some(issue => /ramo|suporte|fonte/i.test(issue))) {
     issues.push('Um ou mais ramos do mapa mental nao puderam ser rastreados de volta a resposta/fonte.');
   }
@@ -6487,7 +6516,7 @@ ${JSON.stringify(spec || {})}
     issues.push('O mapa mental simplificou demais um tema sensivel.');
   }
 
-  return { approved, issues, sensitiveTopic, branchChecks };
+  return { approved: approved && unsupportedDetailed.length === 0, issues, sensitiveTopic, branchChecks: detailedBranchChecks };
 }
 
 function validateStructuredMindMapSpec(spec = {}) {
@@ -6511,13 +6540,30 @@ function validateStructuredMindMapSpec(spec = {}) {
 }
 
 function renderStructuredMindMapLatex(spec = {}) {
-  const positions = [
-    { main: 'right=5.6cm of center', subs: ['above right=1.2cm and 2.1cm of branch1', 'right=2.6cm of branch1', 'below right=1.2cm and 2.1cm of branch1'], anchor: 'east' },
-    { main: 'left=5.6cm of center', subs: ['above left=1.2cm and 2.1cm of branch2', 'left=2.6cm of branch2', 'below left=1.2cm and 2.1cm of branch2'], anchor: 'west' },
-    { main: 'above=4.0cm of center', subs: ['above left=1.0cm and 1.1cm of branch3', 'above=2.2cm of branch3', 'above right=1.0cm and 1.1cm of branch3'], anchor: 'north' },
-    { main: 'below=4.0cm of center', subs: ['below left=1.0cm and 1.1cm of branch4', 'below=2.2cm of branch4', 'below right=1.0cm and 1.1cm of branch4'], anchor: 'south' },
-    { main: 'above right=3.2cm and 4.3cm of center', subs: ['above right=1.0cm and 1.4cm of branch5', 'right=2.2cm of branch5', 'below right=1.0cm and 1.4cm of branch5'], anchor: 'north east' },
-  ];
+  const branchCount = Math.min(spec.branches?.length || 0, 5);
+  const radius = 6.0; // Raio base para ramos principais
+  const subRadius = 2.8; // Raio para subtópicos
+  const angleStep = (2 * Math.PI) / branchCount;
+
+  const positions = spec.branches.map((branch, index) => {
+    const angle = index * angleStep;
+    const x = radius * Math.cos(angle - Math.PI / 2); // Começar do topo
+    const y = radius * Math.sin(angle - Math.PI / 2);
+    const anchor = angle > 0 && angle < Math.PI ? 'south' : angle > Math.PI ? 'north' : 'east';
+
+    const subPositions = branch.subtopics.slice(0, 3).map((sub, subIndex) => {
+      const subAngle = angle + (subIndex - 1) * (Math.PI / 6); // Espalhar subtópicos
+      const subX = subRadius * Math.cos(subAngle - Math.PI / 2);
+      const subY = subRadius * Math.sin(subAngle - Math.PI / 2);
+      return `above right=${subY}cm and ${subX}cm of branch${index + 1}`;
+    });
+
+    return {
+      main: `above right=${y}cm and ${x}cm of center`,
+      subs: subPositions,
+      anchor
+    };
+  });
 
   const branchNodes = spec.branches.map((branch, branchIndex) => {
     const position = positions[branchIndex];
@@ -6559,13 +6605,32 @@ function renderStructuredMindMapLatex(spec = {}) {
   ].join('\n');
 }
 
-function buildMindMapBlockFromSpec(spec = {}) {
-  return buildArtifactBlock({
-    type: 'mindmap',
-    format: 'latex',
-    title: String(spec.title || 'Mapa mental').trim(),
-    code: renderStructuredMindMapLatex(spec),
-  });
+async function validateSourceRelevance(response = '', sources = [], userQuestion = '', logs = []) {
+  if (!Array.isArray(sources) || sources.length === 0) return { valid: true, issues: [] };
+
+  const issues = [];
+  const responseText = stripAllVisualBlocks(response);
+  const citedSources = (responseText.match(/\[ID-DA-FONTE:\s*([^\]]+)\]/gi) || [])
+    .map(tag => tag.match(/\[ID-DA-FONTE:\s*([^\]]+)\]/)?.[1]?.trim())
+    .filter(Boolean);
+
+  for (const source of sources.slice(0, 8)) {
+    const isCited = citedSources.some(cited => cited.includes(source.id) || source.id.includes(cited));
+    if (!isCited) {
+      const relevancePrompt = `Verifique se a fonte "${source.label} - ${source.detail}" é relevante para a pergunta "${userQuestion}" e resposta fornecida.
+
+Retorne apenas: {"relevant": true/false, "reason": "breve explicacao"}
+
+RESPOSTA: ${responseText.slice(0, 1000)}
+`;
+      const check = extractJsonObject(await callGemini(relevancePrompt, logs)) || {};
+      if (check.relevant !== true) {
+        issues.push(`Fonte "${source.label}" pode não ser relevante: ${check.reason || 'Verificação indisponível'}`);
+      }
+    }
+  }
+
+  return { valid: issues.length === 0, issues };
 }
 
 function countCitationTags(text = '') {
