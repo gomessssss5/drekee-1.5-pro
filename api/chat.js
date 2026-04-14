@@ -6223,14 +6223,14 @@ function renderStructuredGraphLatex(spec = {}) {
     const total = points.reduce((sum, point) => sum + point.value, 0);
     const xMax = total > 0 ? Math.ceil(total * 1.1) : 100;
     const addplots = points.map((point, index) => [
-      '\\addplot+[xbar stacked] coordinates {',
+      '\\addplot+[xbar stacked, bar width=18pt] coordinates {',
       `  (${point.value}, ${escapeLatexLabel(spec.series[0].name || 'Composicao')})`,
       '};',
       `\\addlegendentry{${escapeLatexLabel(point.label)}}`,
     ].join('\n')).join('\n\n');
 
     return [
-      '\\documentclass[tikz,border=16pt]{standalone}',
+      '\\documentclass[tikz,border=18pt]{standalone}',
       '\\usepackage[utf8]{inputenc}',
       '\\usepackage[T1]{fontenc}',
       '\\usepackage{pgfplots}',
@@ -6240,6 +6240,9 @@ function renderStructuredGraphLatex(spec = {}) {
       '\\begin{tikzpicture}',
       '\\begin{axis}[',
       '    drekee premium,',
+      '    width=14cm,',
+      '    height=8.5cm,',
+      '    enlarge x limits=0.06,',
       '    xbar stacked,',
       `    title={\\textbf{${title}}},`,
       `    xlabel={\\textbf{${yLabel}}},`,
@@ -6262,7 +6265,7 @@ function renderStructuredGraphLatex(spec = {}) {
       .map(point => `(${escapeLatexLabel(point.label)}, ${point.value})`)
       .join(' ');
     return [
-      '\\addplot+[ybar] coordinates {',
+      '\\addplot+[ybar, bar width=18pt] coordinates {',
       `  ${coords}`,
       '};',
       `\\addlegendentry{${escapeLatexLabel(series.name)}}`,
@@ -6270,7 +6273,7 @@ function renderStructuredGraphLatex(spec = {}) {
   }).join('\n\n');
 
   return [
-    '\\documentclass[tikz,border=16pt]{standalone}',
+    '\\documentclass[tikz,border=18pt]{standalone}',
     '\\usepackage[utf8]{inputenc}',
     '\\usepackage[T1]{fontenc}',
     '\\usepackage{pgfplots}',
@@ -6280,6 +6283,9 @@ function renderStructuredGraphLatex(spec = {}) {
     '\\begin{tikzpicture}',
     '\\begin{axis}[',
     '    drekee premium,',
+    '    width=14cm,',
+    '    height=8.5cm,',
+    '    enlarge x limits=0.08,',
     '    ybar,',
     `    title={\\textbf{${title}}},`,
     `    xlabel={\\textbf{${xLabel}}},`,
@@ -6506,11 +6512,11 @@ function validateStructuredMindMapSpec(spec = {}) {
 
 function renderStructuredMindMapLatex(spec = {}) {
   const positions = [
-    { main: 'right=4.6cm of center', subs: ['above right=0.95cm and 1.8cm of branch1', 'right=2.0cm of branch1', 'below right=0.95cm and 1.8cm of branch1'], anchor: 'east' },
-    { main: 'left=4.6cm of center', subs: ['above left=0.95cm and 1.8cm of branch2', 'left=2.0cm of branch2', 'below left=0.95cm and 1.8cm of branch2'], anchor: 'west' },
-    { main: 'above=3.3cm of center', subs: ['above left=0.8cm and 0.7cm of branch3', 'above=1.8cm of branch3', 'above right=0.8cm and 0.7cm of branch3'], anchor: 'north' },
-    { main: 'below=3.3cm of center', subs: ['below left=0.8cm and 0.7cm of branch4', 'below=1.8cm of branch4', 'below right=0.8cm and 0.7cm of branch4'], anchor: 'south' },
-    { main: 'above right=2.7cm and 3.5cm of center', subs: ['above right=0.8cm and 1.2cm of branch5', 'right=1.8cm of branch5', 'below right=0.8cm and 1.2cm of branch5'], anchor: 'north east' },
+    { main: 'right=5.6cm of center', subs: ['above right=1.2cm and 2.1cm of branch1', 'right=2.6cm of branch1', 'below right=1.2cm and 2.1cm of branch1'], anchor: 'east' },
+    { main: 'left=5.6cm of center', subs: ['above left=1.2cm and 2.1cm of branch2', 'left=2.6cm of branch2', 'below left=1.2cm and 2.1cm of branch2'], anchor: 'west' },
+    { main: 'above=4.0cm of center', subs: ['above left=1.0cm and 1.1cm of branch3', 'above=2.2cm of branch3', 'above right=1.0cm and 1.1cm of branch3'], anchor: 'north' },
+    { main: 'below=4.0cm of center', subs: ['below left=1.0cm and 1.1cm of branch4', 'below=2.2cm of branch4', 'below right=1.0cm and 1.1cm of branch4'], anchor: 'south' },
+    { main: 'above right=3.2cm and 4.3cm of center', subs: ['above right=1.0cm and 1.4cm of branch5', 'right=2.2cm of branch5', 'below right=1.0cm and 1.4cm of branch5'], anchor: 'north east' },
   ];
 
   const branchNodes = spec.branches.map((branch, branchIndex) => {
@@ -6531,7 +6537,7 @@ function renderStructuredMindMapLatex(spec = {}) {
   }).join('\n\n');
 
   return [
-    '\\documentclass[tikz,border=14pt]{standalone}',
+    '\\documentclass[tikz,border=18pt]{standalone}',
     '\\usepackage[utf8]{inputenc}',
     '\\usepackage[T1]{fontenc}',
     '\\usepackage{xcolor}',
@@ -6539,12 +6545,12 @@ function renderStructuredMindMapLatex(spec = {}) {
     '\\begin{document}',
     '\\begin{tikzpicture}[',
     '  >=Stealth,',
-    '  line width=1.1pt,',
+    '  line width=1.3pt,',
     '  draw=gray!60,',
-    '  base/.style={align=center, inner sep=8pt, font=\\sffamily\\bfseries, text width=3.3cm},',
-    '  root/.style={base, ellipse, fill=blue!4, draw=blue!70, minimum width=4.4cm, minimum height=1.7cm, text width=4.1cm},',
-    '  main/.style={base, rectangle, rounded corners=10pt, fill=gray!5, draw=gray!80, minimum width=3.2cm, minimum height=1.05cm, text width=3.0cm},',
-    '  sub/.style={base, rectangle, rounded corners=5pt, fill=white, draw=gray!45, font=\\sffamily\\small, minimum width=2.5cm, text width=2.6cm}',
+    '  base/.style={align=center, inner sep=10pt, font=\\sffamily\\bfseries, text width=4.0cm},',
+    '  root/.style={base, ellipse, fill=blue!4, draw=blue!70, minimum width=5.4cm, minimum height=2.3cm, text width=5.0cm},',
+    '  main/.style={base, rectangle, rounded corners=10pt, fill=gray!5, draw=gray!80, minimum width=4.4cm, minimum height=1.4cm, text width=4.2cm},',
+    '  sub/.style={base, rectangle, rounded corners=5pt, fill=white, draw=gray!45, font=\\sffamily\\small, minimum width=3.3cm, text width=3.4cm}',
     ']',
     `\\node[root] (center) {${escapeLatexLabel(spec.center)}};`,
     branchNodes,
