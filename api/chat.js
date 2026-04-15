@@ -4261,15 +4261,11 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     /sol|sunrise|sunset|nascer|pôr|por do sol/i.test(userQuestion);
 
   // Tavily:
-  // 1. Em modo auto, roda por padrão como camada principal de contexto geral
-  // 2. Em modo manual, só roda se o usuário selecionar explicitamente 'tavily'
+  // 1. Sempre usar Tavily para todo questionamento do usuário quando possível.
+  // 2. A busca web serve como apoio adicional para gerar a resposta final; as fontes importam mais que as imagens.
   const isAstronomyPrimary = isAstronomyPrimaryQuery(userQuestion, selectedConnectors);
   const forcedTavilyByRecovery = recoveryMode && selectedConnectors.includes('tavily');
-  const podeBuscarWeb = !missingImageInterpretation && (forcedTavilyByRecovery
-    ? true
-    : connectorAuto
-      ? !isEarthquakeQuery && !isSunQuery && !isAstronomyPrimary
-      : selectedConnectors.includes('tavily'));
+  const podeBuscarWeb = !missingImageInterpretation;
 
   if (podeBuscarWeb) {
     logs.push(`🌐 Buscando na web: "${queryParaBuscar}"`);
@@ -4284,7 +4280,7 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       context += domainPolicy.tavilyDomains.length > 0
         ? `\n\n📰 Resultados de busca especializada por domínio (apoio adicional às fontes primárias):\n`
         : `\n\n📰 Resultados de busca web (use apenas como complemento, NUNCA para dados em tempo real como terremotos ou clima):\n`;
-      context += `Resposta resumida: ${searchResult.answer}\n\n`;
+      context += `Resposta resumida: ${searchResult.answer}\nUse esta resposta pronta como apoio para a resposta final e baseie-se nas fontes disponíveis, não apenas nas imagens.\n\n`;
       searchResult.results.forEach((r, i) => {
         context += `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.url}\n`;
       });
@@ -4308,14 +4304,8 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     } else {
       logs.push('⚠️ Tavily API não disponível');
     }
-  } else if (!connectorAuto && !selectedConnectors.includes('tavily')) {
-    logs.push('🔒 Modo manual: busca web desativada (Tavily não selecionado)');
-  } else if (isEarthquakeQuery) {
-    logs.push('🚫 Tavily suprimido: dados sísmicos via USGS são a fonte primária autorizada');
-  } else if (isSunQuery) {
-    logs.push('🚫 Tavily suprimido: dados solares via Sunrise-Sunset API são a fonte primária');
-  } else {
-    logs.push('🔹 Busca web não necessária (dados já coletados pelos conectores)');
+  } else if (missingImageInterpretation) {
+    logs.push('⚠️ A busca Tavily foi suspensa porque a imagem não foi interpretada com sucesso.');
   }
 
 

@@ -812,6 +812,7 @@
   .ai-response li { margin-bottom: 0.5rem; display: list-item; }
   .ai-response li::marker { color: var(--blue); }
   .ai-response-dark-table { white-space: normal; margin-bottom: 0.35rem; }
+  .ai-thinking-label { margin: 0 0 1rem; padding: 0.95rem 1rem; border-radius: 1rem; background: rgba(59,130,246,0.12); color: #dbeafe; font-size: 1rem; font-weight: 700; border: 1px solid rgba(96,165,250,0.22); }
   .ai-thinking-placeholder { padding: 1rem 1.1rem; border-radius: 1rem; background: rgba(15,23,42,0.95); color: #bfdbfe; font-size: 1rem; line-height: 1.7; border: 1px solid rgba(96,165,250,0.18); }
 
 .citation-chip-line { display: block; width: fit-content; max-width: 100%; margin: 0.28rem 0 0.12rem; line-height: 1; }
@@ -4946,6 +4947,10 @@
     if (hasNasa) mediaContainer.classList.add('media-results-nasa');
 
     // -- RESPONSE (Abaixo das imagens)
+    const thinkingLabel = document.createElement('div');
+    thinkingLabel.className = 'ai-thinking-label';
+    thinkingLabel.textContent = 'Pensando...';
+
     const responseContainer = document.createElement('div');
     responseContainer.className = 'ai-response ai-response-dark-table';
     responseContainer.innerHTML = parsedResponse.html;
@@ -4956,7 +4961,8 @@
 
     const hasResponseContent = parsedResponse.html.trim().length > 0;
     if (!hasResponseContent) {
-      responseContainer.innerHTML = '<div class="ai-thinking-placeholder">Pensando...</div>';
+      responseContainer.innerHTML = '';
+      responseContainer.appendChild(thinkingLabel);
       if (rightCol) rightCol.appendChild(thinkingCard);
     } else {
       thinkingCard.style.display = 'none';
