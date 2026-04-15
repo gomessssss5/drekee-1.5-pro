@@ -868,8 +868,8 @@
   }
 
   body:not(.chat-active) .input-wrapper {
-    left: 0;
-    right: 0;
+    left: 0 !important;
+    right: 0 !important;
   }
 
 .citation-chip-line { display: block; width: fit-content; max-width: 100%; margin: 0.28rem 0 0.12rem; line-height: 1; }
@@ -1902,8 +1902,8 @@
   .input-inner { max-width: 48rem; margin: 0 auto; }
 
   .chat-active .input-wrapper {
-    left: 18rem;
-    right: calc(clamp(245px, 25vw, 320px) + 2rem);
+    left: 18rem !important;
+    right: calc(clamp(245px, 25vw, 320px) + 2rem) !important;
     padding: 0 2rem 0 0;
   }
 
@@ -1914,7 +1914,15 @@
     align-items: flex-start;
   }
   .chat-left { min-width: 0; }
-  .chat-right { min-width: 0; display: flex; flex-direction: column; gap: 1rem; }
+  .chat-right { 
+    min-width: 0; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 1rem;
+    /* Garante que o sidebar direito está SEMPRE visível quando o chat está ativo */
+    visibility: visible;
+    opacity: 1;
+  }
   .chat-active .chat-layout {
     display: grid;
     grid-template-columns: minmax(0, 1.9fr) clamp(260px, 26vw, 340px);
@@ -2874,6 +2882,7 @@
   }
 
   function activateChatLayout() {
+    console.log('🎯 activateChatLayout() CALLED');
     const chatArea = document.getElementById('chatArea');
     const welcome = document.getElementById('welcomeScreen');
     const chatLayout = document.getElementById('chatLayout');
@@ -2881,15 +2890,28 @@
     if (chatLayout) chatLayout.style.display = 'grid';
     if (chatArea) chatArea.classList.add('chat-active');
     document.body.classList.add('chat-active');
+    console.log('✅ chat-active class added to body');
+    
+    // DEBUG: Log computed styles
+    const inputWrapper = document.getElementById('inputWrapper');
+    if (inputWrapper) {
+      const styles = window.getComputedStyle(inputWrapper);
+      console.log('📦 Input wrapper computed left:', styles.left);
+      console.log('📦 Input wrapper computed right:', styles.right);
+    }
   }
 
   function addMessage(role, content, metadata = null, options = {}) {
+    console.log(`📨 addMessage() - Role: ${role}, Has content: ${!!content}`);
     showMessages();
     const shouldSave = options.save !== false;
     const instant    = options.instant === true;
 
     if (!document.body.classList.contains('chat-active')) {
+      console.log('⚠️ Chat not active yet, activating...');
       activateChatLayout();
+    } else {
+      console.log('✓ Chat already active');
     }
 
     if (role === 'ai' && metadata?.thinking) {
@@ -4598,6 +4620,12 @@
   }
 
   function revealAgentResponseSequence({ mediaSection, responseSection, rightSections = [], thinkingCard, instant = false }) {
+    console.log('🎬 revealAgentResponseSequence() called');
+    console.log('  rightSections count:', rightSections.length);
+    rightSections.forEach((section, i) => {
+      console.log(`  Section ${i}:`, section?.className || 'null');
+    });
+    
     const performReveal = () => {
       // 1. Media apareça primeiro (100-150ms)
       if (mediaSection) {
@@ -4622,8 +4650,10 @@
 
       // 4. Right pane aparece (420ms)
       setTimeout(() => {
-        rightSections.forEach(section => {
+        console.log('🎭 Revealing right pane sections at 420ms');
+        rightSections.forEach((section, i) => {
           if (section) {
+            console.log(`  Revealing section ${i}:`, section.className);
             section.classList.remove('right-pane-hidden');
             section.classList.add('right-pane-show');
           }
@@ -5055,12 +5085,20 @@
     responseWrapper.appendChild(responseContainer);
 
     const hasResponseContent = parsedResponse.html.trim().length > 0;
+    console.log('📊 hasResponseContent:', hasResponseContent, 'HTML length:', parsedResponse.html.trim().length);
     const tavilySearchCard = createTavilySearchCard({ instant });
     if (!hasResponseContent) {
+      console.log('🔍 No response content yet, showing placeholder card');
       responseContainer.innerHTML = '';
       responseContainer.appendChild(thinkingLabel);
-      if (rightCol) rightCol.appendChild(tavilySearchCard);
+      if (rightCol) {
+        console.log('➕ Adding tavilySearchCard to rightCol');
+        rightCol.appendChild(tavilySearchCard);
+      } else {
+        console.log('❌ rightCol is null!');
+      }
     } else {
+      console.log('✓ Response content exists, hiding thinking card');
       thinkingCard.style.display = 'none';
     }
 
@@ -5298,7 +5336,16 @@
       });
     };
     const shouldRevealMedia = media.length > 0 && hasResponseContent;
-    const rightSectionsToReveal = hasResponseContent ? [sourcesContainer, embeddedVideosContainer] : [tavilySearchCard];
+    
+    // Build rightSections array - only include if has content or response exists
+    let rightSectionsToReveal = [];
+    if (hasResponseContent) {
+      if (textSources.length > 0) rightSectionsToReveal.push(sourcesContainer);
+      if (videoSources.length > 0) rightSectionsToReveal.push(embeddedVideosContainer);
+    } else {
+      rightSectionsToReveal.push(tavilySearchCard);
+    }
+    console.log('🎯 rightSectionsToReveal built with', rightSectionsToReveal.length, 'sections');
 
     if (shouldRevealMedia) {
       renderMedia();
@@ -5816,7 +5863,35 @@
     const text = textarea.value.trim();
     if (!text && attachedFiles.length === 0) return;
 
+    console.log('📤 sendMessage() triggered - USER:', text.substring(0, 50) + '...');
     addMessage('user', text || '(arquivo enviado)');
+    
+    // ✨ Show placeholder immediately while processing
+    console.log('⏱️ Showing placeholder card immediately...');
+    const chatSidebar = document.getElementById('chatSidebar');
+    if (chatSidebar) {
+      const phrase = pickRandomFrase();
+      const placeholderCard = document.createElement('div');
+      placeholderCard.className = 'tavily-search-card agent-pane-reveal';
+      placeholderCard.style.setProperty('--reveal-delay', '0s');
+      placeholderCard.innerHTML = `
+        <div class="tavily-search-icon"><span class="material-icons-outlined">search</span></div>
+        <div class="tavily-search-title">Pesquisando na web...</div>
+        <div class="tavily-search-subtitle">Aguarde enquanto reunimos fontes e contexto confiável para sua pergunta.</div>
+        <div class="tavily-search-quote">"${escapeHtml(phrase.frase)}"</div>
+        <div class="tavily-search-author">— ${escapeHtml(phrase.autor)}</div>
+      `;
+      
+      // Clear sidebar first
+      chatSidebar.innerHTML = '';
+      chatSidebar.appendChild(placeholderCard);
+      
+      // Show it immediately (not hidden)
+      placeholderCard.classList.remove('right-pane-hidden');
+      placeholderCard.classList.add('right-pane-show');
+      console.log('✨ Placeholder card inserted and made visible');
+    }
+    
     const liveCard = createAgentLiveCard({ connectorAuto, connectors: selectedConnectors });
     textarea.value = '';
     textarea.style.height = 'auto';
@@ -5828,6 +5903,7 @@
     fileInput.value = '';
 
     document.getElementById('thinkingIndicator').classList.add('show');
+    console.log('🤔 Thinking indicator shown');
 
     try {
       const { history: prevHistory } = buildBoundedHistory(text, filesToSend, chatHistory.slice(0, -1));

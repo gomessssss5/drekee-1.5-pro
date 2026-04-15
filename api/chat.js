@@ -164,15 +164,21 @@ function extractTavilyImages(data) {
 
 async function searchTavily(query) {
   const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) return null;
+  console.log('[TAVILY] searchTavily() called for:', query.substring(0, 50), 'API key present:', !!apiKey);
+  if (!apiKey) {
+    console.log('[TAVILY] ❌ NO API KEY - returning null');
+    return null;
+  }
 
   const cacheKey = getTavilyCacheKey(query);
   const cached = _tavilyCache.get(cacheKey);
   if (cached && (Date.now() - cached.ts < TAVILY_CACHE_TTL_MS)) {
+    console.log('[TAVILY] ✓ Returning cached result');
     return cached.data;
   }
 
   try {
+    console.log('[TAVILY] Making API request to Tavily...');
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -185,8 +191,12 @@ async function searchTavily(query) {
       }),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.log('[TAVILY] ❌ API returned non-OK status:', res.status);
+      return null;
+    }
     const data = await res.json();
+    console.log('[TAVILY] ✅ API response received. Results:', data.results?.length || 0, 'Photos:', data.images?.length || 0);
     const results = (data.results || []).slice(0, 10).map(normalizeTavilyResult);
     const payload = {
       query,
@@ -200,14 +210,18 @@ async function searchTavily(query) {
 
     return payload;
   } catch (err) {
-    console.error('Tavily search error:', err);
+    console.error('[TAVILY] ❌ Search error:', err);
     return null;
   }
 }
 
 async function searchTavilyScoped(query, options = {}) {
   const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) return null;
+  console.log('[TAVILY SCOPED] searchTavilyScoped() called for:', query.substring(0, 50), 'domains:', options.includeDomains?.length || 0);
+  if (!apiKey) {
+    console.log('[TAVILY SCOPED] ❌ NO API KEY - returning null');
+    return null;
+  }
 
   try {
     const payload = {
@@ -222,14 +236,19 @@ async function searchTavilyScoped(query, options = {}) {
       payload.include_domains = options.includeDomains;
     }
 
+    console.log('[TAVILY SCOPED] Making API request...');
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.log('[TAVILY SCOPED] ❌ API returned non-OK status:', res.status);
+      return null;
+    }
     const data = await res.json();
+    console.log('[TAVILY SCOPED] ✅ API response received');
     return {
       query,
       answer: data.answer || data.summary || '',
@@ -237,7 +256,7 @@ async function searchTavilyScoped(query, options = {}) {
       photos: extractTavilyImages(data),
     };
   } catch (err) {
-    console.error('Tavily scoped search error:', err);
+    console.error('[TAVILY SCOPED] ❌ Search error:', err);
     return null;
   }
 }
@@ -4266,8 +4285,11 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   const isAstronomyPrimary = isAstronomyPrimaryQuery(userQuestion, selectedConnectors);
   const forcedTavilyByRecovery = recoveryMode && selectedConnectors.includes('tavily');
   const podeBuscarWeb = !missingImageInterpretation;
+  
+  console.log('[TAVILY DEBUG] podeBuscarWeb:', podeBuscarWeb, 'missingImageInterpretation:', missingImageInterpretation);
 
   if (podeBuscarWeb) {
+    console.log('[TAVILY DEBUG] ✅ Starting Tavily search for:', queryParaBuscar.substring(0, 60));
     logs.push(`🌐 Buscando na web: "${queryParaBuscar}"`);
     const searchResult = domainPolicy.tavilyDomains.length > 0
       ? await searchTavilyScoped(queryParaBuscar, {
