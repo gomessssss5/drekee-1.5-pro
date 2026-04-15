@@ -812,6 +812,7 @@
   .ai-response li { margin-bottom: 0.5rem; display: list-item; }
   .ai-response li::marker { color: var(--blue); }
   .ai-response-dark-table { white-space: normal; margin-bottom: 0.35rem; }
+  .ai-thinking-placeholder { padding: 1rem 1.1rem; border-radius: 1rem; background: rgba(15,23,42,0.95); color: #bfdbfe; font-size: 1rem; line-height: 1.7; border: 1px solid rgba(96,165,250,0.18); }
 
 .citation-chip-line { display: block; width: fit-content; max-width: 100%; margin: 0.28rem 0 0.12rem; line-height: 1; }
 .citation-tag {
@@ -1834,12 +1835,32 @@
   .input-wrapper {
     position: fixed;
     bottom: 1.25rem;
+    left: 0;
+    right: 0;
+    padding: 0 1.5rem;
+    z-index: 50;
+    transition: left 0.3s ease, right 0.3s ease, padding 0.3s ease;
+  }
+  .input-inner { max-width: 48rem; margin: 0 auto; }
+
+  .chat-active .input-wrapper {
     left: 18rem;
     right: calc(clamp(245px, 25vw, 320px) + 2rem);
     padding: 0 2rem 0 0;
-    z-index: 50;
   }
-  .input-inner { max-width: 48rem; margin: 0 auto; }
+
+  .chat-layout {
+    display: none;
+    width: 100%;
+    gap: 1.2rem;
+    align-items: flex-start;
+  }
+  .chat-left { min-width: 0; }
+  .chat-right { min-width: 0; display: flex; flex-direction: column; gap: 1rem; }
+  .chat-active .chat-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.9fr) clamp(260px, 26vw, 340px);
+  }
 
   /* Thinking indicator */
   .thinking-indicator {
@@ -2499,7 +2520,12 @@
         </div>
       </div>
 
-      <div class="messages-inner" id="messagesContainer"></div>
+      <div class="chat-layout" id="chatLayout" style="display: none;">
+        <div class="chat-left">
+          <div class="messages-inner" id="messagesContainer"></div>
+        </div>
+        <aside class="chat-right" id="chatSidebar"></aside>
+      </div>
     </div>
 
     <button class="scroll-bottom-btn" id="scrollToBottomBtn">
@@ -2766,10 +2792,24 @@
     }
   }
 
+  function activateChatLayout() {
+    const chatArea = document.getElementById('chatArea');
+    const welcome = document.getElementById('welcomeScreen');
+    const chatLayout = document.getElementById('chatLayout');
+    if (welcome) welcome.classList.add('hidden');
+    if (chatLayout) chatLayout.style.display = 'grid';
+    if (chatArea) chatArea.classList.add('chat-active');
+    document.body.classList.add('chat-active');
+  }
+
   function addMessage(role, content, metadata = null, options = {}) {
     showMessages();
     const shouldSave = options.save !== false;
     const instant    = options.instant === true;
+
+    if (!document.body.classList.contains('chat-active')) {
+      activateChatLayout();
+    }
 
     if (role === 'ai' && metadata?.thinking) {
       renderAgentSequence({ response: content, ...metadata }, { instant });
@@ -4847,8 +4887,8 @@
     const leftCol = document.createElement('div');
     leftCol.className = 'ai-left-column';
 
-    const rightCol = document.createElement('div');
-    rightCol.className = 'ai-right-column';
+    const rightCol = document.getElementById('chatSidebar');
+    if (rightCol) rightCol.innerHTML = '';
 
     // -- THINKING CARD (Acima de tudo) --
     const thinkingCard = document.createElement('div');
@@ -4860,7 +4900,6 @@
       thinkingCard.innerHTML = `<div class="logs-header">🧠 Processando...<span class="thinking-card-toggle">▼</span></div>`;
     }
 
-    // Add toggle functionality
     thinkingCard.addEventListener('click', function() {
       this.classList.toggle('thinking-card-collapsed');
     });
@@ -4915,8 +4954,14 @@
     responseWrapper.className = 'response-hidden';
     responseWrapper.appendChild(responseContainer);
 
-    // LEFT COLUMN: thinking + response (media moved out)
-    leftCol.appendChild(thinkingCard);
+    const hasResponseContent = parsedResponse.html.trim().length > 0;
+    if (!hasResponseContent) {
+      responseContainer.innerHTML = '<div class="ai-thinking-placeholder">Pensando...</div>';
+      if (rightCol) rightCol.appendChild(thinkingCard);
+    } else {
+      thinkingCard.style.display = 'none';
+    }
+
     leftCol.appendChild(responseWrapper);
 
     // Renderizar Fórmulas Matemáticas
@@ -4935,28 +4980,23 @@
     sourcesContainer.style.setProperty('--reveal-delay', instant ? '0s' : '0.08s');
     sourcesContainer.innerHTML = `<div class="sources-header"><div class="sources-header-copy"><div class="sources-header-title">Fontes Utilizadas</div><div class="sources-header-subtitle">Base documental consultada para esta resposta</div></div><div class="sources-counter">${textSources.length}</div></div><div class="sources-grid sidebar-scrollable-body">${renderSources(textSources)}</div>`;
 
-    if (textSources.length > 0) {
-      rightCol.appendChild(sourcesContainer);
-    }
-    if (videoSources.length > 0) {
-      rightCol.appendChild(embeddedVideosContainer);
+    if (rightCol && hasResponseContent) {
+      if (textSources.length > 0) {
+        rightCol.appendChild(sourcesContainer);
+      }
+      if (videoSources.length > 0) {
+        rightCol.appendChild(embeddedVideosContainer);
+      }
     }
 
     splitContainer.appendChild(leftCol);
-    if (rightCol.children.length > 0) {
-      splitContainer.appendChild(rightCol);
-    } else {
-      splitContainer.style.gridTemplateColumns = 'minmax(0, 1fr)';
-      leftCol.style.flex = "1";
-    }
+    splitContainer.style.gridTemplateColumns = 'minmax(0, 1fr)';
+    leftCol.style.flex = "1";
 
-    inner.appendChild(thinkingCard);
-    
-    // Media container BEFORE split (full width)
-    if (media.length > 0) {
+    if (media.length > 0 && hasResponseContent) {
       inner.appendChild(mediaContainer);
     }
-    
+
     inner.appendChild(splitContainer);
 
     // -- SEÇÕES DE LARGURA TOTAL (Abaixo do Split) --
@@ -5155,23 +5195,20 @@
         grid.appendChild(createMediaCard(item, mediaContainer.classList.contains('media-results-nasa') ? 'nasa' : 'default', { mode: 'strip' }));
       });
     };
-    if (media.length > 0) {
+    const shouldRevealMedia = media.length > 0 && hasResponseContent;
+    const rightSectionsToReveal = hasResponseContent ? [sourcesContainer, embeddedVideosContainer] : [];
+
+    if (shouldRevealMedia) {
       renderMedia();
-      revealAgentResponseSequence({
-        mediaSection: mediaContainer,
-        responseSection: responseWrapper,
-        rightSections: [sourcesContainer, embeddedVideosContainer],
-        thinkingCard: thinkingCard,
-        instant: instant,
-      });
-    } else {
-      revealAgentResponseSequence({
-        responseSection: responseWrapper,
-        rightSections: [sourcesContainer, embeddedVideosContainer],
-        thinkingCard: thinkingCard,
-        instant: instant,
-      });
     }
+
+    revealAgentResponseSequence({
+      mediaSection: shouldRevealMedia ? mediaContainer : null,
+      responseSection: responseWrapper,
+      rightSections: rightSectionsToReveal,
+      thinkingCard: thinkingCard,
+      instant: instant,
+    });
 
     requestAnimationFrame(() => applySidebarPaneBalance(leftCol, rightCol, sourcesContainer, mediaContainer, embeddedVideosContainer));
     setTimeout(() => applySidebarPaneBalance(leftCol, rightCol, sourcesContainer, mediaContainer, embeddedVideosContainer), 280);
@@ -5761,7 +5798,16 @@
 
   // ── New chat ──────────────────────────────────────────────
   function startNewChat() {
+    const chatLayout = document.getElementById('chatLayout');
+    const chatArea = document.getElementById('chatArea');
+    const chatSidebar = document.getElementById('chatSidebar');
+
     messagesContainer.innerHTML = '';
+    if (chatSidebar) chatSidebar.innerHTML = '';
+    if (chatLayout) chatLayout.style.display = 'none';
+    if (chatArea) chatArea.classList.remove('chat-active');
+    document.body.classList.remove('chat-active');
+
     welcomeScreen.classList.remove('hidden');
     conversationActive = false;
     convTitle.textContent = 'Chat';
