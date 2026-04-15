@@ -115,11 +115,57 @@ DIRETRIZES DE OURO:
 `;
 
 // ============ TAVILY API (Web Search) ============
+function normalizeTavilyResult(item) {
+  const result = {
+    title: item.title || item.headline || item.source || 'Resultado da web',
+    url: item.url || item.link || item.source_url || item.sourceUrl || null,
+    snippet: item.snippet || item.summary || item.description || item.excerpt || '',
+    image: item.image || item.thumbnail || item.thumb || item.photo || item.photo_url || item.image_url || item.media_url || null,
+  };
+
+  if (!result.url && item.raw_url) {
+    result.url = item.raw_url;
+  }
+
+  return result;
+}
+
+function extractTavilyImages(data) {
+  const images = [];
+  if (Array.isArray(data.photos)) {
+    data.photos.slice(0, 8).forEach(photo => {
+      if (photo?.url) {
+        images.push({
+          url: photo.url,
+          title: photo.title || photo.caption || 'Imagem da busca',
+          description: photo.description || photo.caption || '',
+          media_type: 'image',
+        });
+      }
+    });
+  }
+
+  if (Array.isArray(data.results)) {
+    data.results.slice(0, 10).forEach(result => {
+      const imageUrl = result.image || result.thumbnail || result.thumb || result.photo || result.photo_url || result.image_url || result.media_url;
+      if (imageUrl) {
+        images.push({
+          url: imageUrl,
+          title: result.title || 'Imagem relacionada',
+          description: result.snippet || result.summary || result.description || '',
+          media_type: 'image',
+        });
+      }
+    });
+  }
+
+  return images;
+}
+
 async function searchTavily(query) {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!apiKey) return null;
 
-  // 1-c: Check cache first
   const cacheKey = getTavilyCacheKey(query);
   const cached = _tavilyCache.get(cacheKey);
   if (cached && (Date.now() - cached.ts < TAVILY_CACHE_TTL_MS)) {
@@ -135,26 +181,24 @@ async function searchTavily(query) {
         query,
         max_results: 10,
         include_answer: true,
+        include_images: true,
       }),
     });
 
     if (!res.ok) return null;
     const data = await res.json();
-    const result = {
+    const results = (data.results || []).slice(0, 10).map(normalizeTavilyResult);
+    const payload = {
       query,
-      answer: data.answer,
-      results: data.results?.slice(0, 7).map(r => ({
-        title: r.title,
-        url: r.url,
-        snippet: r.snippet,
-      })) || [],
+      answer: data.answer || data.summary || '',
+      results,
+      photos: extractTavilyImages(data),
     };
 
-    // 1-c: Store in cache
-    _tavilyCache.set(cacheKey, { data: result, ts: Date.now() });
+    _tavilyCache.set(cacheKey, { data: payload, ts: Date.now() });
     cleanTavilyCache();
 
-    return result;
+    return payload;
   } catch (err) {
     console.error('Tavily search error:', err);
     return null;
@@ -169,8 +213,9 @@ async function searchTavilyScoped(query, options = {}) {
     const payload = {
       api_key: apiKey,
       query,
-      max_results: options.maxResults || 6,
+      max_results: options.maxResults || 10,
       include_answer: options.includeAnswer !== false,
+      include_images: true,
     };
 
     if (Array.isArray(options.includeDomains) && options.includeDomains.length > 0) {
@@ -187,12 +232,9 @@ async function searchTavilyScoped(query, options = {}) {
     const data = await res.json();
     return {
       query,
-      answer: data.answer,
-      results: (data.results || []).slice(0, options.maxResults || 6).map(r => ({
-        title: r.title,
-        url: r.url,
-        snippet: r.snippet,
-      })),
+      answer: data.answer || data.summary || '',
+      results: (data.results || []).slice(0, options.maxResults || 10).map(normalizeTavilyResult),
+      photos: extractTavilyImages(data),
     };
   } catch (err) {
     console.error('Tavily scoped search error:', err);
@@ -4261,6 +4303,18 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       searchResult.results.forEach((r, i) => {
         addSource(`WEB-${i + 1}`, r.title || `Web resultado ${i + 1}`, 'web', r.snippet, r.url);
       });
+      if (Array.isArray(searchResult.photos) && searchResult.photos.length > 0) {
+        searchResult.photos.slice(0, 10).forEach((img, idx) => {
+          if (!img.url) return;
+          media.push({
+            title: img.title || `Imagem da busca ${idx + 1}`,
+            url: img.url,
+            media_type: 'image',
+            description: img.description || img.title || 'Imagem relacionada à busca',
+          });
+        });
+        logs.push('✅ Fotos e imagens coletadas da busca Tavily');
+      }
       logs.push(domainPolicy.tavilyDomains.length > 0 ? '✅ Dados especializados coletados na web' : '✅ Dados da web coletados');
     } else {
       logs.push('⚠️ Tavily API não disponível');
