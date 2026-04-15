@@ -693,17 +693,19 @@
   .media-results { margin-top: 1rem; background: rgba(15,23,42,0.8); border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); overflow: hidden; }
   .media-header { background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15)); padding: 0.75rem 1rem; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid rgba(99,102,241,0.2); }
   .media-strip-compact { margin: 0.6rem 0 0.8rem 0; background: transparent; border: none; border-radius: 0; overflow: visible; }
-  .media-strip-compact-header { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(99,102,241,0.7); margin-bottom: 0.6rem; }
-  .media-strip-compact-list { display: flex; gap: 0.7rem; overflow-x: auto; padding: 0; scroll-snap-type: x mandatory; align-items: flex-start; }
+  .media-strip-compact-fullwidth { width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; margin: 1rem 0 1.2rem 0; }
+  .media-strip-compact-fullwidth .media-strip-compact-list { width: 100%; max-width: 95%; overflow-x: auto; display: flex; justify-content: center; }
+  .media-strip-compact-header { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(99,102,241,0.7); margin-bottom: 0.6rem; display: none; }
+  .media-strip-compact-list { display: flex; gap: 1rem; overflow-x: auto; padding: 0 0.5rem; scroll-snap-type: x mandatory; align-items: center; justify-content: center; flex-wrap: wrap; }
   .media-strip-compact-list::-webkit-scrollbar { height: 6px; }
   .media-strip-compact-list::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.25); border-radius: 999px; }
-  .media-strip-item-compact { min-width: 130px; max-width: 150px; flex: 0 0 auto; scroll-snap-align: start; cursor: pointer; background: rgba(31,41,55,0.9); border: 1px solid rgba(99,102,241,0.2); border-radius: 0.7rem; padding: 0.55rem; display: flex; flex-direction: column; gap: 0.4rem; }
-  .media-strip-item-compact .media-frame { border-radius: 0.6rem; background: rgba(2,6,23,0.9); min-height: 90px; max-height: 95px; }
-  .media-strip-item-compact .media-img, .media-strip-item-compact .media-video { width: 100%; height: 100%; object-fit: cover; border-radius: 0.5rem; }
-  .media-strip-item-compact .media-meta { gap: 0.25rem; }
-  .media-strip-item-compact .media-title { font-size: 0.65rem; font-weight: 600; color: #cbd5e1; line-height: 1.1; max-height: 2.2rem; overflow: hidden; }
+  .media-strip-item-compact { min-width: 180px; max-width: 220px; flex: 0 0 auto; scroll-snap-align: start; cursor: pointer; background: transparent; border: none; border-radius: 0.8rem; padding: 0; display: flex; flex-direction: column; gap: 0; }
+  .media-strip-item-compact .media-frame { border-radius: 0.8rem; background: transparent; min-height: 140px; max-height: 160px; }
+  .media-strip-item-compact .media-img, .media-strip-item-compact .media-video { width: 100%; height: 100%; object-fit: cover; border-radius: 0.8rem; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+  .media-strip-item-compact .media-meta { gap: 0; }
+  .media-strip-item-compact .media-title { display: none; font-size: 0.65rem; font-weight: 600; color: #cbd5e1; line-height: 1.1; max-height: 0; overflow: hidden; }
   .media-strip-item-compact .media-desc { display: none; }
-  .media-strip-item-compact:hover { background: rgba(31,41,55,0.95); border-color: rgba(99,102,241,0.35); }
+  .media-strip-item-compact:hover { background: transparent; border: none; }
   .media-strip-item-compact.media-strip-hidden { opacity: 0; transform: translateY(18px) scale(0.98); }
   .media-strip-item-compact.media-strip-show { opacity: 1 !important; transform: none !important; transition: opacity 0.42s cubic-bezier(0.22,1,0.36,1), transform 0.42s cubic-bezier(0.22,1,0.36,1); }
   .media-strip-hidden { opacity: 0; transform: translateY(18px) scale(0.98); }
@@ -4825,9 +4827,9 @@
       thinkingCard.innerHTML = `<div class="logs-header">🧠 Processando...</div>`;
     }
 
-    // -- MEDIA STRIP (Compact, acima da resposta)
+    // -- MEDIA STRIP (Compact, FULL WIDTH - ANTES DO SPLIT)
     const mediaContainer = document.createElement('div');
-    mediaContainer.className = 'media-strip-compact media-strip-hidden';
+    mediaContainer.className = 'media-strip-compact media-strip-hidden media-strip-compact-fullwidth';
     let galleryTitle = '📷 Imagens';
     const hasNasa = media.some(m => isNasaLike(m));
     const hasDogs = media.some(m => m.url?.includes('dog.ceo'));
@@ -4845,11 +4847,8 @@
     responseWrapper.className = 'response-hidden';
     responseWrapper.appendChild(responseContainer);
 
-    // LEFT COLUMN: thinking + media + response
+    // LEFT COLUMN: thinking + response (media moved out)
     leftCol.appendChild(thinkingCard);
-    if (media.length > 0) {
-      leftCol.appendChild(mediaContainer);
-    }
     leftCol.appendChild(responseWrapper);
 
     // Renderizar Fórmulas Matemáticas
@@ -4883,6 +4882,13 @@
       leftCol.style.flex = "1";
     }
 
+    inner.appendChild(thinkingCard);
+    
+    // Media container BEFORE split (full width)
+    if (media.length > 0) {
+      inner.appendChild(mediaContainer);
+    }
+    
     inner.appendChild(splitContainer);
 
     // -- SEÇÕES DE LARGURA TOTAL (Abaixo do Split) --

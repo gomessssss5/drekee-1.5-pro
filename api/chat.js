@@ -889,7 +889,6 @@ const GENERIC_API_MAP = {
   'quotes-free': { url: 'https://type.fit/api/quotes', processor: 'array' },
   'openfoodfacts': { url: 'https://world.openfoodfacts.org/api/v2/search?search_terms=${query}&fields=product_name,brands,nutriments&json=1', processor: 'json' },
   'picsum': { url: 'https://picsum.photos/v2/list?limit=5', processor: 'json' },
-  'esa': { url: 'https://images-api.nasa.gov/search?q=${query}&center=ESA', processor: 'nasa' },
   'mathjs': { url: 'https://api.mathjs.org/v4/?expr=${query}', processor: 'text' },
   'pubchem': { url: 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${query}/JSON', processor: 'json' },
   'uniprot': { url: 'https://rest.uniprot.org/uniprotkb/search?query=${query}&format=json', processor: 'json' },
@@ -959,7 +958,6 @@ const SUPPORTED_CONNECTORS = new Set([
   'quotes-free',
   'openfoodfacts',
   'picsum',
-  'esa',
   'stellarium',
   'ligo',
   'noaa-space',
@@ -1011,7 +1009,6 @@ const SUPPORTED_CONNECTORS = new Set([
 const CONNECTORS_IN_MAINTENANCE = new Set([]);
 
 const GENERIC_CONNECTORS_WITH_DEDICATED_HANDLERS = new Set([
-  'esa',
   'openfoodfacts',
   'mathjs',
   'pubchem',
@@ -1065,7 +1062,7 @@ function detectSpecializedKnowledgeDomain(userQuestion = '', actionPlan = {}, vi
   if (/\b(mapa\s*mental|mind\s*map|mindmap)\b/.test(text) && !geographySignalWithoutVisualOnlyWords) return 'ciencia';
   if (/\b(cancer|câncer|tumor|oncologia|quimioterapia|metastase|metástase)\b/.test(text)) return 'oncologia';
   if (/\b(saude|saúde|vacina|virus|vírus|doenca|doença|tratamento|medicamento|sus|anvisa|hospital|epidem|genetica|genética|clinico|clínico)\b/.test(text)) return 'saude';
-  if (/\b(astronomia|espaco|espaço|planeta|estrela|galaxia|galáxia|orbita|órbita|nasa|esa|jpl|exoplaneta|kepler|tess|lua|sol|marte|jupiter|saturno|eclipse|cosmologia|astrofisica|astrofísica)\b/.test(text)) return 'astronomia';
+  if (/\b(astronomia|espaco|espaço|planeta|estrela|galaxia|galáxia|orbita|órbita|nasa|jpl|exoplaneta|kepler|tess|lua|sol|marte|jupiter|saturno|eclipse|cosmologia|astrofisica|astrofísica)\b/.test(text)) return 'astronomia';
   if (/\b(clima|meteorologia|temperatura|chuva|umidade|frente fria|onda de calor|aquecimento global|mudanca climatica|mudança climática|noaa|open-meteo|co2|emissao|emissão|enchente|seca)\b/.test(text)) return 'clima';
   if (/\b(geografia|mapa|territorio|território|regiao|região|estado|cidade|pais|país|populacao|população|ibge|censo|bioma|relevo|latitude|longitude|hidrografia|cartografia)\b/.test(text)) return 'geografia';
   if (/\b(governo|politica publica|política pública|lei|camara|câmara|senado|tcu|transparencia|transparência|gasto publico|gasto público|indicador social|dados publicos|dados públicos|ibge|gov\\.br)\b/.test(text)) return 'dados_publicos';
@@ -1111,9 +1108,9 @@ function getSpecializedDomainPolicy(domain = 'geral') {
       return {
         ...base,
         required: ['nasa', 'solarsystem'],
-        optional: ['horizons', 'exoplanets', 'kepler', 'stellarium', 'esa', 'wikidata'],
+        optional: ['horizons', 'exoplanets', 'kepler', 'stellarium', 'wikidata'],
         forbidden: ['ibge', 'camara', 'brasilapi', 'picsum'],
-        tavilyDomains: ['nasa.gov', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'esa.int', 'science.nasa.gov'],
+        tavilyDomains: ['nasa.gov', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'science.nasa.gov'],
         strictValidation: true,
         queryBoostTerms: ['site:nasa.gov', 'fonte primaria'],
         promptGuardrails: 'Tema de astronomia: priorize dados e catalogos espaciais primarios; evite curiosidades vagas e responda com fatos observacionais ou catalograficos.',
@@ -1917,13 +1914,6 @@ async function buscarOpenFoodFactsRobusto(query) {
   if (primary && !primary.error) return primary;
   const fallback = await fetchHtmlSummary(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process`);
   return { products: [{ product_name: fallback?.title || query, brands: 'N/A', nutriments: { info: fallback?.description || 'Consulta Open Food Facts disponivel.' } }] };
-}
-
-async function buscarESARobusto(query) {
-  const primary = await buscarGeneric('esa', query);
-  if (Array.isArray(primary) && primary.length > 0) return primary;
-  const fallback = await fetchHtmlSummary(`https://www.esa.int/Search?SearchText=${encodeURIComponent(query)}`);
-  return [{ title: fallback?.title || `ESA: ${query}`, url: fallback?.url || `https://www.esa.int/Search?SearchText=${encodeURIComponent(query)}`, description: fallback?.description || 'Busca na ESA disponivel.' }];
 }
 
 async function buscarLigoRobusto(query) {
@@ -3081,8 +3071,8 @@ function getFactCheckPriorityRules(topic = 'geral') {
   }
   if (topic === 'espaco') {
     return {
-      domains: ['nasa.gov', 'esa.int', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'aosfatos.org', 'g1.globo.com'],
-      preferred: ['nasa.gov', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'esa.int', 'aosfatos.org'],
+      domains: ['nasa.gov', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'aosfatos.org', 'g1.globo.com'],
+      preferred: ['nasa.gov', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'aosfatos.org'],
     };
   }
   if (topic === 'institucional') {
@@ -3151,7 +3141,7 @@ function getAuthorityPriorityRules(domain = 'geral') {
       };
     case 'astronomia':
       return {
-        preferredDomains: ['nasa.gov', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'esa.int', 'iau.org', 'exoplanetarchive.ipac.caltech.edu'],
+        preferredDomains: ['nasa.gov', 'jpl.nasa.gov', 'solarsystem.nasa.gov', 'iau.org', 'exoplanetarchive.ipac.caltech.edu'],
         supportDomains: ['aosfatos.org', 'g1.globo.com', 'space.com', 'scientificamerican.com'],
         blockedDomains: ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'x.com', 'twitter.com', 'blogspot.com', 'wordpress.com', 'medium.com'],
       };
@@ -3234,7 +3224,7 @@ function scoreAuthoritySource(source = {}, domain = 'geral', userQuestion = '') 
   if (type === 'web') score -= 10;
   if (type === 'serpapi-news') score -= 4;
   if (type === 'serpapi-lens') score -= 12;
-  if (['ibge', 'pubmed', 'datasus', 'nasa', 'horizons', 'esa', 'scielo', 'camara', 'transparencia', 'tcu', 'noaa-space', 'modis', 'sentinel'].includes(type)) {
+  if (['ibge', 'pubmed', 'datasus', 'nasa', 'horizons', 'scielo', 'camara', 'transparencia', 'tcu', 'noaa-space', 'modis', 'sentinel'].includes(type)) {
     score += 26;
     if (bucket === 'apoio') bucket = 'oficial';
   }
@@ -3924,7 +3914,7 @@ function softenUnsupportedSuperlatives(response = '', sources = []) {
 function isAstronomyPrimaryQuery(userQuestion = '', selectedConnectors = []) {
   const text = String(userQuestion || '').toLowerCase();
   const astronomyTopic = /\b(marte|mars|terra|earth|venus|v[eê]nus|j[uú]piter|jupiter|saturno|mercurio|merc[uú]rio|netuno|neptune|urano|uranus|plut[aã]o|plutao|lua|moon|sol|sun|planeta|astronomia|sistema solar|exoplaneta|kepler|tess|gal[aá]xia|estrela|orbita|órbita)\b/.test(text);
-  const primaryAstronomyConnector = selectedConnectors.some(key => ['nasa', 'horizons', 'solarsystem', 'exoplanets', 'kepler', 'esa', 'stellarium', 'sdo'].includes(key));
+  const primaryAstronomyConnector = selectedConnectors.some(key => ['nasa', 'horizons', 'solarsystem', 'exoplanets', 'kepler', 'stellarium', 'sdo'].includes(key));
   return astronomyTopic && primaryAstronomyConnector;
 }
 
@@ -3992,7 +3982,6 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(comida|alimento|food|caloria|nutrição|ingrediente)\b/.test(normalizedText)) autoDetectedConnectors.push('openfoodfacts');
   if (!isFactCheck && /\b(imagem|foto|picsum|paisagem)\b/.test(normalizedText)) autoDetectedConnectors.push('picsum');
   if (/\b(universo|cosmos|openuniverse|galáxia|espaço profundo)\b/.test(normalizedText)) autoDetectedConnectors.push('openuniverse');
-  if (/\b(esa|europa|agência espacial europeia)\b/.test(normalizedText)) autoDetectedConnectors.push('esa');
   if (/\b(estrela|constelação|céu|stellarium|mapa estelar)\b/.test(normalizedText)) autoDetectedConnectors.push('stellarium');
   if (/\b(onda|gravidade|ligo|virgo|colisão|buraco negro)\b/.test(normalizedText)) autoDetectedConnectors.push('ligo');
   if (/\b(sol|sdo|atividade solar|mancha solar)\b/.test(normalizedText)) autoDetectedConnectors.push('sdo');
@@ -4767,12 +4756,11 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     }
   }
 
-  if (selectedConnectors.includes('esa')) {
-    logs.push(`🇪🇺 Buscando na Agência Espacial Europeia (ESA): "${queryParaBuscar}"`);
-    const esaData = await buscarESARobusto(queryParaBuscar);
+  // ESA connector removed - use NASA instead for space imagery
+
+  if (false) { // ESA disabled
+    const esaData = [];
     if (esaData && esaData.length > 0) {
-      context += `\n\n🇪🇺 Dados da ESA (Imagens/Mídia):\n`;
-      esaData.forEach((item, i) => {
         if (item.url) media.push({ title: item.title, url: item.url, media_type: 'image', description: item.description });
       });
       addSource('ESA-1', 'ESA Media', 'esa', 'Imagens e descobertas da ESA.', 'https://images-api.nasa.gov/search?center=ESA');
@@ -6759,13 +6747,16 @@ function removeUnsupportedAnalyticalParagraphs(response = '') {
 
 function detectTimeSeriesIntent(userQuestion = '', response = '') {
   const text = `${userQuestion}\n${stripLatexGraphBlocks(response)}`.toLowerCase();
-  return /\b(ao longo|evolu[cç][aã]o|s[ée]rie|safra|d[eé]cada|anos?|mensal|anual|hist[oó]rico|entre\s+\d{4}\s+e\s+\d{4}|\d{4}\/\d{2})\b/.test(text);
+  // STRICT: Require actual year ranges or specific temporal keywords, NOT just "histórico"
+  return /\b(entre\s+\d{4}\s+e\s+\d{4}|\d{4}\/\d{2}|evolução ao longo|crescimento anual|série histórica de dados|dados anuais|variação ao longo)\b/.test(text);
 }
 
 function detectCategoryComparisonIntent(userQuestion = '', response = '') {
   const text = `${userQuestion}\n${stripLatexGraphBlocks(response)}`.toLowerCase();
-  return /\b(vs\.?|versus|compar[ae]|comparando|comparativo|brasil|m[eé]dia mundial|mundo|fontes?|categorias?|setores?|pa[ií]ses|estados?)\b/.test(text) &&
-    !detectTimeSeriesIntent(userQuestion, response);
+  // STRICT: Require explicit comparison verbs + many categories mentioned to justify multi-category visualization
+  const hasComparison = /\b(vs\.?|versus|compar[ae]|comparando|comparativo|qual melhor|ranking|ordenar|listar|top\s+\d+)\b/.test(text);
+  const hasMultipleCategories = (text.match(/\b(estados?|pa[ií]ses|cidades?|setores?|categorias?|tipos?|marcas?|opcoes?)\b/g) || []).length >= 3;
+  return hasComparison && hasMultipleCategories && !detectTimeSeriesIntent(userQuestion, response);
 }
 
 function enforceSingleVisualChoice(response = '', userQuestion = '') {
@@ -6840,19 +6831,30 @@ function shouldKeepAnalyticalVisual(response = '', sources = [], userQuestion = 
   if (graphBlocks.length === 0 && mindMapBlocks.length === 0) return true;
 
   const explicitVisual = detectExplicitVisualRequest(userQuestion);
+  const userRequestedGraph_ = userRequestedGraph(userQuestion);
+  const userRequestedMindMap_ = userRequestedMindMap(userQuestion);
   const sourceCount = Array.isArray(sources) ? sources.length : 0;
   const citationCount = countResponseCitations(response);
   const graphIntent = detectTimeSeriesIntent(userQuestion, response) || detectCategoryComparisonIntent(userQuestion, response);
-  const conceptualIntent = /\b(o que e|o que é|como funciona|explique|explica|resuma|organize|vis[aã]o geral|panorama|relacione|etapas|processo|diferen[cç]a)\b/i.test(String(userQuestion || ''));
+  const conceptualIntent = detectConceptualVisualIntent(userQuestion);
 
+  // GRAPHS: Only keep if explicitly requested OR clear time-series+sufficient data
   if (graphBlocks.length > 0) {
-    if (!explicitVisual && !graphIntent) return false;
-    if (!explicitVisual && (sourceCount < 3 || citationCount < 4)) return false;
+    if (userRequestedGraph_) return true;
+    if (detectTimeSeriesIntent(userQuestion, response) && (sourceCount >= 3 && citationCount >= 4)) return true;
+    if (detectCategoryComparisonIntent(userQuestion, response) && (sourceCount >= 5 && citationCount >= 6)) return true;
+    // Default: remove graph
+    return false;
   }
 
+  // MIND MAPS: Only keep if explicitly requested with "mapa mental" OR user explicitly asks
   if (mindMapBlocks.length > 0) {
-    if (!explicitVisual && !conceptualIntent) return false;
-    if (!explicitVisual && (sourceCount < 2 || citationCount < 3)) return false;
+    if (userRequestedMindMap_) return true;
+    if (userRequestedGraph_) return false; // Keep graph instead
+    // For conceptual topics, require explicit mention
+    if (conceptualIntent && userQuestion.toLowerCase().includes('mapa')) return true;
+    // Default: remove mindmap (too often irrelevant)
+    return false;
   }
 
   return true;
