@@ -1014,11 +1014,17 @@
 
   @media (max-width: 1200px) {
     .ai-split-container { grid-template-columns: minmax(0, 1fr) clamp(225px, 30vw, 290px); gap: 1rem; }
+    .input-wrapper { right: 1.5rem; left: 18rem; }
+  }
+
+  @media (max-width: 1024px) {
+    .input-wrapper { right: 1.5rem; }
   }
 
   @media (max-width: 768px) {
     .ai-split-container { grid-template-columns: 1fr; }
     .ai-right-column { min-width: 100%; }
+    .input-wrapper { left: 1.5rem; right: 1.5rem; bottom: 1rem; }
   }
 
   /* ── PhET Simulations ── */
@@ -1828,8 +1834,9 @@
   .input-wrapper {
     position: fixed;
     bottom: 1.25rem;
-    left: 18rem; right: 0;
-    padding: 0 2rem;
+    left: 18rem;
+    right: calc(clamp(245px, 25vw, 320px) + 2rem);
+    padding: 0 2rem 0 0;
     z-index: 50;
   }
   .input-inner { max-width: 48rem; margin: 0 auto; }
@@ -1857,11 +1864,11 @@
     display: none;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.35rem 0.75rem;
-    margin-bottom: 0.4rem;
-    border-radius: 0.65rem;
+    padding: 0.55rem 0.85rem;
+    margin-bottom: 0.75rem;
+    border-radius: 0.95rem;
     border: 1px solid rgba(59,130,246,0.2);
-    background: rgba(11,20,40,0.85);
+    background: rgba(11,20,40,0.95);
     width: fit-content;
     max-width: 100%;
     animation: fadeUp 0.2s ease both;
@@ -1903,6 +1910,7 @@
     border-radius: 1.25rem;
     padding: 0.85rem 1rem 0.7rem;
     transition: border-color 0.2s ease;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.18);
   }
 
   textarea#userInput {
