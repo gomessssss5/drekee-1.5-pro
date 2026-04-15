@@ -81,3 +81,12 @@ As chaves GROQ e Gemini existentes continuam funcionando como backup.
 3. **Monitore os logs**: Veja quando `🔥 SambaNova` aparece
 
 O sistema usará GROQ por padrão, mas fallback automático para SambaNova em caso de falha!
+
+
+
+o card do Agente científico em execução
+ainda não fechou quando a resposta da IA tava completamente pronta. outra: a fileira de imagens ficou melhor arrumada, mas, ainda há mudanças. 1: o card das fontes tá do lado das imagens. não pode! deve ser o card das imagens em cima (centralizado, nem pra esquerda nem pra direita, sem legenda as imagens e um pouquinho maiores), ok? e sem enhuma borda. 
+
+e o gráfico tá sendo aplicado na resposta da IA sem necessidade. em algumas vezes, claro. ele tá sendo usado em respostas que não precisava dele, sabe?
+
+e tem uma imagem da esa q n foi carregada, retire ela de uso
