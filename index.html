@@ -708,6 +708,17 @@
   .media-item-seamless.media-strip-item .media-meta { padding: 0 0.2rem; }
   .media-item-seamless.media-strip-item .media-title { color: #e2e8f0; }
   .media-item-seamless.media-strip-item .media-desc { color: rgba(203,213,225,0.76); }
+  .media-strip-hidden { opacity: 0; transform: translateY(18px) scale(0.98); pointer-events: none; }
+  .media-strip-show { opacity: 1; transform: none; transition: opacity 0.42s ease, transform 0.42s ease; }
+  .response-hidden { opacity: 0; transform: translateY(18px); max-height: 0; overflow: hidden; pointer-events: none; }
+  .response-show { opacity: 1; transform: none; max-height: 10000px; pointer-events: auto; transition: opacity 0.46s ease, transform 0.46s ease, max-height 0.46s ease; }
+  .right-pane-hidden { opacity: 0; transform: translateX(14px); pointer-events: none; }
+  .right-pane-show { opacity: 1; transform: none; transition: opacity 0.44s ease, transform 0.44s ease; }
+  .ai-sandwich-shell { margin: 1rem 0 0.8rem; padding: 0.85rem 0.9rem; border-radius: 1.05rem; background: linear-gradient(180deg, rgba(56,189,248,0.2), rgba(15,23,42,0.98)); border: 1px solid rgba(56,189,248,0.16); display: grid; gap: 0.45rem; overflow: hidden; animation: sandwichIn 0.42s cubic-bezier(0.22,1,0.36,1) both; }
+  .ai-sandwich-shell-top, .ai-sandwich-shell-cheese, .ai-sandwich-shell-bottom { height: 10px; border-radius: 999px; background: rgba(148,163,184,0.24); }
+  .ai-sandwich-shell-cheese { width: 92%; margin: 0 auto; background: rgba(56,189,248,0.24); }
+  .ai-sandwich-shell-collapse { opacity: 0; transform: translateY(-6px) scaleY(0.92); transition: opacity 0.28s ease, transform 0.28s ease; }
+  @keyframes sandwichIn { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
   .media-item { background: rgba(31,41,55,0.8); border: 1px solid rgba(99,102,241,0.15); border-radius: 0.85rem; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.6rem; }
   .media-frame { position: relative; overflow: hidden; border-radius: 0.8rem; background: rgba(2,6,23,0.82); }
   .media-frame::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 0 1px rgba(148,163,184,0.14); }
@@ -4407,6 +4418,36 @@
     document.body.appendChild(overlay);
   }
 
+  function revealAgentResponseSequence({ mediaSection, responseSection, rightSections = [], sandwichShell, instant = false }) {
+    if (mediaSection) {
+      mediaSection.classList.remove('media-strip-hidden');
+      mediaSection.classList.add('media-strip-show');
+    }
+
+    const reveal = () => {
+      if (sandwichShell) {
+        sandwichShell.classList.add('ai-sandwich-shell-collapse');
+      }
+      if (responseSection) {
+        responseSection.classList.remove('response-hidden');
+        responseSection.classList.add('response-show');
+      }
+      rightSections.forEach(section => {
+        if (section) {
+          section.classList.remove('right-pane-hidden');
+          section.classList.add('right-pane-show');
+        }
+      });
+    };
+
+    if (instant) {
+      reveal();
+      return;
+    }
+
+    setTimeout(reveal, 360);
+  }
+
   function createMediaCard(item, galleryTheme = 'default', options = {}) {
     const mode = options.mode || 'grid';
     const card = document.createElement('article');
@@ -4755,24 +4796,15 @@
       }
     }
 
-    if (media.length > 0) {
-      leftCol.appendChild(mediaContainer);
-    }
-    leftCol.appendChild(responseContainer);
-
-    // Renderizar Fórmulas Mateḿaticas (KaTeX)
-    renderMathSafely(responseContainer);
-
-    // -- COLUNA DIREITA: Vídeos, NASA Media e Fontes --
     const embeddedVideosContainer = document.createElement('div');
-    embeddedVideosContainer.className = 'embedded-videos-section agent-pane-reveal';
+    embeddedVideosContainer.className = 'embedded-videos-section agent-pane-reveal right-pane-hidden';
     embeddedVideosContainer.style.setProperty('--reveal-delay', instant ? '0s' : '0.12s');
     videoSources.forEach(vs => {
        embeddedVideosContainer.innerHTML += getEmbedVideoHtml(vs);
     });
 
     const mediaContainer = document.createElement('div');
-    mediaContainer.className = 'media-results media-strip agent-pane-reveal';
+    mediaContainer.className = 'media-results media-strip agent-pane-reveal media-strip-hidden';
     mediaContainer.style.setProperty('--reveal-delay', instant ? '0s' : '0.18s');
     
     // Título dinâmico da galeria
@@ -4790,8 +4822,29 @@
       mediaContainer.classList.add('media-results-nasa');
     }
 
+    const sandwichShell = document.createElement('div');
+    sandwichShell.className = 'ai-sandwich-shell';
+    sandwichShell.innerHTML = `
+      <div class="ai-sandwich-shell-top"></div>
+      <div class="ai-sandwich-shell-cheese"></div>
+      <div class="ai-sandwich-shell-bottom"></div>
+    `;
+
+    const responseWrapper = document.createElement('div');
+    responseWrapper.className = 'response-shell response-hidden';
+    responseWrapper.appendChild(responseContainer);
+
+    if (media.length > 0) {
+      leftCol.appendChild(sandwichShell);
+      leftCol.appendChild(mediaContainer);
+    }
+    leftCol.appendChild(responseWrapper);
+
+    // Renderizar Fórmulas Mateḿaticas (KaTeX)
+    renderMathSafely(responseContainer);
+
     const sourcesContainer = document.createElement('div');
-    sourcesContainer.className = 'sources-section agent-pane-reveal';
+    sourcesContainer.className = 'sources-section agent-pane-reveal right-pane-hidden';
     sourcesContainer.style.setProperty('--reveal-delay', instant ? '0s' : '0.08s');
     sourcesContainer.innerHTML = `<div class="sources-header"><div class="sources-header-copy"><div class="sources-header-title">Fontes Utilizadas</div><div class="sources-header-subtitle">Base documental consultada para esta resposta</div></div><div class="sources-counter">${textSources.length}</div></div><div class="sources-grid sidebar-scrollable-body">${renderSources(textSources)}</div>`;
 
@@ -5008,7 +5061,23 @@
         grid.appendChild(createMediaCard(item, mediaContainer.classList.contains('media-results-nasa') ? 'nasa' : 'default', { mode: 'strip' }));
       });
     };
-    if (media.length > 0) renderMedia();
+    if (media.length > 0) {
+      renderMedia();
+      revealAgentResponseSequence({
+        mediaSection: mediaContainer,
+        responseSection: responseWrapper,
+        rightSections: [sourcesContainer, embeddedVideosContainer],
+        sandwichShell,
+        instant: instant,
+      });
+    } else {
+      revealAgentResponseSequence({
+        responseSection: responseWrapper,
+        rightSections: [sourcesContainer, embeddedVideosContainer],
+        instant: instant,
+      });
+    }
+
     requestAnimationFrame(() => applySidebarPaneBalance(leftCol, rightCol, sourcesContainer, mediaContainer, embeddedVideosContainer));
     setTimeout(() => applySidebarPaneBalance(leftCol, rightCol, sourcesContainer, mediaContainer, embeddedVideosContainer), 280);
     rightCol.querySelectorAll('img, iframe, video').forEach(node => {
