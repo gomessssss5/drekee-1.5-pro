@@ -815,6 +815,63 @@
   .ai-thinking-label { margin: 0 0 1rem; padding: 0.95rem 1rem; border-radius: 1rem; background: rgba(59,130,246,0.12); color: #dbeafe; font-size: 1rem; font-weight: 700; border: 1px solid rgba(96,165,250,0.22); }
   .ai-thinking-placeholder { padding: 1rem 1.1rem; border-radius: 1rem; background: rgba(15,23,42,0.95); color: #bfdbfe; font-size: 1rem; line-height: 1.7; border: 1px solid rgba(96,165,250,0.18); }
 
+  .tavily-search-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 22rem;
+    width: 100%;
+    padding: 2rem 1.75rem;
+    gap: 1rem;
+    border-radius: 1.75rem;
+    border: 1px dashed rgba(148,163,184,0.35);
+    background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.82));
+    box-shadow: inset 0 0 0 1px rgba(96,165,250,0.04), 0 24px 60px rgba(0,0,0,0.18);
+    text-align: center;
+    transition: transform 0.28s ease, opacity 0.28s ease;
+  }
+  .tavily-search-card:hover { transform: translateY(-2px); }
+  .tavily-search-icon {
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 1rem;
+    display: grid;
+    place-items: center;
+    background: rgba(59,130,246,0.12);
+    border: 1px solid rgba(59,130,246,0.2);
+    color: #93c5fd;
+    font-size: 1.6rem;
+  }
+  .tavily-search-title {
+    color: #e2e8f0;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+  .tavily-search-subtitle {
+    max-width: 18rem;
+    color: #94a3b8;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .tavily-search-quote {
+    color: #cbd5e1;
+    font-size: 1rem;
+    line-height: 1.8;
+    max-width: 22rem;
+    font-style: italic;
+  }
+  .tavily-search-author {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  body:not(.chat-active) .input-wrapper {
+    left: 0;
+    right: 0;
+  }
+
 .citation-chip-line { display: block; width: fit-content; max-width: 100%; margin: 0.28rem 0 0.12rem; line-height: 1; }
 .citation-tag {
   display: inline-flex;
@@ -2632,6 +2689,29 @@
   const textarea = document.getElementById('userInput');
   const FAST_MODEL_CONTEXT_LIMIT = 262144;
   const CONTEXT_PRUNE_THRESHOLD = 0.9;
+  let frasesCache = [];
+
+  async function loadFrasesData() {
+    try {
+      const response = await fetch('./frases.json');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (Array.isArray(data.frases_famosas)) {
+        frasesCache = data.frases_famosas.filter(item => item && item.frase && item.autor);
+      }
+    } catch (error) {
+      console.warn('Falha ao carregar frases.json:', error);
+    }
+  }
+
+  function pickRandomFrase() {
+    if (!Array.isArray(frasesCache) || frasesCache.length === 0) {
+      return { frase: 'A pesquisa é o primeiro passo para a grande descoberta.', autor: 'Drekee AI' };
+    }
+    return frasesCache[Math.floor(Math.random() * frasesCache.length)];
+  }
+
+  loadFrasesData();
 
   function getHistoryEntryText(entry) {
     if (!entry) return '';
@@ -4905,6 +4985,21 @@
       this.classList.toggle('thinking-card-collapsed');
     });
 
+    function createTavilySearchCard({ instant = false } = {}) {
+      const phrase = pickRandomFrase();
+      const card = document.createElement('div');
+      card.className = 'tavily-search-card agent-pane-reveal right-pane-hidden';
+      card.style.setProperty('--reveal-delay', instant ? '0s' : '0.08s');
+      card.innerHTML = `
+        <div class="tavily-search-icon"><span class="material-icons-outlined">search</span></div>
+        <div class="tavily-search-title">Pesquisando na web...</div>
+        <div class="tavily-search-subtitle">Aguarde enquanto reunimos fontes e contexto confiável para sua pergunta.</div>
+        <div class="tavily-search-quote">“${escapeHtml(phrase.frase)}”</div>
+        <div class="tavily-search-author">— ${escapeHtml(phrase.autor)}</div>
+      `;
+      return card;
+    }
+
     // -- MEDIA STRIP (Compact, FULL WIDTH - ANTES DO SPLIT)
     const mediaContainer = document.createElement('div');
     mediaContainer.className = 'media-strip-compact media-strip-hidden media-strip-compact-fullwidth';
@@ -4960,10 +5055,11 @@
     responseWrapper.appendChild(responseContainer);
 
     const hasResponseContent = parsedResponse.html.trim().length > 0;
+    const tavilySearchCard = createTavilySearchCard({ instant });
     if (!hasResponseContent) {
       responseContainer.innerHTML = '';
       responseContainer.appendChild(thinkingLabel);
-      if (rightCol) rightCol.appendChild(thinkingCard);
+      if (rightCol) rightCol.appendChild(tavilySearchCard);
     } else {
       thinkingCard.style.display = 'none';
     }
@@ -5202,7 +5298,7 @@
       });
     };
     const shouldRevealMedia = media.length > 0 && hasResponseContent;
-    const rightSectionsToReveal = hasResponseContent ? [sourcesContainer, embeddedVideosContainer] : [];
+    const rightSectionsToReveal = hasResponseContent ? [sourcesContainer, embeddedVideosContainer] : [tavilySearchCard];
 
     if (shouldRevealMedia) {
       renderMedia();
