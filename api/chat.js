@@ -4761,8 +4761,6 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
   if (false) { // ESA disabled
     const esaData = [];
     if (esaData && esaData.length > 0) {
-        if (item.url) media.push({ title: item.title, url: item.url, media_type: 'image', description: item.description });
-      });
       addSource('ESA-1', 'ESA Media', 'esa', 'Imagens e descobertas da ESA.', 'https://images-api.nasa.gov/search?center=ESA');
       logs.push('✅ Mídia da ESA integrada');
     }
