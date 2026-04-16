@@ -5212,7 +5212,7 @@
 
     // CARD DE CARREGAMENTO DAS FONTES - aparece enquanto busca fontes
     const loadingSourcesCard = document.createElement('div');
-    loadingSourcesCard.className = 'sources-loading-card agent-pane-reveal right-pane-hidden';
+    loadingSourcesCard.className = 'sources-loading-card agent-pane-reveal';
     loadingSourcesCard.style.setProperty('--reveal-delay', instant ? '0s' : '0.08s');
     loadingSourcesCard.innerHTML = `
       <div class="sources-loading-icon"><span class="material-icons-outlined">search</span></div>
@@ -5241,6 +5241,8 @@
             console.warn('Could not remove loading card:', e);
           }
           rightCol.appendChild(sourcesContainer);
+          sourcesContainer.classList.remove('right-pane-hidden');
+          sourcesContainer.classList.add('right-pane-show');
         }, instant ? 0 : 800); // Tempo de carregamento simulado
       }
       if (videoSources.length > 0) {
