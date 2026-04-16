@@ -5050,9 +5050,10 @@
     currentSources = sources;
 
     const textSources = sources.filter(s => !isImageUrl(s.url) && !isVideoUrl(s.url));
+    const sourceCardSources = sources.filter(s => !isVideoUrl(s.url));
     const videoSources = sources.filter(s => isVideoUrl(s.url));
     
-    console.log('📍 renderAgentSequence - sources:', sources?.length, 'textSources:', textSources?.length, 'videoSources:', videoSources?.length);
+    console.log('📍 renderAgentSequence - sources:', sources?.length, 'textSources:', textSources?.length, 'sourceCardSources:', sourceCardSources?.length, 'videoSources:', videoSources?.length);
 
     const wrapper = document.createElement('div');
     wrapper.className = 'msg-ai';
@@ -5222,11 +5223,11 @@
     const sourcesContainer = document.createElement('div');
     sourcesContainer.className = 'sources-section agent-pane-reveal right-pane-hidden';
     sourcesContainer.style.setProperty('--reveal-delay', instant ? '0s' : '0.08s');
-    sourcesContainer.innerHTML = `<div class="sources-header"><div class="sources-header-copy"><div class="sources-header-title">Fontes Utilizadas</div><div class="sources-header-subtitle">Base documental consultada para esta resposta</div></div><div class="sources-counter">${textSources.length}</div></div><div class="sources-grid sidebar-scrollable-body">${renderSources(textSources)}</div>`;
+    sourcesContainer.innerHTML = `<div class="sources-header"><div class="sources-header-copy"><div class="sources-header-title">Fontes Utilizadas</div><div class="sources-header-subtitle">Base documental consultada para esta resposta</div></div><div class="sources-counter">${sourceCardSources.length}</div></div><div class="sources-grid sidebar-scrollable-body">${renderSources(sourceCardSources)}</div>`;
 
     if (rightCol && hasResponseContent) {
       // Primeiro mostra o card de carregamento
-      if (textSources.length > 0) {
+      if (sourceCardSources.length > 0) {
         console.log('📍 Adding loading card, will replace after delay');
         rightCol.appendChild(loadingSourcesCard);
         // Simula carregamento e depois substitui pelas fontes reais
@@ -5458,7 +5459,7 @@
     // Build rightSections array - only include if has content or response exists
     let rightSectionsToReveal = [];
     if (hasResponseContent) {
-      if (textSources.length > 0) rightSectionsToReveal.push(sourcesContainer);
+      if (sourceCardSources.length > 0) rightSectionsToReveal.push(sourcesContainer);
       if (videoSources.length > 0) rightSectionsToReveal.push(embeddedVideosContainer);
     } else {
       rightSectionsToReveal.push(tavilySearchCard);
