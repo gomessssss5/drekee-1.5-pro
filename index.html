@@ -867,6 +867,45 @@
     line-height: 1.4;
   }
 
+  .sources-loading-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 12rem;
+    width: 100%;
+    padding: 2rem 1.75rem;
+    gap: 1rem;
+    border-radius: 1.75rem;
+    border: 1px dashed rgba(148,163,184,0.35);
+    background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.82));
+    box-shadow: inset 0 0 0 1px rgba(96,165,250,0.04), 0 24px 60px rgba(0,0,0,0.18);
+    text-align: center;
+    transition: transform 0.28s ease, opacity 0.28s ease;
+  }
+  .sources-loading-card:hover { transform: translateY(-2px); }
+  .sources-loading-icon {
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 1rem;
+    display: grid;
+    place-items: center;
+    background: rgba(34,197,94,0.12);
+    border: 1px solid rgba(34,197,94,0.2);
+    color: #86efac;
+    font-size: 1.6rem;
+  }
+  .sources-loading-title {
+    color: #e2e8f0;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+  .sources-loading-subtitle {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
   body:not(.chat-active) .input-wrapper {
     left: 0 !important;
     right: 0 !important;
@@ -5115,14 +5154,30 @@
        embeddedVideosContainer.innerHTML += getEmbedVideoHtml(vs);
     });
 
+    // CARD DE CARREGAMENTO DAS FONTES - aparece enquanto busca fontes
+    const loadingSourcesCard = document.createElement('div');
+    loadingSourcesCard.className = 'sources-loading-card agent-pane-reveal right-pane-hidden';
+    loadingSourcesCard.style.setProperty('--reveal-delay', instant ? '0s' : '0.08s');
+    loadingSourcesCard.innerHTML = `
+      <div class="sources-loading-icon"><span class="material-icons-outlined">search</span></div>
+      <div class="sources-loading-title">Buscando na web...</div>
+      <div class="sources-loading-subtitle">Reunindo fontes confiáveis para sua pergunta</div>
+    `;
+
     const sourcesContainer = document.createElement('div');
     sourcesContainer.className = 'sources-section agent-pane-reveal right-pane-hidden';
     sourcesContainer.style.setProperty('--reveal-delay', instant ? '0s' : '0.08s');
     sourcesContainer.innerHTML = `<div class="sources-header"><div class="sources-header-copy"><div class="sources-header-title">Fontes Utilizadas</div><div class="sources-header-subtitle">Base documental consultada para esta resposta</div></div><div class="sources-counter">${textSources.length}</div></div><div class="sources-grid sidebar-scrollable-body">${renderSources(textSources)}</div>`;
 
     if (rightCol && hasResponseContent) {
+      // Primeiro mostra o card de carregamento
       if (textSources.length > 0) {
-        rightCol.appendChild(sourcesContainer);
+        rightCol.appendChild(loadingSourcesCard);
+        // Simula carregamento e depois substitui pelas fontes reais
+        setTimeout(() => {
+          rightCol.removeChild(loadingSourcesCard);
+          rightCol.appendChild(sourcesContainer);
+        }, instant ? 0 : 800); // Tempo de carregamento simulado
       }
       if (videoSources.length > 0) {
         rightCol.appendChild(embeddedVideosContainer);

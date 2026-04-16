@@ -38,6 +38,7 @@ DIRETRIZES DE OURO (MODO MENTOR):
 2.  **DIDÁTICA E ANALOGIAS (OBRIGATÓRIO):**
     - Para conceitos complexos, use SEMPRE uma analogia criativa do cotidiano (ex: mitocôndria como usina, gravidade como lençol esticado).
     - Se o usuário pedir para explicar algo, a analogia deve ser a base da sua explicação.
+    - **ESTRUTURA DE ANALOGIA:** Objeto Familiar → Função Correspondente → Limites da Analogia (ex: "Como uma bomba d'água: empurra água contra gravidade, mas ao contrário da gravidade real que é atração universal").
 3.  **RESPOSTA DIRETA COM CONTEXTO:**
     - Comece com uma resposta objetiva, mas logo em seguida introduza a narrativa pedagógica.
 4.  **INTEGRAÇÃO VISUAL NATIVA:**
@@ -49,9 +50,10 @@ DIRETRIZES DE OURO (MODO MENTOR):
     - Use SEMPRE o asterisco (*) seguido de um espaço para itens de lista (ex: "* Item 1").
     - OBRIGATÓRIO: Deixe uma linha em branco ANTES de começar qualquer lista para garantir a renderização correta.
     - Nunca use hífens (-) ou outros símbolos para listas.
-7. **INSERÇÃO DE IMAGENS NASA (CONTEXTUAL):**
-    - Se houver imagens da NASA no contexto, insira-as LOGO APÓS o parágrafo que descreve o conteúdo da imagem.
-    - Use o formato: [NASA_IMG: ID-DA-FONTE].
+7. **INSERÇÃO DE IMAGENS NASA (APENAS CONFIRMADAMENTE RELEVANTES):**
+    - Use [NASA_IMG: ID-DA-FONTE] APENAS para imagens que sejam DIRETAMENTE RELEVANTES ao conceito explicado.
+    - VALIDE SEMPRE se a imagem ilustra exatamente o que está sendo explicado - não use por usar.
+    - Insira a tag LOGO APÓS o parágrafo que descreve o conteúdo da imagem.
     - O sistema substituirá isso pela imagem real em tamanho reduzido.
 8. **REGRAS DE TAGS INTERATIVAS:**    - **PhET [PHET:slug|Guia|Teoria]:** SÓ ative se for o tema CENTRAL.
     - **Gráfico LaTeX:** Use para comparações, rankings e dados numéricos.
@@ -112,6 +114,14 @@ DIRETRIZES DE OURO:
    - Prefira paragrafos curtos.
    - Para listas Markdown, use sempre * item.
    - Deixe uma linha em branco antes de listas.
+
+8. **ESTRUTURA DE RESPOSTA "PROMPT DE OURO" (6 SEÇÕES):**
+   - **1. RESPOSTA DIRETA:** Comece respondendo objetivamente à pergunta em 1-2 frases.
+   - **2. EXPLICAÇÃO DETALHADA:** Desenvolva o conceito com rigor científico, mecanismo e contexto.
+   - **3. ANALOGIA ESTRUTURADA:** Use sempre: "Como [Objeto Familiar] que [Função], mas [Limites da Analogia]".
+   - **4. EVIDÊNCIA E EXEMPLOS:** Mostre dados, experimentos ou observações que comprovam o conceito.
+   - **5. APLICAÇÃO PRÁTICA:** Conecte ao cotidiano do aluno ou sugira experimento simples.
+   - **6. EXPANSÃO DO CONHECIMENTO:** Abordagens interdisciplinares ou conexões com outros temas.
 `;
 
 // ============ TAVILY API (Web Search) ============
@@ -4714,7 +4724,22 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       });
       logs.push('✅ Dados do arXiv coletados');
     } else {
-      logs.push('⚠️ arXiv não retornou dados');
+      // Fallback inteligente: arXiv falhou → buscar via Tavily (Wikipedia/Google Scholar)
+      logs.push('[THINKING] arXiv falhou, tentando fallback via Tavily para fontes acadêmicas');
+      try {
+        const tavilyFallback = await buscarTavily(`${queryParaBuscar} academic research paper scholarly article`);
+        if (tavilyFallback && tavilyFallback.length > 0) {
+          tavilyFallback.slice(0, 2).forEach((item, i) => {
+            context += `\n\n📄 Fonte Acadêmica ${i + 1}: ${item.title}\n${item.content?.substring(0, 300)}...\nLink: ${item.url}\n`;
+            addSource(`TAVILY-ACADEMIC-${i + 1}`, item.title || `Fonte Acadêmica ${i + 1}`, 'tavily', item.content || '', item.url);
+          });
+          logs.push('✅ Fallback Tavily realizado com sucesso');
+        } else {
+          logs.push('⚠️ arXiv e fallback Tavily falharam');
+        }
+      } catch (fallbackError) {
+        logs.push('⚠️ arXiv falhou e fallback Tavily também falhou');
+      }
     }
   }
 
@@ -6467,10 +6492,13 @@ ${sourceDigest || 'Sem fontes registradas'}
     branches: Array.isArray(parsed?.branches) ? parsed.branches : [],
   };
   if (spec.center && Array.isArray(spec.branches) && spec.branches.length >= 3) {
-    // Validação extra de fontes
+    // Validação extra de fontes - MOVER PARA THINKING INTERNO
     const sourceValidation = await validateSourceRelevance(response, sources, userQuestion, logs);
     if (!sourceValidation.valid && logs) {
-      logs.push(`Validação de fontes falhou: ${sourceValidation.issues.join('; ')}`);
+      // Mover para thinking interno - não mostrar ao usuário
+      logs.push(`[THINKING] Validação de fontes falhou: ${sourceValidation.issues.join('; ')}`);
+      // Remover fontes inválidas da exibição
+      return null; // Retornar null para indicar falha de validação
     }
     return spec;
   }
