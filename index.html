@@ -943,7 +943,7 @@
     right: 0 !important;
   }
 
-.citation-chip-line { display: block; width: fit-content; max-width: 100%; margin: 0.28rem 0 0.12rem; line-height: 1; }
+.citation-chip-line { display: inline; width: auto; margin: 0 0.15rem; line-height: 1; }
 .citation-tag {
   display: inline-flex;
   align-items: center;
@@ -4081,7 +4081,14 @@
       if (!source) return match;
       const index = response.indexOf(match);
       citations.set(source.id, [index, index + match.length]);
-      const label = escapeHtml(String(source.label || source.id));
+      // Extrair apenas o nome do site (domínio ou nome simples)
+      let displayLabel = String(source.label || source.id);
+      // Se parecer um URL, extrair apenas o domínio
+      if (displayLabel.includes('http://') || displayLabel.includes('https://')) {
+        const urlMatch = displayLabel.match(/https?:\/\/(?:www\.)?([^/]+)/i);
+        displayLabel = urlMatch ? urlMatch[1].replace(/^www\./, '') : displayLabel;
+      }
+      const label = escapeHtml(displayLabel);
       return `<span class="citation-chip-line"><span class="citation-tag" data-source="${source.id}" title="Abrir fonte">${label}</span></span>`;
     });
 
@@ -5044,6 +5051,8 @@
 
     const textSources = sources.filter(s => !isImageUrl(s.url) && !isVideoUrl(s.url));
     const videoSources = sources.filter(s => isVideoUrl(s.url));
+    
+    console.log('📍 renderAgentSequence - sources:', sources?.length, 'textSources:', textSources?.length, 'videoSources:', videoSources?.length);
 
     const wrapper = document.createElement('div');
     wrapper.className = 'msg-ai';
@@ -5218,10 +5227,18 @@
     if (rightCol && hasResponseContent) {
       // Primeiro mostra o card de carregamento
       if (textSources.length > 0) {
+        console.log('📍 Adding loading card, will replace after delay');
         rightCol.appendChild(loadingSourcesCard);
         // Simula carregamento e depois substitui pelas fontes reais
         setTimeout(() => {
-          rightCol.removeChild(loadingSourcesCard);
+          console.log('📍 Replacing loading card with sources');
+          try {
+            if (loadingSourcesCard && loadingSourcesCard.parentNode === rightCol) {
+              rightCol.removeChild(loadingSourcesCard);
+            }
+          } catch (e) {
+            console.warn('Could not remove loading card:', e);
+          }
           rightCol.appendChild(sourcesContainer);
         }, instant ? 0 : 800); // Tempo de carregamento simulado
       }

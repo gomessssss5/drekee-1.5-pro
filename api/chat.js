@@ -172,6 +172,14 @@ function extractTavilyImages(data) {
   return images;
 }
 
+// Domínios confiáveis para ciência e educação
+const PREMIUM_DOMAINS = [
+  'nasa.gov', 'esa.int', 'nature.com', 'science.org', 'sciencedaily.com',
+  'si.edu', 'wikipedia.org', 'britannica.com', 'scholarpedia.org',
+  'arxiv.org', 'pubmed.ncbi.nlm.nih.gov', 'jstor.org', 'ieee.org',
+  'acm.org', 'springer.com', 'elsevier.com'
+];
+
 async function searchTavily(query) {
   const apiKey = process.env.TAVILY_API_KEY;
   console.log('[TAVILY] searchTavily() called for:', query.substring(0, 50), 'API key present:', !!apiKey);
@@ -188,16 +196,19 @@ async function searchTavily(query) {
   }
 
   try {
-    console.log('[TAVILY] Making API request to Tavily...');
+    console.log('[TAVILY] Making API request with PREMIUM settings...');
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: apiKey,
         query,
+        search_depth: 'basic',
         max_results: 10,
         include_answer: true,
         include_images: true,
+        include_raw_content: true,
+        include_domains: PREMIUM_DOMAINS,
       }),
     });
 
@@ -206,13 +217,14 @@ async function searchTavily(query) {
       return null;
     }
     const data = await res.json();
-    console.log('[TAVILY] ✅ API response received. Results:', data.results?.length || 0, 'Photos:', data.images?.length || 0);
+    console.log('[TAVILY] ✅ API response received. Results:', data.results?.length || 0, 'Answer:', data.answer ? 'YES' : 'NO', 'Photos:', data.images?.length || 0);
     const results = (data.results || []).slice(0, 10).map(normalizeTavilyResult);
     const payload = {
       query,
       answer: data.answer || data.summary || '',
       results,
       photos: extractTavilyImages(data),
+      rawContent: data.results || [],
     };
 
     _tavilyCache.set(cacheKey, { data: payload, ts: Date.now() });
@@ -227,7 +239,8 @@ async function searchTavily(query) {
 
 async function searchTavilyScoped(query, options = {}) {
   const apiKey = process.env.TAVILY_API_KEY;
-  console.log('[TAVILY SCOPED] searchTavilyScoped() called for:', query.substring(0, 50), 'domains:', options.includeDomains?.length || 0);
+  const domains = options.includeDomains || PREMIUM_DOMAINS;
+  console.log('[TAVILY SCOPED] searchTavilyScoped() called for:', query.substring(0, 50), 'domains:', domains.length);
   if (!apiKey) {
     console.log('[TAVILY SCOPED] ❌ NO API KEY - returning null');
     return null;
@@ -237,16 +250,15 @@ async function searchTavilyScoped(query, options = {}) {
     const payload = {
       api_key: apiKey,
       query,
+      search_depth: 'basic',
       max_results: options.maxResults || 10,
       include_answer: options.includeAnswer !== false,
       include_images: true,
+      include_raw_content: true,
+      include_domains: Array.isArray(domains) && domains.length > 0 ? domains : PREMIUM_DOMAINS,
     };
 
-    if (Array.isArray(options.includeDomains) && options.includeDomains.length > 0) {
-      payload.include_domains = options.includeDomains;
-    }
-
-    console.log('[TAVILY SCOPED] Making API request...');
+    console.log('[TAVILY SCOPED] Making API request with', payload.include_domains.length, 'premium domains...');
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -258,12 +270,13 @@ async function searchTavilyScoped(query, options = {}) {
       return null;
     }
     const data = await res.json();
-    console.log('[TAVILY SCOPED] ✅ API response received');
+    console.log('[TAVILY SCOPED] ✅ API response received. Results:', data.results?.length, 'Answer:', data.answer ? 'YES' : 'NO');
     return {
       query,
       answer: data.answer || data.summary || '',
       results: (data.results || []).slice(0, options.maxResults || 10).map(normalizeTavilyResult),
       photos: extractTavilyImages(data),
+      rawContent: data.results || [],
     };
   } catch (err) {
     console.error('[TAVILY SCOPED] ❌ Search error:', err);
@@ -4290,34 +4303,36 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     /sol|sunrise|sunset|nascer|pôr|por do sol/i.test(userQuestion);
 
   // Tavily:
-  // 1. Sempre usar Tavily para todo questionamento do usuário quando possível.
+  // 1. OBRIGATÓRIO: Usar Tavily para TODO questionamento do usuário.
   // 2. A busca web serve como apoio adicional para gerar a resposta final; as fontes importam mais que as imagens.
+  // 3. Aproveitamos: include_raw_content, include_answer, include_images, filtros de domínio
   const isAstronomyPrimary = isAstronomyPrimaryQuery(userQuestion, selectedConnectors);
   const forcedTavilyByRecovery = recoveryMode && selectedConnectors.includes('tavily');
-  const podeBuscarWeb = !missingImageInterpretation;
   
-  console.log('[TAVILY DEBUG] podeBuscarWeb:', podeBuscarWeb, 'missingImageInterpretation:', missingImageInterpretation);
-
-  if (podeBuscarWeb) {
-    console.log('[TAVILY DEBUG] ✅ Starting Tavily search for:', queryParaBuscar.substring(0, 60));
-    logs.push(`🌐 Buscando na web: "${queryParaBuscar}"`);
-    const searchResult = domainPolicy.tavilyDomains.length > 0
-      ? await searchTavilyScoped(queryParaBuscar, {
-          includeDomains: domainPolicy.tavilyDomains,
-          maxResults: 8,
-          includeAnswer: true,
-        })
-      : await searchTavily(queryParaBuscar);
-    if (searchResult) {
-      context += domainPolicy.tavilyDomains.length > 0
-        ? `\n\n📰 Resultados de busca especializada por domínio (apoio adicional às fontes primárias):\n`
-        : `\n\n📰 Resultados de busca web (use apenas como complemento, NUNCA para dados em tempo real como terremotos ou clima):\n`;
-      context += `Resposta resumida: ${searchResult.answer}\nUse esta resposta pronta como apoio para a resposta final e baseie-se nas fontes disponíveis, não apenas nas imagens.\n\n`;
-      searchResult.results.forEach((r, i) => {
-        context += `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.url}\n`;
-      });
-      addSource('WEB-SUMMARY', domainPolicy.tavilyDomains.length > 0 ? 'Resumo da busca especializada (Tavily)' : 'Resumo da busca web (Tavily)', 'web', searchResult.answer, null);
-      searchResult.results.forEach((r, i) => {
+  console.log('[TAVILY MANDATORY] Starting mandatory Tavily search (não é opcional)');
+  logs.push(`🌐 Consultando bases de dados confiáveis (Tavily Premium)...`);
+  
+  const searchResult = domainPolicy.tavilyDomains.length > 0
+    ? await searchTavilyScoped(queryParaBuscar, {
+        includeDomains: domainPolicy.tavilyDomains,
+        maxResults: 10,
+        includeAnswer: true,
+      })
+    : await searchTavily(queryParaBuscar);
+    
+  if (searchResult) {
+    context += domainPolicy.tavilyDomains.length > 0
+      ? `\n\n📰 Resultados de busca especializada por domínio (PREMIUM - Tavily Base):\n`
+      : `\n\n📰 Resultados de busca web (CONFIÁVEL - Tavily base científica):\n`;
+    context += `\n🧠 Resposta resumida pela IA Tavily:\n${searchResult.answer}\n\n`;
+    context += `📚 Fontes compiladas (use como base confiável):\n`;
+    searchResult.results.forEach((r, i) => {
+      context += `${i + 1}. ${r.title}\n   Resumo: ${r.snippet}\n   Link: ${r.url}\n`;
+      // Usar raw_content para conteúdo mais profundo
+      if (r.raw_content) context += `   Conteúdo completo: ${r.raw_content.substring(0, 200)}...\n`;
+    });
+    addSource('WEB-PREMIUM', domainPolicy.tavilyDomains.length > 0 ? 'Base Premium (Tavily - Domínios Confiáveis)' : 'Base Web Confiável (Tavily)', 'tavily', searchResult.answer, null);
+    searchResult.results.forEach((r, i) => {
         addSource(`WEB-${i + 1}`, r.title || `Web resultado ${i + 1}`, 'web', r.snippet, r.url);
       });
       if (Array.isArray(searchResult.photos) && searchResult.photos.length > 0) {
@@ -4334,11 +4349,8 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       }
       logs.push(domainPolicy.tavilyDomains.length > 0 ? '✅ Dados especializados coletados na web' : '✅ Dados da web coletados');
     } else {
-      logs.push('⚠️ Tavily API não disponível');
+      logs.push('⚠️ Tavily API não disponível nesta tentativa');
     }
-  } else if (missingImageInterpretation) {
-    logs.push('⚠️ A busca Tavily foi suspensa porque a imagem não foi interpretada com sucesso.');
-  }
 
 
   logs.push(`🔌 Conectores habilitados para esta pergunta: ${selectedConnectors.join(', ') || 'nenhum'}`);
