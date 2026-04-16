@@ -4355,8 +4355,8 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
 
   logs.push(`🔌 Conectores habilitados para esta pergunta: ${selectedConnectors.join(', ') || 'nenhum'}`);
 
-  if (!podeBuscarWeb && isAstronomyPrimary) {
-    logs.push('Astronomia: priorizando fontes espaciais primarias em vez de web generica.');
+  if (isAstronomyPrimary) {
+    logs.push('🌌 Astronomia detectada: priorizando fontes espaciais especializadas.');
   }
 
   // Data de cada conector
