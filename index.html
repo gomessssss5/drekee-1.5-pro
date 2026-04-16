@@ -1957,7 +1957,7 @@
   .chat-left { 
     min-width: 0; 
     overflow-y: auto; /* Scroll independente para a coluna da esquerda */
-    max-height: calc(100vh - 8rem); /* Altura máxima considerando padding */
+    max-height: calc(100vh - 6rem); /* Altura ajustada para melhor scroll */
   }
   .chat-right { 
     min-width: 0; 
@@ -1965,7 +1965,7 @@
     flex-direction: column; 
     gap: 1rem;
     overflow-y: auto; /* Scroll independente para a coluna da direita */
-    max-height: calc(100vh - 8rem); /* Altura máxima considerando padding */
+    max-height: calc(100vh - 6rem); /* Altura ajustada para melhor scroll */
     /* Garante que o sidebar direito está SEMPRE visível quando o chat está ativo */
     visibility: visible;
     opacity: 1;
@@ -4986,9 +4986,11 @@
   }
 
   function mountInlineVisuals(responseContainer, visuals = [], kind = 'graph') {
+    console.log(`🎨 mountInlineVisuals called - kind: ${kind}, visuals count: ${visuals?.length || 0}`);
     const mountedIndexes = new Set();
     visuals.forEach((spec, index) => {
       const slot = responseContainer.querySelector(`[data-inline-visual="${kind}-${index}"]`);
+      console.log(`🎨 Processing ${kind}-${index}, slot found:`, !!slot);
       if (!slot) return;
       const section = kind === 'mindmap'
         ? createMindMapSection(spec, 'inline')
@@ -6076,7 +6078,10 @@
   let scrollReleaseTimer = null;
 
   function isNearChatBottom(threshold = 160) {
-    return chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight < threshold;
+    // Agora que temos scrolls independentes, verificar o chat-left
+    const chatLeft = document.querySelector('.chat-left');
+    const scrollElement = chatLeft || chatArea;
+    return scrollElement.scrollHeight - scrollElement.scrollTop - scrollElement.clientHeight < threshold;
   }
 
   function scrollToBottom(options = {}) {
@@ -6084,10 +6089,16 @@
     const behavior = options.behavior || 'smooth';
     if (!force && userPinnedAwayFromBottom) return;
 
+    // Agora que temos scrolls independentes, usar o chat-left para scroll
+    const chatLeft = document.querySelector('.chat-left');
+    const scrollElement = chatLeft || chatArea;
+
+    console.log('🔄 scrollToBottom - scrollElement:', scrollElement?.className, 'scrollHeight:', scrollElement?.scrollHeight);
+
     clearTimeout(scrollReleaseTimer);
     setTimeout(() => {
       programmaticScrollActive = true;
-      chatArea.scrollTo({ top: chatArea.scrollHeight, behavior });
+      scrollElement.scrollTo({ top: scrollElement.scrollHeight, behavior });
       scrollReleaseTimer = setTimeout(() => {
         programmaticScrollActive = false;
       }, behavior === 'smooth' ? 420 : 120);
