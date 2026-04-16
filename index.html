@@ -279,6 +279,7 @@
   /* ── Chat area ── */
   .chat-area {
     flex: 1;
+    height: 100%;
     min-height: 0;
     padding: 2rem 2.5rem 14rem;
     display: flex; flex-direction: column;
@@ -5210,40 +5211,23 @@
        embeddedVideosContainer.innerHTML += getEmbedVideoHtml(vs);
     });
 
-    // CARD DE CARREGAMENTO DAS FONTES - aparece enquanto busca fontes
-    const loadingSourcesCard = document.createElement('div');
-    loadingSourcesCard.className = 'sources-loading-card agent-pane-reveal';
-    loadingSourcesCard.style.setProperty('--reveal-delay', instant ? '0s' : '0.08s');
-    loadingSourcesCard.innerHTML = `
-      <div class="sources-loading-icon"><span class="material-icons-outlined">search</span></div>
-      <div class="sources-loading-title">Buscando na web...</div>
-      <div class="sources-loading-subtitle">Reunindo fontes confiáveis para sua pergunta</div>
-    `;
-
     const sourcesContainer = document.createElement('div');
     sourcesContainer.className = 'sources-section agent-pane-reveal right-pane-hidden';
     sourcesContainer.style.setProperty('--reveal-delay', instant ? '0s' : '0.08s');
-    sourcesContainer.innerHTML = `<div class="sources-header"><div class="sources-header-copy"><div class="sources-header-title">Fontes Utilizadas</div><div class="sources-header-subtitle">Base documental consultada para esta resposta</div></div><div class="sources-counter">${sourceCardSources.length}</div></div><div class="sources-grid sidebar-scrollable-body">${renderSources(sourceCardSources)}</div>`;
+    sourcesContainer.innerHTML = `
+      <div class="sources-header"><div class="sources-header-copy"><div class="sources-header-title">Fontes Utilizadas</div><div class="sources-header-subtitle">Base documental consultada para esta resposta</div></div><div class="sources-counter">${sourceCardSources.length}</div></div>
+      <div class="sources-grid sidebar-scrollable-body"><div style="padding:1rem; color:#cbd5e1; font-size:0.9rem;">Carregando fontes...</div></div>`;
 
     if (rightCol && hasResponseContent) {
-      // Primeiro mostra o card de carregamento
       if (sourceCardSources.length > 0) {
-        console.log('📍 Adding loading card, will replace after delay');
-        rightCol.appendChild(loadingSourcesCard);
-        // Simula carregamento e depois substitui pelas fontes reais
-        setTimeout(() => {
-          console.log('📍 Replacing loading card with sources');
-          try {
-            if (loadingSourcesCard && loadingSourcesCard.parentNode === rightCol) {
-              rightCol.removeChild(loadingSourcesCard);
-            }
-          } catch (e) {
-            console.warn('Could not remove loading card:', e);
-          }
-          rightCol.appendChild(sourcesContainer);
+        rightCol.appendChild(sourcesContainer);
+        requestAnimationFrame(() => {
           sourcesContainer.classList.remove('right-pane-hidden');
           sourcesContainer.classList.add('right-pane-show');
-        }, instant ? 0 : 800); // Tempo de carregamento simulado
+        });
+        setTimeout(() => {
+          sourcesContainer.innerHTML = `<div class="sources-header"><div class="sources-header-copy"><div class="sources-header-title">Fontes Utilizadas</div><div class="sources-header-subtitle">Base documental consultada para esta resposta</div></div><div class="sources-counter">${sourceCardSources.length}</div></div><div class="sources-grid sidebar-scrollable-body">${renderSources(sourceCardSources)}</div>`;
+        }, instant ? 0 : 500);
       }
       if (videoSources.length > 0) {
         rightCol.appendChild(embeddedVideosContainer);
