@@ -4133,6 +4133,17 @@
     return Boolean(url.match(/\.(mp4|webm|ogg)$/i) || url.includes('youtube.com/watch') || url.includes('youtu.be/'));
   }
 
+  function partitionSourcesForSidebar(sources = []) {
+    const safeSources = Array.isArray(sources) ? sources.filter(Boolean) : [];
+    return {
+      textSources: safeSources.filter(source => !isImageUrl(source?.url) && !isVideoUrl(source?.url)),
+      sourceCardSources: safeSources.filter(source =>
+        Boolean(source?.id || source?.label || source?.detail || source?.url)
+      ),
+      videoSources: safeSources.filter(source => isVideoUrl(source?.url)),
+    };
+  }
+
   function getEmbedVideoHtml(source) {
     const url = source.url;
     let title = source.label || source.id || 'Video';
@@ -5050,13 +5061,11 @@
   async function renderAgentSequence(payload, options = {}) {
     const instant = options.instant === true;
     const { logs=[], media=[], response, sources=[], userQuestion='', offlineDocument=null, factCheck=null } = payload;
-    currentSources = sources;
+    currentSources = Array.isArray(sources) ? sources : [];
 
-    const textSources = sources.filter(s => !isImageUrl(s.url) && !isVideoUrl(s.url));
-    const sourceCardSources = sources.filter(s => !isVideoUrl(s.url));
-    const videoSources = sources.filter(s => isVideoUrl(s.url));
+    const { textSources, sourceCardSources, videoSources } = partitionSourcesForSidebar(currentSources);
     
-    console.log('📍 renderAgentSequence - sources:', sources?.length, 'textSources:', textSources?.length, 'sourceCardSources:', sourceCardSources?.length, 'videoSources:', videoSources?.length);
+    console.log('📍 renderAgentSequence - sources:', currentSources?.length, 'textSources:', textSources?.length, 'sourceCardSources:', sourceCardSources?.length, 'videoSources:', videoSources?.length);
 
     const wrapper = document.createElement('div');
     wrapper.className = 'msg-ai';
