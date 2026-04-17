@@ -5227,11 +5227,9 @@
           sourcesContainer.classList.remove('right-pane-hidden');
           sourcesContainer.classList.add('right-pane-show');
         });
-        if (hasResponseContent) {
-          setTimeout(() => {
-            sourcesContainer.innerHTML = `<div class="sources-header"><div class="sources-header-copy"><div class="sources-header-title">Fontes Utilizadas</div><div class="sources-header-subtitle">Base documental consultada para esta resposta</div></div><div class="sources-counter">${sourceCardSources.length}</div></div><div class="sources-grid sidebar-scrollable-body">${renderSources(sourceCardSources)}</div>`;
-          }, instant ? 0 : 500);
-        }
+        setTimeout(() => {
+          sourcesContainer.innerHTML = `<div class="sources-header"><div class="sources-header-copy"><div class="sources-header-title">Fontes Utilizadas</div><div class="sources-header-subtitle">Base documental consultada para esta resposta</div></div><div class="sources-counter">${sourceCardSources.length}</div></div><div class="sources-grid sidebar-scrollable-body">${renderSources(sourceCardSources)}</div>`;
+        }, instant ? 0 : 500);
       }
       if (videoSources.length > 0) {
         rightCol.appendChild(embeddedVideosContainer);
@@ -5446,12 +5444,11 @@
     };
     const shouldRevealMedia = media.length > 0 && hasResponseContent;
     
-    // Build rightSections array - only include if has content or response exists
+    // Build rightSections array - show sources when available, even before response content is finalized
     let rightSectionsToReveal = [];
-    if (hasResponseContent) {
-      if (sourceCardSources.length > 0) rightSectionsToReveal.push(sourcesContainer);
-      if (videoSources.length > 0) rightSectionsToReveal.push(embeddedVideosContainer);
-    } else {
+    if (sourceCardSources.length > 0) rightSectionsToReveal.push(sourcesContainer);
+    if (videoSources.length > 0) rightSectionsToReveal.push(embeddedVideosContainer);
+    if (!hasResponseContent) {
       rightSectionsToReveal.push(tavilySearchCard);
     }
     console.log('🎯 rightSectionsToReveal built with', rightSectionsToReveal.length, 'sections');
