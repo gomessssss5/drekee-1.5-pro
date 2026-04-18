@@ -1,87 +1,93 @@
 DREKEE AI 1.5 PRO - INVENTÁRIO DE CONECTORES (V2.0)
-TOTAL DE APIs INTEGRADAS: 81
+TOTAL DE APIs INTEGRADAS: 90
 
-1. Tavily - Busca Geral na Web e agregação de resultados recentes.
-2. Wikipedia - Resumos e conteúdos enciclopédicos estruturados.
-3. arXiv - Artigos científicos de física, matemática e computação.
-4. SciELO - Artigos científicos da América Latina (Português).
-5. Newton - Resolução de derivadas, integrais, fatoração e equações.
-6. SpaceX - Dados de lançamentos e missões espaciais atualizados.
-7. IBGE - Estatísticas, pesquisas e notícias do Brasil.
-8. Open-Meteo - Dados meteorológicos globais por coordenadas.
-9. NASA - Imagens e dados de observações astronômicas.
-10. Open Library - Busca de livros, autores e obras literárias globais.
-11. GBIF - Dados de biodiversidade e taxonomia de espécies.
-12. USGS Earthquakes - Terremotos em tempo real (últimas 24h, mag ≥ 3.5).
-13. BrasilAPI - Feriados, bancos, CEP e dados públicos do Brasil.
-14. Câmara dos Deputados - Proposições e projetos de lei federais.
-15. ISS (Open Notify) - Posição atual da Estação Espacial Internacional.
-16. Sunrise Sunset - Horários de sol com base na localização.
-17. Free Dictionary (EN) - Definições em inglês com fonética.
-18. Universities List - Busca de universidades no mundo inteiro.
-19. PoetryDB - Poemas, poetas e obras da literatura universal.
-20. PhET Simulations - Simuladores interativos de ciência e matemática.
-21. PubMed Central - Literatura biomédica e de saúde.
-22. Wikidata SPARQL - Base de dados estruturados globais.
-23. RCSB PDB - Banco de dados de estruturas de proteínas (3D).
-24. AntWeb - Maior banco de dados e imagens de formigas do mundo.
-25. Tabela Periódica - Dados químicos completos sobre elementos.
-26. FishWatch - Biologia marinha e sustentabilidade de peixes.
-27. Project Gutenberg - Biblioteca de ebooks clássicos gratuitos.
-28. Bible API - Consultas a versículos e capítulos das escrituras.
-29. Air Quality (OpenAQ) - Monitoramento da qualidade do ar em tempo real.
-30. Solar System Data - Dados astronômicos sobre planetas e astros.
-31. The Space Devs - Calendário de lançamentos e eventos espaciais.
-32. Quotes API - Citações e frases inspiradoras de pensadores.
-33. Dog Images - Imagens e curiosidades sobre raças de cães.
-34. CelesTrak - Rastreamento de satélites e dados orbitais (TLE).
-35. CODATA Constants - Valores de constantes físicas fundamentais.
-
---- NOVAS APIs (MEGA EXPANSÃO) ---
-
-36. Quotes Free API - Acesso a milhares de citações famosas.
-37. Open Food Facts - Dados colaborativos sobre produtos alimentícios.
-38. Lorem Picsum - Gerador de imagens de alta qualidade.
-39. OpenUniverse - Exploração de dados astronômicos profundos.
-40. ESA Images - Galeria de imagens da Agência Espacial Europeia.
-41. Stellarium Web - Planetário virtual para observação estelar.
-42. Gravitational Waves (LIGO) - Detecção de ondas gravitacionais.
-43. Solar Dynamics (SDO) - Monitoramento da atividade solar (NASA).
-44. NOAA Space Weather - Previsões de aurora e clima espacial.
-45. NASA Exoplanets - Arquivo oficial de planetas fora do sistema solar.
-46. Kepler/TESS Data - Busca por planetas via missões espaciais.
-47. Math.js Advanced - Cálculos complexos, matrizes e álgebra.
-48. Numberempire - Plotagem de funções e análise numérica.
-49. PubChem 3D - Estruturas 3D de milhões de compostos químicos.
-50. Ensembl Genomics - Navegador genômico para diversas espécies.
-51. MyGene.info - Consulta e anotação de genes em tempo real.
-52. UniProt Proteins - Base centralizada de sequências proteicas.
-53. Reactome Pathway - Vias biológicas e processos celulares.
-54. STRING Interaction - Redes de interações proteína-proteína.
-55. PubChem Bioassay - Resultados de testes biológicos químicos.
-56. OpenFDA - Dados oficiais sobre fármacos e alimentos (EUA).
-57. Wolfram Alpha - Motor computacional para matemática, física e álgebra simbólica.
-58. ClinVar Variations - Relação entre variações genéticas e saúde.
-59. COSMIC Cancer - Mutações somáticas em câncer humano.
-60. Johns Hopkins COVID-19 - Dados históricos da pandemia global.
-61. NOAA Climate - Histórico climático global (+150 anos).
-62. World Bank Climate - Previsões climáticas por país e região.
-63. USGS Water - Monitoramento de recursos hídricos mundiais.
-64. Sentinel/Copernicus - Observação da Terra via satélite radar.
-65. NASA FIRMS (Fogo) - Monitoramento global de incêndios ativos.
-66. edX Open Courses - Busca de cursos de alto nível acadêmico.
-67. MIT OpenCourseWare - Materiais gratuitos de cursos do MIT.
-68. MEC e-Jovem - Plataforma brasileira de inclusão digital.
-69. Educ4Share - Compartilhamento de recursos educacionais.
-70. MODIS Earth Data - Dinâmica terrestre e atmosférica global.
-71. TCU Brasil - Fiscalização e contas públicas do Tribunal.
-72. Portal Transparência - Gastos do Governo Federal Brasileiro.
-73. DATASUS Saúde - Estatísticas de saúde pública e SUS (Brasil).
-74. SEADE SP - Indicadores socioeconômicos do estado de SP.
-75. OSF (Open Science) - Gerenciamento de projetos científicos abertos.
-76. Met Museum - Coleção digital do Metropolitan Museum of Art.
-77. Getty Museum - Imagens e metadados de obras de arte clássicas.
-78. Libras Online - Recursos de Língua Brasileira de Sinais.
-79. Sketchfab 3D - Busca de modelos 3D interativos.
-80. Google Earth Timelapse - Evolução do planeta em vídeo temporal.
-81. NASA Horizons - Efemérides astronômicas com posição atual de planetas e satélites.
+1. Tavily - Busca geral na web e agregação de resultados recentes.
+2. Google CSE Authority - Busca autoritativa com foco em fontes oficiais.
+3. Google News (SerpApi) - Cobertura jornalística atualizada.
+4. Google Lens (SerpApi) - Busca reversa de imagens e correspondência visual.
+5. Wikipedia - Resumos e conteúdos enciclopédicos estruturados.
+6. arXiv - Artigos científicos de física, matemática e computação.
+7. SciELO - Artigos científicos da América Latina (Português).
+8. Newton - Resolução de derivadas, integrais, fatoração e equações.
+9. SpaceX - Dados de lançamentos e missões espaciais atualizados.
+10. IBGE - Estatísticas, pesquisas e informações do Brasil.
+11. Open-Meteo - Dados meteorológicos globais por coordenadas.
+12. NASA - Imagens e dados de observações astronômicas.
+13. Open Library - Busca de livros, autores e obras literárias globais.
+14. GBIF - Dados de biodiversidade e taxonomia de espécies.
+15. USGS Earthquakes - Terremotos em tempo real.
+16. BrasilAPI - Feriados, bancos, CEP e dados públicos do Brasil.
+17. Câmara dos Deputados - Proposições e projetos de lei federais.
+18. ISS (Open Notify) - Posição atual da Estação Espacial Internacional.
+19. Sunrise Sunset - Horários de nascer e pôr do sol locais.
+20. Free Dictionary (EN) - Definições em inglês com fonética.
+21. Universities List - Busca de universidades em todo o mundo.
+22. PoetryDB - Poemas e autores da literatura universal.
+23. PhET Simulations - Simuladores interativos de ciência e educação.
+24. PubMed Central - Literatura biomédica e de saúde.
+25. Wikidata SPARQL - Base estruturada de conhecimento global.
+26. RCSB PDB - Estruturas de proteínas 3D.
+27. AntWeb - Banco de dados e imagens de formigas.
+28. Tabela Periódica - Dados completos sobre elementos químicos.
+29. FishWatch - Informação sobre peixes e pesca sustentável.
+30. Project Gutenberg - Biblioteca de ebooks gratuitos.
+31. Bible API - Consultas de versículos e capítulos bíblicos.
+32. OpenAQ - Qualidade do ar global em tempo real.
+33. Solar System Data - Dados sobre planetas e objetos do sistema solar.
+34. The Space Devs - Calendário de lançamentos e eventos espaciais.
+35. Quotes API - Citações e frases inspiradoras.
+36. Dog Images - Imagens e informações sobre raças de cães.
+37. CelesTrak - Rastreamento de satélites e elementos orbitais.
+38. CODATA Constants - Valores de constantes físicas fundamentais.
+39. Quotes Free API - Acesso gratuito a milhares de citações.
+40. Open Food Facts - Dados colaborativos sobre produtos alimentícios.
+41. Lorem Picsum - Gerador de imagens aleatórias de alta qualidade.
+42. OpenUniverse - Exploração de dados astronômicos do universo.
+43. Stellarium Web - Planetário virtual para observação estelar.
+44. LIGO Gravitational Waves - Dados de ondas gravitacionais.
+45. Solar Dynamics (SDO) - Atividade solar em tempo real.
+46. NOAA Space Weather - Previsões de clima espacial.
+47. NASA Exoplanets - Arquivo de exoplanetas confirmados.
+48. Kepler/TESS Data - Resultados de missões de busca de planetas.
+49. Math.js Advanced - Cálculos matemáticos complexos.
+50. Numberempire - Plotagem de funções e análise numérica.
+51. PubChem 3D - Estruturas químicas 3D de compostos.
+52. Ensembl Genomics - Navegador genômico para espécies.
+53. MyGene.info - Consulta e anotação de genes.
+54. UniProt Proteins - Base de dados de proteínas.
+55. InterPro Domains - Famílias e domínios proteicos.
+56. EMBL / ENA - Sequências e anotações de nucleotídeos.
+57. MGI Mouse Genetics - Genética e fenótipo de mouse.
+58. FlyBase - Genética de Drosophila melanogaster.
+59. WormBase - Genética de Caenorhabditis elegans.
+60. SGD Yeast Genetics - Dados de Saccharomyces cerevisiae.
+61. PDBe Structures - Estruturas de biomoléculas europeias.
+62. Reactome Pathway - Vias biológicas e processos celulares.
+63. STRING Interaction - Interações proteína-proteína.
+64. OpenFDA - Dados de medicamentos e alimentos dos EUA.
+65. PubChem Bioassay - Resultados de testes biológicos de substâncias químicas.
+66. Wolfram Alpha - Motor computacional e resolução simbólica.
+67. ClinVar Variations - Variações genéticas e riscos à saúde.
+68. COSMIC Cancer - Mutações somáticas em câncer.
+69. Johns Hopkins COVID-19 - Dados históricos da pandemia.
+70. NOAA Climate - Histórico climático global.
+71. World Bank Climate - Indicadores climáticos por país.
+72. USGS Water - Monitoramento de recursos hídricos.
+73. Met Museum - Coleção digital do Metropolitan Museum of Art.
+74. Getty Museum - Imagens e metadados de obras de arte clássicas.
+75. Sketchfab 3D - Busca de modelos 3D e visualizações.
+76. Open Science OSF - Projetos científicos abertos.
+77. Earth Timelapse - Vídeos temporais do planeta.
+78. NASA Horizons - Efemérides e posições de corpos celestes.
+79. SDO Solar Dynamics - Dados solares da NASA.
+80. Kepler/TESS Search - Pesquisa de exoplanetas.
+81. Numberempire Math - Ferramenta de matemática avançada.
+82. PubChem Bioassay - Dados de ensaios biológicos.
+83. ClinVar Genetic - Consultas de variantes genéticas.
+84. COSMIC Cancer - Pesquisa de câncer somático.
+85. Sentinel/Copernicus - Satélites de observação da Terra.
+86. NASA FIRMS (Fogo) - Detecção de incêndios ativos.
+87. edX Open Courses - Cursos acadêmicos abertos.
+88. MIT OpenCourseWare - Materiais gratuitos do MIT.
+89. MEC e-Jovem - Inclusão digital brasileira.
+90. Educ4Share - Plataforma de recursos educacionais.
