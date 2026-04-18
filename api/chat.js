@@ -1048,6 +1048,13 @@ const SUPPORTED_CONNECTORS = new Set([
   'ensembl',
   'mygene',
   'uniprot',
+  'interpro',
+  'embl',
+  'mgi',
+  'flybase',
+  'wormbase',
+  'sgd',
+  'pdbe',
   'reactome',
   'string-db',
   'openfda',
@@ -1116,6 +1123,13 @@ const GENERIC_CONNECTORS_WITH_DEDICATED_HANDLERS = new Set([
   'pubchem-bio',
   'clinvar',
   'cosmic',
+  'interpro',
+  'embl',
+  'mgi',
+  'flybase',
+  'wormbase',
+  'sgd',
+  'pdbe',
   'sentinel',
   'firms',
   'mec-ejovem',
@@ -2173,6 +2187,131 @@ async function buscarClinVar(query) {
 
 async function buscarCosmic(query) {
   return await fetchHtmlSummary(`https://cancer.sanger.ac.uk/cosmic/search?q=${encodeURIComponent(query)}`);
+}
+
+async function buscarInterPro(query) {
+  if (!query) return null;
+  const apiUrl = `https://www.ebi.ac.uk/interpro/api/entry/search?query=${encodeURIComponent(query)}&size=3`;
+  try {
+    const res = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const json = await res.json();
+      const hits = json.results || json.entries || [];
+      if (hits.length > 0) {
+        return hits.slice(0, 3).map(item => ({
+          accession: item.metadata?.accession || item.accession || item.id || item.name,
+          name: item.name || item.metadata?.name || item.id,
+          type: item.type?.name || item.type || 'InterPro entry',
+          description: item.short_description || item.description || item.metadata?.description || 'InterPro family or domain',
+          url: `https://www.ebi.ac.uk/interpro/entry/${encodeURIComponent(item.metadata?.accession || item.accession || item.id || item.name)}`
+        }));
+      }
+    }
+  } catch (err) {
+    console.error('InterPro error:', err);
+  }
+  return await fetchHtmlSummary(`https://www.ebi.ac.uk/interpro/search?query=${encodeURIComponent(query)}`);
+}
+
+async function buscarEMBL(query) {
+  if (!query) return null;
+  const apiUrl = `https://www.ebi.ac.uk/ena/portal/api/search?result=sequence&query=${encodeURIComponent(query)}&fields=accession,description&limit=3&format=json`;
+  try {
+    const res = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.slice(0, 3).map(item => ({
+          accession: item.accession,
+          description: item.description || 'Sequência EMBL encontrada',
+          url: `https://www.ebi.ac.uk/ena/browser/api/embl/${encodeURIComponent(item.accession)}`
+        }));
+      }
+    }
+  } catch (err) {
+    console.error('EMBL/ENA error:', err);
+  }
+  return await fetchHtmlSummary(`https://www.ebi.ac.uk/ena/browser/search?query=${encodeURIComponent(query)}`);
+}
+
+async function buscarMGI(query) {
+  if (!query) return null;
+  const apiUrl = `https://www.informatics.jax.org/api/search?q=${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.error('MGI error:', err);
+  }
+  return await fetchHtmlSummary(`https://www.informatics.jax.org/search?query=${encodeURIComponent(query)}`);
+}
+
+async function buscarFlyBase(query) {
+  if (!query) return null;
+  const apiUrl = `https://flybase.org/api/search?query=${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.error('FlyBase error:', err);
+  }
+  return await fetchHtmlSummary(`https://flybase.org/?query=${encodeURIComponent(query)}`);
+}
+
+async function buscarWormBase(query) {
+  if (!query) return null;
+  const apiUrl = `https://wormbase.org/rest/search/phrase/${encodeURIComponent(query)}?species=caenorhabditis_elegans&limit=3`;
+  try {
+    const res = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.error('WormBase error:', err);
+  }
+  return await fetchHtmlSummary(`https://wormbase.org/search/${encodeURIComponent(query)}`);
+}
+
+async function buscarSGD(query) {
+  if (!query) return null;
+  const apiUrl = `https://yeastgenome.org/backend/locus/${encodeURIComponent(query)}.json`;
+  try {
+    const res = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.error('SGD error:', err);
+  }
+  return await fetchHtmlSummary(`https://yeastgenome.org/search?q=${encodeURIComponent(query)}`);
+}
+
+async function buscarPDBe(query) {
+  if (!query) return null;
+  const apiUrl = `https://www.ebi.ac.uk/pdbe/api/search/pdb-entries?searchText=${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.results) && data.results.length > 0) {
+        return data.results.slice(0, 3).map(item => ({
+          title: item.pdb_id || item.identifier || query,
+          description: item.title || item.description || 'Estrutura PDBe encontrada',
+          url: `https://www.ebi.ac.uk/pdbe/entry/${encodeURIComponent(item.pdb_id || item.identifier || query)}`
+        }));
+      }
+    }
+  } catch (err) {
+    console.error('PDBe error:', err);
+  }
+  return await fetchHtmlSummary(`https://www.ebi.ac.uk/pdbe/search/?q=${encodeURIComponent(query)}`);
 }
 
 async function buscarSentinel(query) {
@@ -4070,8 +4209,15 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   if (/\b(matemática|álgebra|calculadora|mathjs|matriz|equação complexa)\b/.test(normalizedText)) autoDetectedConnectors.push('mathjs');
   if (/\b(wolfram|equação diferencial|equacao diferencial|limite|transformada|sistema linear|integral imprópria|integral impropria|álgebra linear|algebra linear|resolver simbolicamente|derivada parcial)\b/.test(normalizedText)) autoDetectedConnectors.push('wolfram');
   if (/\b(química|composto|molécula|pubchem|farmac|3d)\b/.test(normalizedText)) autoDetectedConnectors.push('pubchem', 'pubchem-bio');
-  if (/\b(gene|genoma|dna|rna|ensembl|mygene|mutação)\b/.test(normalizedText)) autoDetectedConnectors.push('ensembl', 'mygene');
-  if (/\b(proteína|aminoácido|uniprot|interação|string)\b/.test(normalizedText)) autoDetectedConnectors.push('uniprot', 'string-db', 'reactome');
+  if (/\b(gene|genoma|dna|rna|ensembl|mygene|mutação|sequência nucleotídica|sequencia nucleotidica|transcrição|transcricao|embl|ena)\b/.test(normalizedText)) autoDetectedConnectors.push('ensembl', 'mygene', 'embl');
+  if (/\b(proteína|aminoácido|uniprot|interação|string|domínio proteico|dominio proteico|família de proteínas|familia de proteinas|interpro)\b/.test(normalizedText)) autoDetectedConnectors.push('uniprot', 'interpro', 'string-db', 'reactome');
+  if (/\b(mouse|mus musculus|mgi|inbred|mouse gene|mouse genome|genoma do mouse|rato|camundongo)\b/.test(normalizedText)) autoDetectedConnectors.push('mgi');
+  if (/\b(drosophila|fly|fruit fly|melanogaster|flybase)\b/.test(normalizedText)) autoDetectedConnectors.push('flybase');
+  if (/\b(caenorhabditis elegans|c elegans|c\. elegans|worm|nematode|wormbase)\b/.test(normalizedText)) autoDetectedConnectors.push('wormbase');
+  if (/\b(yeast|saccharomyces|saccharomyces cerevisiae|sgd|baker's yeast|levedura)\b/.test(normalizedText)) autoDetectedConnectors.push('sgd');
+  if (/\b(proteína|molécula|pdb|pdbe|rcsb|estrutura 3d|hemoglobina|insulina|enzima)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('rcsb', 'pdbe');
+  }
   if (/\b(saúde|médico|fda|datasus|sus|hospital|vacina)\b/.test(normalizedText)) autoDetectedConnectors.push('openfda', 'datasus', 'covid-jhu');
   if (/\b(genética|heran|clinvar|câncer|cosmic)\b/.test(normalizedText)) autoDetectedConnectors.push('clinvar', 'cosmic');
   if (/\b(clima|aquecimento|mudança climática|worldbank|noaa)\b/.test(normalizedText)) autoDetectedConnectors.push('noaa-climate', 'worldbank-climate');
@@ -4102,8 +4248,8 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
     autoDetectedConnectors.push('wikidata');
   }
 
-  if (/\b(proteína|molécula|pdb|rcsb|estrutura 3d|hemoglobina|insulina|enzima)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('rcsb');
+  if (/\b(proteína|molécula|pdb|rcsb|pdbe|estrutura 3d|hemoglobina|insulina|enzima)\b/.test(normalizedText)) {
+    autoDetectedConnectors.push('rcsb', 'pdbe');
   }
   
   if (/\b(matemática|equação|integral|derivada|cálculo|somar|subtrair|multiplicar|dividir)\b/.test(normalizedText)) autoDetectedConnectors.push('newton');
@@ -4923,6 +5069,125 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
       });
       addSource('UNIPROT-1', 'UniProt Proteins', 'uniprot', 'Base de dados de proteínas.', 'https://www.uniprot.org/');
       logs.push('✅ Dados de proteínas coletados');
+    }
+  }
+
+  if (selectedConnectors.includes('interpro')) {
+    logs.push(`🧬 Buscando famílias e domínios de proteínas (InterPro): "${queryParaBuscar}"`);
+    const interproData = await buscarInterPro(queryParaBuscar);
+    if (Array.isArray(interproData) && interproData.length > 0) {
+      context += `\n\n🧬 InterPro - famílias e domínios proteicos:\n`;
+      interproData.slice(0, 3).forEach((entry, i) => {
+        context += `${i+1}. ${entry.accession || entry.name} - ${entry.name || entry.description || entry.type}\n`;
+      });
+      addSource('INTERPRO-1', `InterPro: ${queryParaBuscar}`, 'interpro', 'Famílias e domínios de proteínas.', `https://www.ebi.ac.uk/interpro/search?query=${encodeURIComponent(queryParaBuscar)}`);
+      logs.push('✅ InterPro integrado');
+    } else if (interproData?.description) {
+      context += `\n\n🧬 InterPro: ${interproData.description}\n`;
+      addSource('INTERPRO-1', `InterPro: ${queryParaBuscar}`, 'interpro', interproData.description, interproData.url);
+      logs.push('✅ InterPro integrado via fallback');
+    }
+  }
+
+  if (selectedConnectors.includes('embl')) {
+    logs.push(`🧬 Buscando sequências EMBL/ENA: "${queryParaBuscar}"`);
+    const emblData = await buscarEMBL(queryParaBuscar);
+    if (Array.isArray(emblData) && emblData.length > 0) {
+      context += `\n\n🧬 EMBL / ENA - sequências alinhadas:\n`;
+      emblData.slice(0, 3).forEach((item, i) => {
+        context += `${i+1}. Acesso: ${item.accession} | ${item.description}\n`;
+      });
+      addSource('EMBL-1', `EMBL/ENA: ${queryParaBuscar}`, 'embl', 'Alinhamentos e sequências de nucleotídeos.', 'https://www.ebi.ac.uk/ena');
+      logs.push('✅ EMBL integrado');
+    } else if (emblData?.description) {
+      context += `\n\n🧬 EMBL/ENA: ${emblData.description}\n`;
+      addSource('EMBL-1', `EMBL/ENA: ${queryParaBuscar}`, 'embl', emblData.description, emblData.url);
+      logs.push('✅ EMBL integrado via fallback');
+    }
+  }
+
+  if (selectedConnectors.includes('mgi')) {
+    logs.push(`🐭 Buscando genoma mouse (MGI): "${queryParaBuscar}"`);
+    const mgiData = await buscarMGI(queryParaBuscar);
+    if (mgiData?.results?.length > 0 || mgiData?.hits?.length > 0) {
+      const hits = mgiData.results || mgiData.hits || [];
+      context += `\n\n🐭 MGI - dados do mouse:\n`;
+      hits.slice(0, 3).forEach((item, i) => {
+        context += `${i+1}. ${item.symbol || item.name || item.id || item.title}\n`;
+      });
+      addSource('MGI-1', `MGI: ${queryParaBuscar}`, 'mgi', 'Dados do genoma e anotações do mouse.', 'http://www.informatics.jax.org/search?query=' + encodeURIComponent(queryParaBuscar));
+      logs.push('✅ MGI integrado');
+    } else if (mgiData?.description) {
+      context += `\n\n🐭 MGI: ${mgiData.description}\n`;
+      addSource('MGI-1', `MGI: ${queryParaBuscar}`, 'mgi', mgiData.description, mgiData.url);
+      logs.push('✅ MGI integrado via fallback');
+    }
+  }
+
+  if (selectedConnectors.includes('flybase')) {
+    logs.push(`🐛 Buscando genética de D. melanogaster (FlyBase): "${queryParaBuscar}"`);
+    const flyData = await buscarFlyBase(queryParaBuscar);
+    if (flyData?.results?.length > 0 || flyData?.hits?.length > 0) {
+      const hits = flyData.results || flyData.hits || [];
+      context += `\n\n🐛 FlyBase - genética de Drosophila:\n`;
+      hits.slice(0, 3).forEach((item, i) => {
+        context += `${i+1}. ${item.symbol || item.name || item.id || item.title}\n`;
+      });
+      addSource('FLYBASE-1', `FlyBase: ${queryParaBuscar}`, 'flybase', 'Genética de Drosophila melanogaster.', 'https://flybase.org/');
+      logs.push('✅ FlyBase integrado');
+    } else if (flyData?.description) {
+      context += `\n\n🐛 FlyBase: ${flyData.description}\n`;
+      addSource('FLYBASE-1', `FlyBase: ${queryParaBuscar}`, 'flybase', flyData.description, flyData.url);
+      logs.push('✅ FlyBase integrado via fallback');
+    }
+  }
+
+  if (selectedConnectors.includes('wormbase')) {
+    logs.push(`🐛 Buscando genética de C. elegans (WormBase): "${queryParaBuscar}"`);
+    const wormData = await buscarWormBase(queryParaBuscar);
+    if (wormData?.results?.length > 0 || wormData?.hits?.length > 0) {
+      const hits = wormData.results || wormData.hits || [];
+      context += `\n\n🐛 WormBase - genética de C. elegans:\n`;
+      hits.slice(0, 3).forEach((item, i) => {
+        context += `${i+1}. ${item.label || item.name || item.id || item.title}\n`;
+      });
+      addSource('WORMBASE-1', `WormBase: ${queryParaBuscar}`, 'wormbase', 'Genética de Caenorhabditis elegans.', 'https://wormbase.org/');
+      logs.push('✅ WormBase integrado');
+    } else if (wormData?.description) {
+      context += `\n\n🐛 WormBase: ${wormData.description}\n`;
+      addSource('WORMBASE-1', `WormBase: ${queryParaBuscar}`, 'wormbase', wormData.description, wormData.url);
+      logs.push('✅ WormBase integrado via fallback');
+    }
+  }
+
+  if (selectedConnectors.includes('sgd')) {
+    logs.push(`🍺 Buscando genes de levedura (SGD): "${queryParaBuscar}"`);
+    const sgdData = await buscarSGD(queryParaBuscar);
+    if (sgdData?.display_name || sgdData?.sgd_aliases || sgdData?.structured_comment) {
+      context += `\n\n🍺 SGD - dados de Saccharomyces cerevisiae:\nNome: ${sgdData.display_name || sgdData.locus_name || queryParaBuscar}\nDescrição: ${sgdData.summary || sgdData.description || 'Registro SGD encontrado.'}\n`;
+      addSource('SGD-1', `SGD: ${queryParaBuscar}`, 'sgd', 'Dados de genes de levedura.', `https://yeastgenome.org/locus/${encodeURIComponent(queryParaBuscar)}`);
+      logs.push('✅ SGD integrado');
+    } else if (sgdData?.description) {
+      context += `\n\n🍺 SGD: ${sgdData.description}\n`;
+      addSource('SGD-1', `SGD: ${queryParaBuscar}`, 'sgd', sgdData.description, sgdData.url);
+      logs.push('✅ SGD integrado via fallback');
+    }
+  }
+
+  if (selectedConnectors.includes('pdbe')) {
+    logs.push(`🧬 Buscando estruturas alternativas no PDBe: "${queryParaBuscar}"`);
+    const pdbeData = await buscarPDBe(queryParaBuscar);
+    if (Array.isArray(pdbeData) && pdbeData.length > 0) {
+      context += `\n\n🧬 PDBe - estruturas proteicas europeias:\n`;
+      pdbeData.slice(0, 3).forEach((item, i) => {
+        context += `${i+1}. ${item.title || item.description || queryParaBuscar}\n`;
+      });
+      addSource('PDBE-1', `PDBe: ${queryParaBuscar}`, 'pdbe', 'Estruturas de proteínas europeias.', 'https://www.ebi.ac.uk/pdbe/');
+      logs.push('✅ PDBe integrado');
+    } else if (pdbeData?.description) {
+      context += `\n\n🧬 PDBe: ${pdbeData.description}\n`;
+      addSource('PDBE-1', `PDBe: ${queryParaBuscar}`, 'pdbe', pdbeData.description, pdbeData.url);
+      logs.push('✅ PDBe integrado via fallback');
     }
   }
 
