@@ -4737,7 +4737,7 @@
     overlay.className = 'media-lightbox-overlay';
 
     const title = escapeHtml(item.title || 'Imagem');
-    const description = escapeHtml(item.description || '');
+    const description = escapeHtml(item.description || (typeof item.get === 'function' ? item.get('description') : '') || item.detail || '');
     const url = escapeHtml(item.url || '');
 
     overlay.innerHTML = `
@@ -4747,7 +4747,7 @@
           <img class="media-lightbox-img" src="${url}" alt="${title}" />
           <div class="media-lightbox-meta">
             <div class="media-lightbox-title">${title}</div>
-            ${description ? `<div class="media-lightbox-desc">${description}</div>` : ''}
+            ${description ? `<div class="media-lightbox-desc">${description}</div>` : '<div class="media-lightbox-desc" style="color:#9ca3af;">Descrição não disponível.</div>'}
             <a class="media-lightbox-link" href="${url}" target="_blank" rel="noopener noreferrer">Abrir imagem em nova aba</a>
           </div>
         </div>
@@ -4843,7 +4843,7 @@
     card.appendChild(frame);
 
     const title = String(item.title || '').trim();
-    const desc = String(item.description || '').trim();
+    const desc = String(item.description || (typeof item.get === 'function' ? item.get('description') : '') || item.detail || '').trim();
     if (title || desc) {
       const meta = document.createElement('div');
       meta.className = 'media-meta';
@@ -4969,10 +4969,6 @@
       tag.addEventListener('mouseleave', () => tag.classList.remove('highlight-yellow'));
       tag.addEventListener('click', async (event) => {
         showCitationCard(event.currentTarget, sourceId);
-        const source = sourceMap.get(sourceId);
-        if (source && isImageUrl(source.url)) {
-          embedImageAfterTag(tag, source);
-        }
       });
     });
   }
@@ -5472,7 +5468,7 @@
     scrollToBottom({ force: true });
 
     addCitationHoverListeners(responseContainer, parsedResponse.citations);
-    embedImagesInResponse(responseContainer, sources);
+    // imagens agora aparecem apenas na galeria acima da resposta, não inline na resposta da IA
 
     // Botões fontes scroll
     sourcesContainer.querySelectorAll('.source-item').forEach(item => {
