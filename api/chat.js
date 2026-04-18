@@ -6,6 +6,83 @@ const path = require('path');
 // Drekee AI 1.5 Pro - Cientific Agent
 // Fluxo: GeneratePlan -> Research/Reasoning -> Review -> Retornar logs + resposta + mídia
 
+// ============ CONNECTOR KEYWORD MATCHING (Data.json Strategy) ============
+let CONNECTOR_KEYWORDS_MAP = null;
+
+function loadConnectorKeywords() {
+  if (CONNECTOR_KEYWORDS_MAP) return CONNECTOR_KEYWORDS_MAP;
+  try {
+    const dataPath = path.join(process.cwd(), 'data.json');
+    const rawData = fs.readFileSync(dataPath, 'utf8');
+    const dataJson = JSON.parse(rawData);
+    CONNECTOR_KEYWORDS_MAP = {};
+    if (Array.isArray(dataJson.apis)) {
+      for (const api of dataJson.apis) {
+        const connectorKey = api.nome?.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '') || '';
+        const keywords = (api.palavras_chave || []).map(kw => 
+          String(kw).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        );
+        if (connectorKey && keywords.length > 0) {
+          CONNECTOR_KEYWORDS_MAP[connectorKey] = keywords;
+        }
+      }
+    }
+    return CONNECTOR_KEYWORDS_MAP;
+  } catch (err) {
+    console.error('[KEYWORDS] Failed to load data.json:', err);
+    return {};
+  }
+}
+
+function levenshteinDistance(str1, str2) {
+  const len1 = str1.length, len2 = str2.length;
+  const matrix = Array(len2 + 1).fill(null).map(() => Array(len1 + 1).fill(0));
+  for (let i = 0; i <= len1; i++) matrix[0][i] = i;
+  for (let j = 0; j <= len2; j++) matrix[j][0] = j;
+  for (let j = 1; j <= len2; j++) {
+    for (let i = 1; i <= len1; i++) {
+      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i] + 1,
+        matrix[j - 1][i - 1] + cost
+      );
+    }
+  }
+  return matrix[len2][len1];
+}
+
+function matchKeywordWithTolerance(userWord, keywordWord, maxDistance = 2) {
+  const distance = levenshteinDistance(userWord, keywordWord);
+  return distance <= Math.max(2, Math.floor(keywordWord.length * 0.3));
+}
+
+function detectConnectorsByKeywords(userQuestion) {
+  const keywordMap = loadConnectorKeywords();
+  if (!keywordMap || Object.keys(keywordMap).length === 0) return [];
+
+  const normalized = String(userQuestion || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  
+  const userWords = normalized.split(/\s+/).filter(w => w.length > 2);
+  const detectedConnectors = new Set();
+
+  for (const [connectorKey, keywords] of Object.entries(keywordMap)) {
+    for (const userWord of userWords) {
+      for (const keyword of keywords) {
+        if (userWord === keyword || matchKeywordWithTolerance(userWord, keyword)) {
+          detectedConnectors.add(connectorKey);
+          break;
+        }
+      }
+    }
+  }
+
+  return Array.from(detectedConnectors);
+}
+
 // ============ TAVILY CACHE (1-c: evita buscas repetidas) ============
 const _tavilyCache = new Map();
 const TAVILY_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 horas
@@ -4157,121 +4234,27 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
   const specializedDomain = detectSpecializedKnowledgeDomain(userQuestion, actionPlan, options.visionContext || '');
   const domainPolicy = getSpecializedDomainPolicy(specializedDomain);
 
-  const autoDetectedConnectors = [];
-  const normalizedText = (userQuestion || '')
-    .toLowerCase()
-    .replace(/\bmapa\s*mental\b/g, ' ')
-    .replace(/\bmind\s*map\b/g, ' ')
-    .replace(/\bmindmap\b/g, ' ')
-    .replace(/\bgr[aá]fico\b/g, ' ')
-    .replace(/\bdiagrama\b/g, ' ')
-    .replace(/\besquema\b/g, ' ');
+  // ✨ NEW: Keyword-based connector detection using data.json with fuzzy matching
+  const keywordDetected = detectConnectorsByKeywords(userQuestion);
+  let autoDetectedConnectors = [...keywordDetected];
+  
+  // 🎯 Tavily é sempre obrigatório para buscas gerais
+  if (!autoDetectedConnectors.includes('tavily')) {
+    autoDetectedConnectors.unshift('tavily');
+  }
 
+  // 🔍 Fact-check requer conjunto específico de conectores
   if (isFactCheck) {
-    autoDetectedConnectors.push('tavily', 'wikipedia', 'wikidata', 'serpapi-news', 'google-cse-authority');
+    const factCheckRequired = ['tavily', 'wikipedia', 'wikidata', 'serpapi-news', 'google-cse-authority'];
+    factCheckRequired.forEach(fc => {
+      if (!autoDetectedConnectors.includes(fc)) autoDetectedConnectors.push(fc);
+    });
     if (actionPlan?.exige_busca_reversa || options.factCheckImageUrl) {
-      autoDetectedConnectors.push('serpapi-lens');
+      if (!autoDetectedConnectors.includes('serpapi-lens')) autoDetectedConnectors.push('serpapi-lens');
     }
-    if (/\b(nasa|espaco|espaço|astronomia|marte|lua|sol|satellite|satélite)\b/.test(normalizedText)) autoDetectedConnectors.push('nasa');
-    if (/\b(brasil|governo|beneficio|benefício|ministerio|ministério|lei|camara|câmara|politica|política)\b/.test(normalizedText)) autoDetectedConnectors.push('brasilapi', 'camara', 'transparencia');
-    if (/\b(saude|saúde|vacina|sus|anvisa|hospital|medicamento|oms|opas)\b/.test(normalizedText)) autoDetectedConnectors.push('datasus', 'pubmed', 'openfda');
   }
 
-  if (/\b(Ã¡tomo|atomo|prÃ³ton|proton|nÃªutron|neutron|elÃ©tron|eletron|isÃ³topo|isotopo|molÃ©cula|molecula|ligaÃ§Ã£o quÃ­mica|ligacao quimica|ph|acidez|basicidade|circuito|corrente elÃ©trica|corrente eletrica|voltagem|tensÃ£o elÃ©trica|tensao eletrica|resistor|ohm|faraday|induÃ§Ã£o eletromagnÃ©tica|inducao eletromagnetica|forÃ§a|forca|segunda lei de newton)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('phet');
-  }
-  
-  if (/\b(formiga|ant|ants|himenóptero|genus|inseto|antweb)\b/i.test(normalizedText)) autoDetectedConnectors.push('antweb');
-  if (/\b(peixe|oceano|fishwatch|sustentabilidade|pesca|marinho)\b/.test(normalizedText)) autoDetectedConnectors.push('fishwatch');
-  if (/\b(elemento|química|tabela periódica|elétrons|átomo|metal|massa atômica)\b/.test(normalizedText)) autoDetectedConnectors.push('periodictable');
-  if (/\b(livro|literatura|gutenberg|autor|clássico|ebook)\b/.test(normalizedText)) autoDetectedConnectors.push('gutenberg');
-  if (/\b(bíblia|versículo|escritura|evangelho)\b/.test(normalizedText)) autoDetectedConnectors.push('bible');
-  if (/\b(iss|estação espacial internacional|estacao espacial internacional)\b/.test(normalizedText)) autoDetectedConnectors.push('iss');
-  if (/\b(satélite|órbita|celestrak|rastreio)\b/.test(normalizedText)) autoDetectedConnectors.push('celestrak');
-  if (/\b(lançamento|foguete|missão espacial|spacedevs|voo espacial)\b/.test(normalizedText)) autoDetectedConnectors.push('spacedevs');
-  if (/\b(planeta|sistema solar|corpo celeste|órbita solar)\b/.test(normalizedText)) autoDetectedConnectors.push('solarsystem');
-  if (/\b(sunrise|sunset|nascer do sol|pôr do sol|por do sol|amanhecer|anoitecer)\b/.test(normalizedText)) autoDetectedConnectors.push('sunrise');
-  if (/\b(frase|citação|pensamento|quotes|inspirar)\b/i.test(normalizedText)) autoDetectedConnectors.push('quotes', 'quotes-free');
-  if (/\b(cachorro|cão|raça|dog|pet)\b/.test(normalizedText)) autoDetectedConnectors.push('dogapi');
-  if (/\b(ar|poluição|qualidade do ar|openaq|smog)\b/.test(normalizedText)) autoDetectedConnectors.push('openaq');
-  if (/\b(constante|física|codata|velocidade da luz|planck)\b/.test(normalizedText)) autoDetectedConnectors.push('codata');
-  if (/\b(clima|temperatura|umidade|chuva|vento|previsão|previsao|meteorolog|frente fria|onda de calor)\b/.test(normalizedText)) autoDetectedConnectors.push('open-meteo');
-  
-  // Maga Expansão Keys
-  if (/\b(comida|alimento|food|caloria|nutrição|ingrediente)\b/.test(normalizedText)) autoDetectedConnectors.push('openfoodfacts');
-  if (!isFactCheck && /\b(imagem|foto|picsum|paisagem)\b/.test(normalizedText)) autoDetectedConnectors.push('picsum');
-  if (/\b(universo|cosmos|openuniverse|galáxia|espaço profundo)\b/.test(normalizedText)) autoDetectedConnectors.push('openuniverse');
-  if (/\b(estrela|constelação|céu|stellarium|mapa estelar)\b/.test(normalizedText)) autoDetectedConnectors.push('stellarium');
-  if (/\b(onda|gravidade|ligo|virgo|colisão|buraco negro)\b/.test(normalizedText)) autoDetectedConnectors.push('ligo');
-  if (/\b(sol|sdo|atividade solar|mancha solar)\b/.test(normalizedText)) autoDetectedConnectors.push('sdo');
-  if (/\b(posição|posicao|onde está|onde esta|agora|hoje|visível|visivel|horizons|efeméride|efemeride|azimute|elevação|elevacao)\b/.test(normalizedText) && /\b(marte|mars|júpiter|jupiter|saturno|saturn|venus|vênus|lua|moon|mercurio|mercúrio|sol|sun|urano|uranus|netuno|neptune|plutao|plutão)\b/.test(normalizedText)) autoDetectedConnectors.push('horizons');
-  if (/\b(exoplaneta|planeta|kepler|tess|estrela binária)\b/.test(normalizedText)) autoDetectedConnectors.push('exoplanets', 'kepler');
-  if (/\b(matemática|álgebra|calculadora|mathjs|matriz|equação complexa)\b/.test(normalizedText)) autoDetectedConnectors.push('mathjs');
-  if (/\b(wolfram|equação diferencial|equacao diferencial|limite|transformada|sistema linear|integral imprópria|integral impropria|álgebra linear|algebra linear|resolver simbolicamente|derivada parcial)\b/.test(normalizedText)) autoDetectedConnectors.push('wolfram');
-  if (/\b(química|composto|molécula|pubchem|farmac|3d)\b/.test(normalizedText)) autoDetectedConnectors.push('pubchem', 'pubchem-bio');
-  if (/\b(gene|genoma|dna|rna|ensembl|mygene|mutação|sequência nucleotídica|sequencia nucleotidica|transcrição|transcricao|embl|ena)\b/.test(normalizedText)) autoDetectedConnectors.push('ensembl', 'mygene', 'embl');
-  if (/\b(proteína|aminoácido|uniprot|interação|string|domínio proteico|dominio proteico|família de proteínas|familia de proteinas|interpro)\b/.test(normalizedText)) autoDetectedConnectors.push('uniprot', 'interpro', 'string-db', 'reactome');
-  if (/\b(mouse|mus musculus|mgi|inbred|mouse gene|mouse genome|genoma do mouse|rato|camundongo)\b/.test(normalizedText)) autoDetectedConnectors.push('mgi');
-  if (/\b(drosophila|fly|fruit fly|melanogaster|flybase)\b/.test(normalizedText)) autoDetectedConnectors.push('flybase');
-  if (/\b(caenorhabditis elegans|c elegans|c\. elegans|worm|nematode|wormbase)\b/.test(normalizedText)) autoDetectedConnectors.push('wormbase');
-  if (/\b(yeast|saccharomyces|saccharomyces cerevisiae|sgd|baker's yeast|levedura)\b/.test(normalizedText)) autoDetectedConnectors.push('sgd');
-  if (/\b(proteína|molécula|pdb|pdbe|rcsb|estrutura 3d|hemoglobina|insulina|enzima)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('rcsb', 'pdbe');
-  }
-  if (/\b(saúde|médico|fda|datasus|sus|hospital|vacina)\b/.test(normalizedText)) autoDetectedConnectors.push('openfda', 'datasus', 'covid-jhu');
-  if (/\b(genética|heran|clinvar|câncer|cosmic)\b/.test(normalizedText)) autoDetectedConnectors.push('clinvar', 'cosmic');
-  if (/\b(clima|aquecimento|mudança climática|worldbank|noaa)\b/.test(normalizedText)) autoDetectedConnectors.push('noaa-climate', 'worldbank-climate');
-  if (/\b(água|rio|usgs|recurso hídrico|seca|enchente)\b/.test(normalizedText)) autoDetectedConnectors.push('usgs-water');
-  if (/\b(queimada|fogo|incêndio|firms|fumaça)\b/.test(normalizedText)) autoDetectedConnectors.push('firms');
-  if (/\b(curso|aula|educação|mit|edx|mec|escola)\b/.test(normalizedText)) autoDetectedConnectors.push('edx', 'mit-ocw', 'mec-ejovem', 'educ4share');
-  if (/\b(governo|transparência|tcu|gastos|público|dinheiro)\b/.test(normalizedText)) autoDetectedConnectors.push('tcu', 'transparencia');
-  if (/\b(arte|museu|pessoal|met|getty|pintura|escultura)\b/.test(normalizedText)) autoDetectedConnectors.push('metmuseum', 'getty');
-  if (/\b(libras|sinal|surdo|mudo)\b/.test(normalizedText)) autoDetectedConnectors.push('libras');
-  if (/\b(modelo 3d|sketchfab|objetos|realidade)\b/.test(normalizedText)) autoDetectedConnectors.push('sketchfab');
-  if (/\b(timelapse|earth|google|satélite|evolução)\b/.test(normalizedText)) autoDetectedConnectors.push('timelapse');
-
-  if (/\b(arxiv|paper|artigo|pesquisa|estudo|tese|scielo)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('arxiv');
-    if (/\b(scielo|brasil|português|tese)\b/.test(normalizedText)) autoDetectedConnectors.push('scielo');
-  }
-  
-  if (/\b(brasil|ibge|demografia|população|estado|cidade|saneamento|município|censo|pib|desemprego|inflacao|inflação|renda|domic[ií]lio|domicilio|economia brasileira|indicador social)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('ibge');
-  }
-
-  if (/\b(médico|saúde|doença|vírus|pubmed|tratamento|vacina|biomed)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('pubmed');
-  }
-  
-  if (/\b(conceito|definição|o que é|explica|explicar|definir|wikidata|quem foi|onde fica)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('wikipedia');
-    autoDetectedConnectors.push('wikidata');
-  }
-
-  if (/\b(proteína|molécula|pdb|rcsb|pdbe|estrutura 3d|hemoglobina|insulina|enzima)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('rcsb', 'pdbe');
-  }
-  
-  if (/\b(matemática|equação|integral|derivada|cálculo|somar|subtrair|multiplicar|dividir)\b/.test(normalizedText)) autoDetectedConnectors.push('newton');
-  if (/\b(espaço|nasa|planeta|satélite|foguete|astronomia|marte|lua|asteroide|asteróide)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('nasa');
-    autoDetectedConnectors.push('spacex');
-  }
-
-  // 2-d: Ativar conectores científicos automaticamente por domínio amplo
-  // Ciência geral → wikipedia + arxiv + scielo como base de conhecimento
-  if (/\b(ciência|científico|cientista|pesquisador|laboratório|experimento|hipótese|teoria|lei|fenômeno|reação|célula|organismo|evolução|genética|biologia|física|química|geologia|ecologia|botânica|zoologia|microbiologia|bioquímica|neurociência|fisiologia|anatomia|histologia|embriologia|paleontologia|taxonomia)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('wikipedia', 'wikidata', 'arxiv');
-    if (/\b(brasil|português|tese|scielo)\b/.test(normalizedText)) autoDetectedConnectors.push('scielo');
-  }
-  // Geografia ampla → ibge + wikipedia + open-meteo
-  if (/\b(geografia|continente|país|região|capital|fronteira|relevo|hidrografia|bacia|rio|montanha|cordilheira|planalto|planície|litoral|clima|bioma|cerrado|amazônia|caatinga|pantanal|pampa|mata atlântica|deserto|floresta|savana|tundra|latitude|longitude|hemisfério|trópico|equador|meridiano|cartografia|mapa|território)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('wikipedia', 'wikidata', 'ibge', 'open-meteo');
-  }
-  // Astronomia ampla → nasa + solarsystem + stellarium + exoplanets
-  if (/\b(astronomia|astrônomo|telescópio|nebulosa|galáxia|via láctea|big bang|cosmologia|supernova|quasar|pulsar|anã branca|gigante vermelha|matéria escura|energia escura|radiação cósmica|espectro|magnitude|parsec|ano-luz|órbita|periélio|afélio|eclipse|equinócio|solstício|precessão|astrofísica|radioastronomia|astrobiologia)\b/.test(normalizedText)) {
-    autoDetectedConnectors.push('nasa', 'solarsystem', 'stellarium', 'exoplanets', 'kepler', 'wikipedia');
-  }
+  // ⚙️ Adicionar policies de domínio
   autoDetectedConnectors.push(...domainPolicy.required, ...domainPolicy.optional);
 
   let requestedConnectors;
@@ -4290,32 +4273,13 @@ async function executeAgentPlan(userQuestion, actionPlan, logs, options = {}) {
         logs.push(`🎯 Fatos-alvo da recuperação: ${focusFacts.join('; ')}`);
       }
     } else {
-      const routingAnalysis = await analyzeConnectorRouting(userQuestion, autoDetectedConnectors, actionPlan, options.history || [], logs);
-      if (routingAnalysis) {
-        const heuristicSet = new Set(autoDetectedConnectors);
-        domainPolicy.forbidden.forEach(key => heuristicSet.delete(key));
-        routingAnalysis.connectors_forbidden.forEach(key => heuristicSet.delete(key));
-        domainPolicy.required.forEach(key => heuristicSet.add(key));
-        routingAnalysis.connectors_required.forEach(key => heuristicSet.add(key));
-        domainPolicy.optional.forEach(key => heuristicSet.add(key));
-        routingAnalysis.connectors_optional.forEach(key => heuristicSet.add(key));
-        requestedConnectors = [...heuristicSet];
-        if (routingAnalysis.area || routingAnalysis.intent) {
-          logs.push(`🧭 Roteador Groq: ${routingAnalysis.area || 'area não definida'} / ${routingAnalysis.intent || 'intenção não definida'}`);
-        }
-        if (routingAnalysis.reasoning) {
-          logs.push(`🧭 Critério do roteador: ${routingAnalysis.reasoning}`);
-        }
-        if (routingAnalysis.needs_visual && routingAnalysis.visual_type !== 'none') {
-          logs.push(`📈 Sinal visual do roteador: ${routingAnalysis.visual_type}`);
-        }
-      } else {
-        const heuristicSet = new Set(autoDetectedConnectors);
-        domainPolicy.forbidden.forEach(key => heuristicSet.delete(key));
-        domainPolicy.required.forEach(key => heuristicSet.add(key));
-        domainPolicy.optional.forEach(key => heuristicSet.add(key));
-        requestedConnectors = [...heuristicSet];
-      }
+      // ✨ NEW: Deterministic keyword-based connector selection (no LLM routing)
+      const heuristicSet = new Set(autoDetectedConnectors);
+      domainPolicy.forbidden.forEach(key => heuristicSet.delete(key));
+      domainPolicy.required.forEach(key => heuristicSet.add(key));
+      domainPolicy.optional.forEach(key => heuristicSet.add(key));
+      requestedConnectors = [...heuristicSet];
+      logs.push(`🔑 Roteador por keywords: ${requestedConnectors.join(', ') || 'nenhum'}`);
     }
   } else {
     requestedConnectors = [...new Set(userConnectors.map(c => c.toLowerCase()))];
