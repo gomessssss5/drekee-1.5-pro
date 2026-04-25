@@ -4515,437 +4515,449 @@ logs.push('🧠 Iniciando raciocínio (processo interno)');
     logs.push('🌌 Astronomia detectada: priorizando fontes espaciais especializadas.');
   }
 
-  // Data de cada conector
+  // ============ PARALELIZAR CONECTORES INDEPENDENTES ============
+  const connectorTasks = [];
+  const connectorMap = {};
+
+  // Definir helper para criar tasks
+  function addConnectorTask(key, promiseFn) {
+    if (selectedConnectors.includes(key)) {
+      connectorTasks.push(
+        Promise.resolve(promiseFn())
+          .then(data => ({ key, data, success: true }))
+          .catch(error => {
+            console.error(`⚠️ Conector ${key} falhou:`, error.message);
+            return { key, data: null, success: false };
+          })
+      );
+    }
+  }
+
+  // Grupo: Acadêmico
+  addConnectorTask('scielo', () => buscarSciELORobusto(queryParaBuscar));
+  addConnectorTask('pubmed', () => buscarPubMed(queryParaBuscar));
+  addConnectorTask('arxiv', () => buscarArxiv(queryParaBuscar));
+  addConnectorTask('rcsb', () => buscarRCSBRobusto(queryParaBuscar));
+  addConnectorTask('gutenberg', () => buscarGutenberg(queryParaBuscar));
+  addConnectorTask('openlibrary', () => buscarOpenLibrary(queryParaBuscar));
+  addConnectorTask('wikidata', () => buscarWikidata(queryParaBuscar));
+  addConnectorTask('wikipedia', () => buscarWikipedia(queryParaBuscar));
+  addConnectorTask('poetry', () => buscarPoesiaRobusta(queryParaBuscar));
+
+  // Grupo: Biodiversidade
+  addConnectorTask('gbif', () => buscarGBIF(queryParaBuscar));
+  addConnectorTask('fishwatch', () => buscarFishWatchRobusto(queryParaBuscar));
+  addConnectorTask('antweb', () => buscarAntWebRobusto(queryParaBuscar));
+  addConnectorTask('periodictable', () => buscarTabelaPeriodicaRobusta(queryParaBuscar));
+  addConnectorTask('codata', () => buscarCODATA(queryParaBuscar));
+
+  // Grupo: Espaço
+  addConnectorTask('spacex', () => buscarSpaceX());
+  addConnectorTask('solarsystem', () => buscarSistemaSolarRobusto(queryParaBuscar));
+  addConnectorTask('horizons', () => buscarNasaHorizons(queryParaBuscar, options.userContext || {}));
+  addConnectorTask('sdo', () => buscarSDO());
+
+  // Grupo: Brasil
+  addConnectorTask('ibge', () => buscarIBGE(queryParaBuscar));
+  addConnectorTask('brasilapi', () => buscarBrasilAPI(queryParaBuscar));
+  addConnectorTask('camara', () => buscarCamaraRobusto(queryParaBuscar));
+  addConnectorTask('iss', () => buscarISS());
   
-  if (selectedConnectors.includes('scielo')) {
-    logs.push(`📚 Buscando na SciELO: "${queryParaBuscar}"`);
-    const scielo = await buscarSciELORobusto(queryParaBuscar);
+  // Sunrise precisa de coordenadas
+  if (selectedConnectors.includes('sunrise')) {
+    const userLat = options.userContext?.lat || -23.55;
+    const userLon = options.userContext?.lon || -46.63;
+    connectorTasks.push(
+      buscarSunriseSunset(userLat, userLon)
+        .then(data => ({ key: 'sunrise', data, success: true }))
+        .catch(error => ({ key: 'sunrise', data: null, success: false }))
+    );
+  }
+
+  // Grupo: Clima
+  addConnectorTask('openaq', () => buscarQualidadeArRobusta(queryParaBuscar));
+  addConnectorTask('open-meteo', () => buscarOpenMeteo());
+  addConnectorTask('usgs', () => buscarUSGS());
+
+  // Grupo: Geral
+  addConnectorTask('dictionary-en', () => buscarDicionarioIngles(queryParaBuscar.split(' ')[0]));
+  addConnectorTask('universities', () => buscarUniversidades(queryParaBuscar));
+  addConnectorTask('newton', () => calcular(queryParaBuscar));
+  addConnectorTask('bible', () => buscarBiblia(queryParaBuscar));
+
+  // ============ EXECUTAR TODOS EM PARALELO ============
+  if (connectorTasks.length > 0) {
+    logs.push(`⚡ Paralelizando ${connectorTasks.length} conectores...`);
+    const results = await Promise.all(connectorTasks);
+    results.forEach(result => {
+      if (result.success) {
+        connectorMap[result.key] = result.data;
+      }
+    });
+    logs.push(`✅ Etapa de coleta paralela concluída`);
+  }
+
+  // ============ PROCESSAR RESULTADOS ============
+
+  // SciELO
+  if (connectorMap['scielo']) {
+    const scielo = connectorMap['scielo'];
     if (scielo && scielo.length > 0) {
       scielo.forEach((item, i) => {
         context += `\n\n🇧🇷 SciELO ${i + 1}: ${item.title}\nAutores: ${item.authors}\nResumo: ${item.summary}\nLink: ${item.link}\n`;
         addSource(`SCIELO-${i + 1}`, item.title || `SciELO ${i + 1}`, 'scielo', item.summary || '', item.link);
       });
-      logs.push('✅ Dados SciELO coletados');
+      logs.push('✅ Dados SciELO processados');
     }
   }
 
-  if (selectedConnectors.includes('ibge')) {
-    logs.push(`📊 Buscando no IBGE: "${queryParaBuscar}"`);
-    const ibge = await buscarIBGE(queryParaBuscar);
+  // IBGE
+  if (connectorMap['ibge']) {
+    const ibge = connectorMap['ibge'];
     if (ibge && ibge.length > 0) {
       ibge.forEach((item, i) => {
         context += `\n\n🇧🇷 IBGE Notícia ${i + 1} (${item.date}): ${item.title}\n${item.summary}\nLink: ${item.link}\n`;
         addSource(`IBGE-${i + 1}`, item.title || `IBGE ${i + 1}`, 'ibge', item.summary || '', item.link);
       });
-      logs.push('✅ Dados IBGE coletados');
+      logs.push('✅ Dados IBGE processados');
     }
   }
 
-  if (selectedConnectors.includes('openlibrary')) {
-    logs.push(`📚 Buscando na Open Library: "${queryParaBuscar}"`);
-    const books = await buscarOpenLibrary(queryParaBuscar);
+  // Open Library
+  if (connectorMap['openlibrary']) {
+    const books = connectorMap['openlibrary'];
     if (books && books.length > 0) {
       books.forEach((b, i) => {
         context += `\n\n📖 Livro ${i + 1}: ${b.title}\nAutor: ${b.author}\nAno: ${b.year}\nAssuntos: ${b.subject}\nLink: ${b.link}\n`;
         addSource(`BOOK-${i + 1}`, b.title, 'openlibrary', `Autor: ${b.author}, Ano: ${b.year}`, b.link);
       });
-      logs.push('✅ Livros encontrados na Open Library');
+      logs.push('✅ Livros Open Library processados');
     }
   }
 
-  if (selectedConnectors.includes('gbif')) {
-    logs.push(`🌿 Buscando no GBIF (Biodiversidade): "${queryParaBuscar}"`);
-    const species = await buscarGBIF(queryParaBuscar);
+  // GBIF
+  if (connectorMap['gbif']) {
+    const species = connectorMap['gbif'];
     if (species && species.length > 0) {
       species.forEach((s, i) => {
         context += `\n\n🧬 Espécie ${i + 1}: ${s.scientificName} (${s.canonicalName || 'S/N'})\nReino: ${s.kingdom}, Filo: ${s.phylum}, Família: ${s.family}\nStatus: ${s.status}\n`;
         addSource(`GBIF-${i + 1}`, s.canonicalName || s.scientificName, 'gbif', `Taxonomia: ${s.kingdom} > ${s.family}`, null);
       });
-      logs.push('✅ Dados de biodiversidade do GBIF coletados');
+      logs.push('✅ Dados GBIF processados');
     }
   }
 
-  if (selectedConnectors.includes('usgs')) {
-    logs.push(`🌍 Buscando Terremotos no USGS (últimas 24h)...`);
-    const quakes = await buscarUSGS();
+  // USGS Earthquakes
+  if (connectorMap['usgs']) {
+    const quakes = connectorMap['usgs'];
     if (quakes && quakes.length > 0) {
       context += `\n\n📡 USGS - Terremotos nas últimas 24h (magnitude ≥ 3.5):\n`;
       quakes.forEach((q, i) => {
         context += `${i + 1}. Magnitude ${q.mag} em ${q.place} | Hora: ${q.time} | Profundidade: ${q.depth}km | ${q.url}\n`;
         addSource(`USGS-${i + 1}`, `Mag ${q.mag} em ${q.place}`, 'usgs', `Magnitude: ${q.mag}, Profundidade: ${q.depth}km`, q.url);
       });
-      logs.push(`✅ ${quakes.length} terremotos encontrados pelo USGS`);
+      logs.push(`✅ ${quakes.length} terremotos encontrados`);
     } else {
-      context += `\n\n📡 USGS: Nenhum terremoto significativo (≥3.5) nas últimas 24 horas. Planeta tranquilo por hoje!\n`;
-      logs.push('✅ USGS consultado: sem terremotos relevantes nas últimas 24h');
+      context += `\n\n📡 USGS: Nenhum terremoto significativo (≥3.5) nas últimas 24 horas.\n`;
+      logs.push('✅ USGS consultado: sem terremotos');
     }
   }
 
-  if (selectedConnectors.includes('brasilapi')) {
-    logs.push(`🇧🇷 Buscando dados via BrasilAPI...`);
-    const brasil = await buscarBrasilAPI(queryParaBuscar);
+  // BrasilAPI
+  if (connectorMap['brasilapi']) {
+    const brasil = connectorMap['brasilapi'];
     if (brasil) {
       const feriados = (brasil.feriados || []).slice(0, 5);
-      context += `\n\n🇧🇷 BrasilAPI - Feriados Nacionais ${brasil.ano}:\n`;
+      context += `\n\n🇧🇷 BrasilAPI - Feriados ${brasil.ano}:\n`;
       feriados.forEach(f => { context += `- ${f.date}: ${f.name} (${f.type})\n`; });
-      addSource('BRASILAPI', 'BrasilAPI - Feriados', 'brasilapi', `Feriados do Brasil ${brasil.ano}`, 'https://brasilapi.com.br');
-      logs.push('✅ Dados BrasilAPI coletados');
+      addSource('BRASILAPI', 'BrasilAPI', 'brasilapi', `Feriados ${brasil.ano}`, 'https://brasilapi.com.br');
+      logs.push('✅ Feriados processados');
     }
   }
 
-  if (selectedConnectors.includes('camara')) {
-    logs.push(`🏛️ Buscando proposições na Câmara dos Deputados: "${queryParaBuscar}"`);
-    const props = await buscarCamaraRobusto(queryParaBuscar);
+  // Câmara
+  if (connectorMap['camara']) {
+    const props = connectorMap['camara'];
     if (props && props.length > 0) {
-      context += `\n\n🏛️ Câmara dos Deputados - Proposições sobre "${queryParaBuscar}":\n`;
+      context += `\n\n🏛️ Câmara - Proposições:\n`;
       props.forEach((p, i) => {
         context += `${i + 1}. ${p.sigle} ${p.number}/${p.year} (${p.date}): ${p.summary}\n`;
         addSource(`CAMARA-${i + 1}`, `${p.sigle} ${p.number}/${p.year}`, 'camara', p.summary, p.url);
       });
-      logs.push('✅ Proposições da Câmara coletadas');
+      logs.push('✅ Proposições processadas');
     }
   }
 
-  if (selectedConnectors.includes('iss')) {
-    logs.push(`🛸 Buscando posição atual da ISS...`);
-    const iss = await buscarISS();
+  // ISS
+  if (connectorMap['iss']) {
+    const iss = connectorMap['iss'];
     if (iss) {
-      context += `\n\n🛸 Estação Espacial Internacional (ISS) agora:\nLatitude: ${iss.lat}° | Longitude: ${iss.lon}° | Horário: ${iss.timestamp}\n`;
-      addSource('ISS', 'Dados Orbitais da ISS', 'iss', `Posição: ${iss.lat}°, ${iss.lon}°`, 'http://open-notify.org');
-      logs.push('✅ Posição da ISS obtida');
+      context += `\n\n🛸 ISS agora:\nLatitude: ${iss.lat}° | Longitude: ${iss.lon}° | Horário: ${iss.timestamp}\n`;
+      addSource('ISS', 'Dados Orbitais ISS', 'iss', `Posição: ${iss.lat}°, ${iss.lon}°`, 'http://open-notify.org');
+      logs.push('✅ ISS processada');
     }
   }
 
-  if (selectedConnectors.includes('sunrise')) {
-    const userLat = options.userContext?.lat || -23.55;
-    const userLon = options.userContext?.lon || -46.63;
-    logs.push(`🌅 Buscando nascer/pôr do sol...`);
-    const sun = await buscarSunriseSunset(userLat, userLon);
+  // Sunrise/Sunset
+  if (connectorMap['sunrise']) {
+    const sun = connectorMap['sunrise'];
     if (sun) {
-      context += `\n\n🌅 Nascer/Pôr do Sol hoje:\nNascer: ${sun.sunrise} | Pôr: ${sun.sunset} | Meio-dia solar: ${sun.solar_noon}\n`;
-      addSource('SUNRISE', 'Nascer e Pôr do Sol', 'sunrise', `Nascer: ${sun.sunrise}, Pôr: ${sun.sunset}`, 'https://sunrise-sunset.org');
-      logs.push('✅ Dados solares obtidos');
+      context += `\n\n🌅 Nascer/Pôr do Sol:\nNascer: ${sun.sunrise} | Pôr: ${sun.sunset} | Meio-dia: ${sun.solar_noon}\n`;
+      addSource('SUNRISE', 'Nascer e Pôr', 'sunrise', `Nascer: ${sun.sunrise}, Pôr: ${sun.sunset}`, 'https://sunrise-sunset.org');
+      logs.push('✅ Dados solares processados');
     }
   }
 
-  if (selectedConnectors.includes('dictionary-en')) {
-    logs.push(`📖 Buscando no Dicionário Inglês: "${queryParaBuscar}"`);
-    const def = await buscarDicionarioIngles(queryParaBuscar.split(' ')[0]);
+  // Dictionary
+  if (connectorMap['dictionary-en']) {
+    const def = connectorMap['dictionary-en'];
     if (def) {
-      context += `\n\n📖 Free Dictionary (EN) - "${def.word}" ${def.phonetic || ''}:\n`;
+      context += `\n\n📖 Dicionário (EN) - "${def.word}" ${def.phonetic || ''}:\n`;
       def.meanings.forEach(m => {
         context += `[${m.partOfSpeech}] ${m.definition}${m.example ? ` — Exemplo: "${m.example}"` : ''}\n`;
       });
-      addSource('DICT-EN', `Free Dictionary: ${def.word}`, 'dictionary-en', def.meanings[0]?.definition || '', `https://api.dictionaryapi.dev/api/v2/entries/en/${def.word}`);
-      logs.push('✅ Definição em inglês encontrada');
+      addSource('DICT-EN', `Dict: ${def.word}`, 'dictionary-en', def.meanings[0]?.definition || '', `https://api.dictionaryapi.dev/api/v2/entries/en/${def.word}`);
+      logs.push('✅ Definição processada');
     }
   }
 
-  if (selectedConnectors.includes('universities')) {
-    logs.push(`🎓 Buscando universidades: "${queryParaBuscar}"`);
-    const unis = await buscarUniversidades(queryParaBuscar);
+  // Universities
+  if (connectorMap['universities']) {
+    const unis = connectorMap['universities'];
     if (unis && unis.length > 0) {
-      context += `\n\n🎓 Universidades encontradas:\n`;
+      context += `\n\n🎓 Universidades:\n`;
       unis.forEach((u, i) => {
         context += `${i + 1}. ${u.name} (${u.country}) — ${u.web || 'N/A'}\n`;
         addSource(`UNI-${i + 1}`, u.name, 'universities', `País: ${u.country}`, u.web);
       });
-      logs.push('✅ Dados de universidades coletados');
+      logs.push('✅ Universidades processadas');
     }
   }
 
-  if (selectedConnectors.includes('wikidata')) {
-    logs.push(`🔍 Buscando no Wikidata: "${queryParaBuscar}"`);
-    const wikiData = await buscarWikidata(queryParaBuscar);
+  // Wikidata
+  if (connectorMap['wikidata']) {
+    const wikiData = connectorMap['wikidata'];
     if (wikiData && wikiData.length > 0) {
-      context += `\n\n🆔 Wikidata Knowledge:\n`;
+      context += `\n\n🆔 Wikidata:\n`;
       wikiData.forEach((w, i) => {
         context += `${i + 1}. ${w.label}: ${w.description}\n`;
         addSource(`WIKIDATA-${i + 1}`, w.label, 'wikidata', w.description, `https://www.wikidata.org/wiki/Special:Search?search=${encodeURIComponent(w.label)}`);
       });
-      logs.push('✅ Dados do Wikidata coletados');
+      logs.push('✅ Wikidata processado');
     }
   }
 
-  if (selectedConnectors.includes('pubmed')) {
-    logs.push(`🏥 Buscando no PubMed Central: "${queryParaBuscar}"`);
-    const articles = await buscarPubMed(queryParaBuscar);
+  // PubMed
+  if (connectorMap['pubmed']) {
+    const articles = connectorMap['pubmed'];
     if (articles && articles.length > 0) {
-      context += `\n\n🏥 Artigos Médicos (PubMed):\n`;
+      context += `\n\n🏥 Artigos Médicos:\n`;
       articles.forEach((a, i) => {
         context += `${i + 1}. ${a.title} | Autores: ${a.authors} | Fonte: ${a.source} (${a.pubdate})\n`;
         addSource(`PUBMED-${i + 1}`, a.title, 'pubmed', `${a.authors} - ${a.source}`, a.link);
       });
-      logs.push('✅ Literatura médica coletada (PubMed)');
+      logs.push('✅ PubMed processado');
     }
   }
 
-  if (selectedConnectors.includes('rcsb')) {
-    logs.push(`🧬 Buscando estruturas 3D na RCSB PDB: "${queryParaBuscar}"`);
-    const pdbIds = await buscarRCSBRobusto(queryParaBuscar);
+  // RCSB
+  if (connectorMap['rcsb']) {
+    const pdbIds = connectorMap['rcsb'];
     if (pdbIds && pdbIds.length > 0) {
-      context += `\n\n🧬 Estruturas PDB encontradas: ${pdbIds.join(', ')}\n(Se for relevante, cite o ID e use a tag [PDB:id] para o visualizador 3D).\n`;
-      addSource('PDB-1', `PDB ID: ${pdbIds[0]}`, 'rcsb', `Estrutura de proteína via Protein Data Bank`, `https://www.rcsb.org/structure/${pdbIds[0]}`);
-      logs.push(`✅ ${pdbIds.length} estruturas de proteínas encontradas`);
+      context += `\n\n🧬 Estruturas PDB: ${pdbIds.join(', ')}\n`;
+      addSource('PDB-1', `PDB: ${pdbIds[0]}`, 'rcsb', `Estruturas de proteína`, `https://www.rcsb.org/structure/${pdbIds[0]}`);
+      logs.push(`✅ ${pdbIds.length} estruturas encontradas`);
     }
   }
 
-  if (selectedConnectors.includes('antweb')) {
-    logs.push(`🐜 Buscando formigas no AntWeb: "${queryParaBuscar}"`);
-    const ants = await buscarAntWebRobusto(queryParaBuscar);
+  // AntWeb
+  if (connectorMap['antweb']) {
+    const ants = connectorMap['antweb'];
     if (ants && ants.length > 0) {
-      context += `\n\n🐜 Dados de Formigas (AntWeb):\n`;
+      context += `\n\n🐜 Dados de Formigas:\n`;
       ants.forEach((ant, i) => {
         context += `${i+1}. ${ant.scientific_name} (${ant.family})\n`;
-        if (ant.image) media.push({ title: ant.scientific_name, url: ant.image, media_type: 'image', description: `Gênero: ${ant.genus}, Família: ${ant.family}` });
+        if (ant.image) media.push({ title: ant.scientific_name, url: ant.image, media_type: 'image', description: `Gênero: ${ant.genus}` });
       });
-      addSource('ANT-1', `AntWeb: ${ants[0].scientific_name}`, 'antweb', `Imagens e dados taxonômicos de formigas.`, `https://www.antweb.org/description.do?genus=${ants[0].genus}`);
-      logs.push('✅ Imagens e dados de formigas coletados');
+      addSource('ANT-1', `AntWeb: ${ants[0].scientific_name}`, 'antweb', `Formigas`, `https://www.antweb.org/description.do?genus=${ants[0].genus}`);
+      logs.push('✅ AntWeb processado');
     }
   }
 
-  if (selectedConnectors.includes('periodictable')) {
-    logs.push(`⚛️ Buscando na Tabela Periódica: "${queryParaBuscar}"`);
-    const element = await buscarTabelaPeriodicaRobusta(queryParaBuscar);
+  // Periodic Table
+  if (connectorMap['periodictable']) {
+    const element = connectorMap['periodictable'];
     if (element) {
-      context += `\n\n⚛️ Dados do Elemento (${element.name}):\nSímbolo: ${element.symbol}, Massa: ${element.atomicMass}, Número: ${element.atomicNumber}, Configuração: ${element.electronicConfiguration}\n`;
-      addSource('CHEM-1', `Tabela Periódica: ${element.name}`, 'periodictable', `Dados químicos oficiais do elemento ${element.name}.`, `https://pt.wikipedia.org/wiki/${element.name}`);
-      logs.push('✅ Dados químicos coletados');
+      context += `\n\n⚛️ Elemento (${element.name}):\nSímbolo: ${element.symbol}, Massa: ${element.atomicMass}, Número: ${element.atomicNumber}\n`;
+      addSource('CHEM-1', `Tabela: ${element.name}`, 'periodictable', `Elemento ${element.name}`, `https://pt.wikipedia.org/wiki/${element.name}`);
+      logs.push('✅ Elemento processado');
     }
   }
 
-  if (selectedConnectors.includes('gutenberg')) {
-    logs.push(`📖 Buscando livros no Project Gutenberg: "${queryParaBuscar}"`);
-    const books = await buscarGutenberg(queryParaBuscar);
+  // Gutenberg
+  if (connectorMap['gutenberg']) {
+    const books = connectorMap['gutenberg'];
     if (books && books.length > 0) {
-      context += `\n\n📖 Livros Disponíveis (Gutenberg):\n`;
+      context += `\n\n📖 Livros (Gutenberg):\n`;
       books.forEach((b, i) => {
         context += `${i+1}. ${b.title} por ${b.authors}\n`;
-        addSource(`BOOK-${i+1}`, b.title, 'gutenberg', `Obra clássica de ${b.authors}`, b.link);
+        addSource(`BOOK-${i+1}`, b.title, 'gutenberg', `${b.authors}`, b.link);
       });
-      logs.push('✅ Obras literárias encontradas');
+      logs.push('✅ Gutenberg processado');
     }
   }
 
-  if (selectedConnectors.includes('codata')) {
-    logs.push(`🧪 Buscando constantes físicas (CODATA): "${queryParaBuscar}"`);
-    const constants = await buscarCODATA(queryParaBuscar);
+  // CODATA
+  if (connectorMap['codata']) {
+    const constants = connectorMap['codata'];
     if (constants && constants.length > 0) {
-      context += `\n\n🧪 Constantes Físicas (CODATA):\n`;
+      context += `\n\n🧪 Constantes Físicas:\n`;
       constants.forEach((c, i) => {
-        context += `${i+1}. ${c.quantity}: ${c.value} ${c.unit} (Incerteza: ${c.uncertainty})\n`;
+        context += `${i+1}. ${c.quantity}: ${c.value} ${c.unit}\n`;
         addSource(`CONST-${i+1}`, c.quantity, 'codata', `${c.value} ${c.unit}`, 'https://physics.nist.gov/cuu/Constants/');
       });
-      logs.push('✅ Constantes físicas coletadas');
+      logs.push('✅ CODATA processado');
     }
   }
 
-  if (selectedConnectors.includes('sdo')) {
-    logs.push(`☀️ Buscando atividade solar (SDO)...`);
-    const sdo = await buscarSDO();
+  // SDO
+  if (connectorMap['sdo']) {
+    const sdo = connectorMap['sdo'];
     if (sdo) {
-      context += `\n\n☀️ Atividade Solar (SDO):\nDados de monitoramento solar em tempo real disponíveis.\n`;
-      addSource('SDO-1', 'Solar Dynamics Observatory', 'sdo', 'Monitoramento da atividade solar NASA.', 'https://sdo.gsfc.nasa.gov/');
-      logs.push('✅ Dados solares coletados');
+      context += `\n\n☀️ Atividade Solar (SDO)\n`;
+      addSource('SDO-1', 'SDO', 'sdo', 'Monitoramento solar', 'https://sdo.gsfc.nasa.gov/');
+      logs.push('✅ SDO processado');
     }
   }
 
-  if (selectedConnectors.includes('libras')) {
-    logs.push(`🤟 Buscando tradução Libras: "${queryParaBuscar}"`);
-    const libras = await buscarLibras(queryParaBuscar);
-    if (libras) {
-      context += `\n\n🤟 Acessibilidade (Libras):\n${libras.info}\n`;
-      addSource('LIBRAS-1', 'VLibras', 'libras', 'Recursos de acessibilidade em Libras.', 'https://vlibras.gov.br/');
-      logs.push('✅ Recursos de Libras integrados');
-    }
-  }
-
-  if (selectedConnectors.includes('timelapse')) {
-    logs.push(`🌍 Gerando link de timelapse: "${queryParaBuscar}"`);
-    const timeL = await buscarTimelapse(queryParaBuscar);
-    if (timeL) {
-      media.push(timeL);
-      addSource('TIME-1', timeL.title, 'timelapse', 'Evolução temporal do planeta.', timeL.url);
-      logs.push('✅ Link de timelapse gerado');
-    }
-  }
-
-  if (selectedConnectors.includes('bible')) {
-    logs.push(`📜 Buscando na Bíblia: "${queryParaBuscar}"`);
-    const passage = await buscarBiblia(queryParaBuscar);
-    if (passage) {
-      context += `\n\n📜 Escritura Sagrada:\n${passage.text}\nReferência: ${passage.reference}\n`;
-      addSource('BIBLE-1', passage.reference, 'bible', `Texto bíblico via Bible API`, `https://bible-api.com/${encodeURIComponent(passage.reference)}`);
-      logs.push('✅ Versículos coletados');
-    }
-  }
-
-  if (selectedConnectors.includes('fishwatch')) {
-    logs.push(`🐟 Buscando espécies marinhas: "${queryParaBuscar}"`);
-    const fish = await buscarFishWatchRobusto(queryParaBuscar);
-    if (fish && fish.length > 0) {
-       context += `\n\n🐟 Dados de Peixes (FishWatch):\n`;
-       fish.forEach((f, i) => {
-         context += `${i+1}. ${f.name} (${f.scientific}) - Habitat: ${f.habitat}\n`;
-         if (f.image) media.push({ title: f.name, url: f.image, media_type: 'image', description: f.habitat });
-       });
-       addSource('FISH-1', fish[0].name, 'fishwatch', `Dados de biologia marinha.`, `https://www.fishwatch.gov/`);
-       logs.push('✅ Dados de biologia marinha coletados');
-    }
-  }
-
-  if (selectedConnectors.includes('openaq')) {
-    logs.push(`🌬️ Buscando qualidade do ar: "${queryParaBuscar}"`);
-    const aq = await buscarQualidadeArRobusta(queryParaBuscar);
+  // OpenAQ (Qualidade do ar)
+  if (connectorMap['openaq']) {
+    const aq = connectorMap['openaq'];
     if (aq) {
       context += `\n\n🌬️ Qualidade do Ar (${aq.city}):\n`;
       aq.measurements?.forEach(m => {
-        context += `- ${m.parameter}: ${m.value} ${m.unit} (Última atualização: ${m.lastUpdated})\n`;
+        context += `- ${m.parameter}: ${m.value} ${m.unit}\n`;
       });
-      addSource('AIR-1', `OpenAQ: ${aq.city}`, 'openaq', `Dados de qualidade do ar em tempo real.`, `https://openaq.org/#/city/${encodeURIComponent(aq.city)}`);
-      logs.push('✅ Dados atmosféricos coletados');
+      addSource('AIR-1', `OpenAQ: ${aq.city}`, 'openaq', `Qualidade do ar`, `https://openaq.org/#/city/${encodeURIComponent(aq.city)}`);
+      logs.push('✅ Qualidade do ar processada');
     }
   }
 
-  if (selectedConnectors.includes('quotes')) {
-    logs.push(`💬 Buscando citação inspiradora`);
-    const q = await buscarFrase();
-    if (q) {
-      context += `\n\n💬 Citação: "${q.content}" — ${q.author}\n`;
-      addSource('QUOTE-1', `Citação: ${q.author}`, 'quotes', `Frases e pensamentos célebres.`, `https://quotable.io/`);
-      logs.push('✅ Citação coletada');
-    }
-  }
-
-  if (selectedConnectors.includes('dogapi')) {
-    logs.push(`🐶 Buscando imagem de pet`);
-    const dogImg = await buscarDog();
-    if (dogImg) {
-      // Extrair raça da URL (ex: https://dog.ceo/api/img/pitbull/...)
-      const breedMatch = dogImg.match(/breeds\/([^\/]+)/);
-      const rawBreed = breedMatch ? breedMatch[1].replace('-', ' ') : 'cachorro';
-      const breed = rawBreed.charAt(0).toUpperCase() + rawBreed.slice(1);
-      
-      context += `\n\n🐶 Foto de Pet Encontrada: Raça ${breed}.\n`;
-      media.push({ title: `Raça: ${breed}`, url: dogImg, media_type: 'image', description: `Um exemplar de ${breed} capturado pela Dog CEO API.` });
-      logs.push(`✅ Imagem de ${breed} adicionada`);
-    }
-  }
-
-  if (selectedConnectors.includes('solarsystem')) {
-    logs.push(`🪐 Buscando dados planetários: "${queryParaBuscar}"`);
-    const body = await buscarSistemaSolarRobusto(queryParaBuscar);
-    if (body) {
-      context += `\n\n🪐 Dados Celestiais (${body.englishName}):\nGravidade: ${body.gravity} m/s², Massa: ${body.mass?.massValue}x10^${body.mass?.massExponent} kg, Luas: ${body.moons?.length || 0}\n`;
-      addSource('SPACE-1', `Solar System: ${body.englishName}`, 'solarsystem', `Dados astronômicos oficiais.`, `https://solarsystem.nasa.gov/planets/${body.englishName.toLowerCase()}`);
-      logs.push('✅ Dados planetários coletados');
-    }
-  }
-
-  if (selectedConnectors.includes('horizons')) {
-    logs.push(`🛰️ Buscando efemérides na NASA Horizons: "${queryParaBuscar}"`);
-    const horizonsData = await buscarNasaHorizons(queryParaBuscar, options.userContext || {});
-    if (horizonsData) {
-      const distanceLine = horizonsData.distanceKm
-        ? `Distância aproximada: ${horizonsData.distanceKm.toLocaleString('pt-BR')} km (${horizonsData.distanceAu} AU)\n`
-        : '';
-      context += `\n\n🛰️ NASA Horizons (${horizonsData.targetName}):\nInstante: ${horizonsData.timestamp}\nAzimute: ${horizonsData.azimuth}°\nElevação: ${horizonsData.elevation}°\nAscensão reta: ${horizonsData.ra}\nDeclinação: ${horizonsData.dec}\nMagnitude aparente: ${horizonsData.magnitude}\n${distanceLine}`;
-      addSource('HORIZONS-1', `NASA Horizons: ${horizonsData.targetName}`, 'horizons', `Azimute ${horizonsData.azimuth}°, elevação ${horizonsData.elevation}°, magnitude ${horizonsData.magnitude}.`, horizonsData.sourceUrl);
-      logs.push('✅ Efemérides NASA Horizons coletadas');
-    } else {
-      logs.push('⚠️ NASA Horizons não retornou dados');
-    }
-  }
-
-  if (selectedConnectors.includes('poetry')) {
-    logs.push(`📜 Buscando poesia: "${queryParaBuscar}"`);
-    const poems = await buscarPoesiaRobusta(queryParaBuscar);
-    if (poems && poems.length > 0) {
-      context += `\n\n📜 PoetryDB - Poemas encontrados:\n`;
-      poems.forEach((p, i) => {
-        context += `${i + 1}. "${p.title}" — ${p.author}\n   Trecho: ${p.excerpt}\n`;
-        addSource(`POEM-${i + 1}`, `"${p.title}" by ${p.author}`, 'poetry', p.excerpt, null);
-      });
-      logs.push('✅ Poemas encontrados');
-    }
-  }
-
-  if (selectedConnectors.includes('wikipedia')) {
-    logs.push(`🌐 Buscando na Wikipedia: "${queryParaBuscar}"`);
-    const wiki = await buscarWikipedia(queryParaBuscar);
-    if (wiki) {
-      context += `\n\n📘 Wikipedia: ${wiki.title}\n${wiki.extract}\n`;  
-      addSource('WIKIPEDIA', 'Wikipedia', 'wikipedia', wiki.extract || wiki.title, wiki.url);
-      logs.push('✅ Dados do Wikipedia coletados');
-    } else {
-      logs.push('⚠️ Wikipedia não retornou dados');
-    }
-  }
-
-  if (selectedConnectors.includes('arxiv')) {
-    logs.push(`📚 Buscando no arXiv: "${queryParaBuscar}"`);
-    const arxiv = await buscarArxiv(queryParaBuscar);
-    if (arxiv.length > 0) {
-      arxiv.slice(0, 3).forEach((item, i) => {
-        context += `\n\n🧾 arXiv ${i + 1}: ${item.title}\n${item.summary}\nLink: ${item.link}\n`;
-        addSource(`ARXIV-${i + 1}`, item.title || `arXiv ${i + 1}`, 'arxiv', item.summary || '', item.link);
-      });
-      logs.push('✅ Dados do arXiv coletados');
-    } else {
-      // Fallback inteligente: arXiv falhou → buscar via Tavily (Wikipedia/Google Scholar)
-      logs.push('[THINKING] arXiv falhou, tentando fallback via Tavily para fontes acadêmicas');
-      try {
-        const tavilyFallback = await buscarTavily(`${queryParaBuscar} academic research paper scholarly article`);
-        if (tavilyFallback && tavilyFallback.length > 0) {
-          tavilyFallback.slice(0, 2).forEach((item, i) => {
-            context += `\n\n📄 Fonte Acadêmica ${i + 1}: ${item.title}\n${item.content?.substring(0, 300)}...\nLink: ${item.url}\n`;
-            addSource(`TAVILY-ACADEMIC-${i + 1}`, item.title || `Fonte Acadêmica ${i + 1}`, 'tavily', item.content || '', item.url);
-          });
-          logs.push('✅ Fallback Tavily realizado com sucesso');
-        } else {
-          logs.push('⚠️ arXiv e fallback Tavily falharam');
-        }
-      } catch (fallbackError) {
-        logs.push('⚠️ arXiv falhou e fallback Tavily também falhou');
-      }
-    }
-  }
-
-  if (selectedConnectors.includes('newton')) {
-    logs.push(`🧮 Calculando com Newton/MathJS: "${queryParaBuscar}"`);
-    const math = await calcular(queryParaBuscar);
-    if (math) {
-      context += `\n\n➗ Resultado MathJS para '${math.input}': ${math.result}\n`;
-      addSource('NEWTON', 'MathJS (Newton)', 'newton', `${math.input} => ${math.result}`, 'https://api.mathjs.org');
-      logs.push('✅ Dados de cálculo coletados');
-    }
-  }
-
-  if (selectedConnectors.includes('spacex')) {
-    logs.push('🚀 Buscando SpaceX...');
-    const spacex = await buscarSpaceX();
-    if (spacex) {
-      context += `\n\n🚀 SpaceX - ${spacex.name} (${spacex.date_utc})\n${spacex.details || 'Sem detalhes'}\nLink: ${spacex.link || 'N/A'}\n`;
-      addSource('SPACEX', 'SpaceX', 'spacex', spacex.details || spacex.name, spacex.link);
-      logs.push('✅ Dados SpaceX coletados');
-    }
-  }
-
-  if (selectedConnectors.includes('open-meteo')) {
-    logs.push('☁️ Buscando meteorologia (Open-Meteo)...');
-    const weather = await buscarOpenMeteo();
+  // Open-Meteo (Clima)
+  if (connectorMap['open-meteo']) {
+    const weather = connectorMap['open-meteo'];
     if (weather) {
       let temp = "N/A", humi = "N/A";
       try {
         temp = weather.weather.hourly.temperature_2m[0];
         humi = weather.weather.hourly.relativehumidity_2m[0];
       } catch(e) {}
-      context += `\n\n☁️ Open-Meteo para lat/lon (${weather.location.lat},${weather.location.lon}):\nTemperatura atual: ${temp}°C\nUmidade Relativa: ${humi}%\n`; 
-      addSource('OPEN-METEO', 'Clima Atual (Open-Meteo)', 'open-meteo', `Temperatura atual: ${temp}°C, Umidade: ${humi}%`, 'https://open-meteo.com');
-      logs.push('✅ Dados Open-Meteo coletados');
+      context += `\n\n☁️ Clima (${weather.location.lat},${weather.location.lon}):\nTemperatura: ${temp}°C\nUmidade: ${humi}%\n`;
+      addSource('OPEN-METEO', 'Clima', 'open-meteo', `Temp: ${temp}°C`, 'https://open-meteo.com');
+      logs.push('✅ Clima processado');
     }
   }
 
+  // SpaceX
+  if (connectorMap['spacex']) {
+    const spacex = connectorMap['spacex'];
+    if (spacex) {
+      context += `\n\n🚀 SpaceX - ${spacex.name} (${spacex.date_utc})\n${spacex.details || 'Sem detalhes'}
+`;
+      addSource('SPACEX', 'SpaceX', 'spacex', spacex.details || spacex.name, spacex.link);
+      logs.push('✅ SpaceX processado');
+    }
+  }
+
+  // Solar System
+  if (connectorMap['solarsystem']) {
+    const body = connectorMap['solarsystem'];
+    if (body) {
+      context += `\n\n🪐 Corpo Celeste (${body.englishName}):\nGravidade: ${body.gravity} m/s², Luas: ${body.moons?.length || 0}\n`;
+      addSource('SPACE-1', `Solar System: ${body.englishName}`, 'solarsystem', `Dados astronômicos`, `https://solarsystem.nasa.gov/planets/${body.englishName.toLowerCase()}`);
+      logs.push('✅ Solar System processado');
+    }
+  }
+
+  // Horizons (NASA Ephemeris)
+  if (connectorMap['horizons']) {
+    const horizonsData = connectorMap['horizons'];
+    if (horizonsData) {
+      const distanceLine = horizonsData.distanceKm ? `Distância: ${horizonsData.distanceKm.toLocaleString('pt-BR')} km\n` : '';
+      context += `\n\n🛰️ NASA Horizons (${horizonsData.targetName}):\nAzimute: ${horizonsData.azimuth}°\nElevação: ${horizonsData.elevation}°\nMagnitude: ${horizonsData.magnitude}\n${distanceLine}`;
+      addSource('HORIZONS-1', `Horizons: ${horizonsData.targetName}`, 'horizons', `Az ${horizonsData.azimuth}°`, horizonsData.sourceUrl);
+      logs.push('✅ Horizons processado');
+    }
+  }
+
+  // Poetry
+  if (connectorMap['poetry']) {
+    const poems = connectorMap['poetry'];
+    if (poems && poems.length > 0) {
+      context += `\n\n📜 Poemas:\n`;
+      poems.forEach((p, i) => {
+        context += `${i + 1}. "${p.title}" — ${p.author}\n   Trecho: ${p.excerpt}\n`;
+        addSource(`POEM-${i + 1}`, `"${p.title}" by ${p.author}`, 'poetry', p.excerpt, null);
+      });
+      logs.push('✅ Poesia processada');
+    }
+  }
+
+  // Wikipedia
+  if (connectorMap['wikipedia']) {
+    const wiki = connectorMap['wikipedia'];
+    if (wiki) {
+      context += `\n\n📘 Wikipedia: ${wiki.title}\n${wiki.extract}\n`;
+      addSource('WIKIPEDIA', 'Wikipedia', 'wikipedia', wiki.extract || wiki.title, wiki.url);
+      logs.push('✅ Wikipedia processada');
+    }
+  }
+
+  // arXiv
+  if (connectorMap['arxiv']) {
+    const arxiv = connectorMap['arxiv'];
+    if (arxiv && arxiv.length > 0) {
+      arxiv.slice(0, 3).forEach((item, i) => {
+        context += `\n\n🧾 arXiv ${i + 1}: ${item.title}\n${item.summary}\nLink: ${item.link}\n`;
+        addSource(`ARXIV-${i + 1}`, item.title || `arXiv ${i + 1}`, 'arxiv', item.summary || '', item.link);
+      });
+      logs.push('✅ arXiv processado');
+    }
+  }
+
+  // Newton (Cálculos)
+  if (connectorMap['newton']) {
+    const math = connectorMap['newton'];
+    if (math) {
+      context += `\n\n➗ Cálculo: '${math.input}' = ${math.result}\n`;
+      addSource('NEWTON', 'MathJS', 'newton', `${math.input} => ${math.result}`, 'https://api.mathjs.org');
+      logs.push('✅ Cálculo processado');
+    }
+  }
+
+  // Bible
+  if (connectorMap['bible']) {
+    const passage = connectorMap['bible'];
+    if (passage) {
+      context += `\n\n📜 Escritura:\n${passage.text}\nReferência: ${passage.reference}\n`;
+      addSource('BIBLE-1', passage.reference, 'bible', `Texto bíblico`, `https://bible-api.com/${encodeURIComponent(passage.reference)}`);
+      logs.push('✅ Bíblia processada');
+    }
+  }
+
+  // FishWatch
+  if (connectorMap['fishwatch']) {
+    const fish = connectorMap['fishwatch'];
+    if (fish && fish.length > 0) {
+      context += `\n\n🐟 Espécies Marinhas:\n`;
+      fish.forEach((f, i) => {
+        context += `${i+1}. ${f.name} (${f.scientific}) - ${f.habitat}\n`;
+        if (f.image) media.push({ title: f.name, url: f.image, media_type: 'image', description: f.habitat });
+      });
+      addSource('FISH-1', fish[0].name, 'fishwatch', `Biologia marinha`, `https://www.fishwatch.gov/`);
+      logs.push('✅ FishWatch processado');
+    }
+  }
   // Loop para Conectores da Mega Expansão (Generic Map)
   for (const key of selectedConnectors) {
     if (GENERIC_API_MAP[key] && !GENERIC_CONNECTORS_WITH_DEDICATED_HANDLERS.has(key)) {
