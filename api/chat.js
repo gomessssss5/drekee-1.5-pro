@@ -1918,23 +1918,7 @@ async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  let body;
-  try {
-    body = await new Promise((resolve, reject) => {
-      let data = '';
-      req.on('data', (chunk) => { data += chunk; });
-      req.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (err) {
-          reject(err);
-        }
-      });
-      req.on('error', reject);
-    });
-  } catch (err) {
-    return res.status(400).json({ error: 'Invalid JSON body' });
-  }
+  const body = req.body || {};
 
   const userQuestion = (body?.text || '').toString().trim();
   const connectorAuto = body?.connectorAuto !== false;
