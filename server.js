@@ -19,12 +19,7 @@ app.use(express.static(path.join(__dirname)));
 // API routes
 app.post('/api/chat', async (req, res) => {
   try {
-<<<<<<< HEAD
     await chatHandler(req, res);
-=======
-    const result = await chatHandler(req, res);
-    // The handler should handle the response
->>>>>>> ded0eea65d63e2bdacb3fc377d88eb01842a083d
   } catch (error) {
     console.error('Server error:', error);
     res.status(500).json({ error: 'Internal server error' });
