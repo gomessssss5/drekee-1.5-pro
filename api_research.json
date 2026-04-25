@@ -1,0 +1,154 @@
+[
+  {
+    "id": 34,
+    "name": "CelesTrak",
+    "description": "Rastreamento de satélites e dados orbitais (TLE).",
+    "endpoint": "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 35,
+    "name": "CODATA Constants",
+    "description": "Valores de constantes físicas fundamentais.",
+    "endpoint": "https://physics.nist.gov/cuu/Constants/Table/allascii.txt",
+    "type": "dedicated",
+    "processor": "text_parse"
+  },
+  {
+    "id": 39,
+    "name": "OpenUniverse",
+    "description": "Exploração de dados astronômicos profundos.",
+    "endpoint": "https://api.astrocatalogs.com/catalog/${query}?format=json",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 41,
+    "name": "Stellarium Web",
+    "description": "Planetário virtual para observação estelar.",
+    "endpoint": "https://api.noctuasky.com/api/v1/skysources/name/${query}",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 42,
+    "name": "LIGO",
+    "description": "Detecção de ondas gravitacionais.",
+    "endpoint": "https://gracedb.ligo.org/api/superevents/?query=${query}&format=json",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 43,
+    "name": "Solar Dynamics (SDO)",
+    "description": "Monitoramento da atividade solar (NASA).",
+    "endpoint": "https://sdo.gsfc.nasa.gov/cgi-bin/api/get_latest.php?type=all",
+    "type": "dedicated",
+    "processor": "json"
+  },
+  {
+    "id": 44,
+    "name": "NOAA Space Weather",
+    "description": "Previsões de aurora e clima espacial.",
+    "endpoint": "https://services.swpc.noaa.gov/json/indices.json",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 45,
+    "name": "NASA Exoplanets",
+    "description": "Arquivo oficial de planetas fora do sistema solar.",
+    "endpoint": "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=select+*+from+ps+where+pl_name+like+'%25${query}%25'&format=json",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 53,
+    "name": "Reactome Pathway",
+    "description": "Vias biológicas e processos celulares.",
+    "endpoint": "https://reactome.org/ContentService/search/query?query=${query}&species=Homo+sapiens",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 54,
+    "name": "STRING Interaction",
+    "description": "Redes de interações proteína-proteína.",
+    "endpoint": "https://string-db.org/api/json/network?identifiers=${query}",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 57,
+    "name": "OMIM Genetics",
+    "description": "Catálogo de genes e distúrbios humanos.",
+    "endpoint": "https://api.omim.org/api/entry/search?search=${query}&format=json",
+    "type": "dedicated",
+    "processor": "json"
+  },
+  {
+    "id": 63,
+    "name": "USGS Water",
+    "description": "Monitoramento de recursos hídricos mundiais.",
+    "endpoint": "https://waterservices.usgs.gov/nwis/iv/?format=json&stateCd=${query}",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 66,
+    "name": "edX Open Courses",
+    "description": "Busca de cursos de alto nível acadêmico.",
+    "endpoint": "https://www.edx.org/api/v1/catalog/search?q=${query}",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 67,
+    "name": "MIT OpenCourseWare",
+    "description": "Materiais gratuitos de cursos do MIT.",
+    "endpoint": "https://ocw.mit.edu/search/api/v1/search?q=${query}",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 71,
+    "name": "TCU Brasil",
+    "description": "Fiscalização e contas públicas do Tribunal.",
+    "endpoint": "https://contas.tcu.gov.br/arquivosInternos/pesquisa?termo=${query}",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 72,
+    "name": "Portal Transparência",
+    "description": "Gastos do Governo Federal Brasileiro.",
+    "endpoint": "https://api.portaldatransparencia.gov.br/api-de-dados/despesas/recursos-recebidos?pagina=1",
+    "type": "dedicated",
+    "processor": "json"
+  },
+  {
+    "id": 75,
+    "name": "OSF (Open Science)",
+    "description": "Gerenciamento de projetos científicos abertos.",
+    "endpoint": "https://api.osf.io/v2/nodes/?filter[title]=${query}",
+    "type": "generic",
+    "processor": "json"
+  },
+  {
+    "id": 78,
+    "name": "Libras Online",
+    "description": "Recursos de Língua Brasileira de Sinais.",
+    "endpoint": "https://vlibras.gov.br/api/translate?text=${query}",
+    "type": "dedicated",
+    "processor": "json"
+  },
+  {
+    "id": 80,
+    "name": "Google Earth Timelapse",
+    "description": "Evolução do planeta em vídeo temporal.",
+    "endpoint": "https://earthengine.google.com/timelapse/api",
+    "type": "dedicated",
+    "processor": "video"
+  }
+]

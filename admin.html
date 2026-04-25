@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Drekee Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07111f;
+    --panel: rgba(10, 20, 37, 0.86);
+    --panel-2: rgba(13, 28, 48, 0.86);
+    --line: rgba(148,163,184,0.16);
+    --text: #e6eefb;
+    --muted: #8ea4c0;
+    --ok: #2dd4bf;
+    --warn: #fbbf24;
+    --bad: #fb7185;
+    --idle: #94a3b8;
+    --blue: #60a5fa;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: 'Manrope', sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(circle at top left, rgba(96,165,250,0.18), transparent 24%),
+      radial-gradient(circle at top right, rgba(45,212,191,0.12), transparent 18%),
+      linear-gradient(180deg, #040b17, #08101d 55%, #07111f);
+  }
+  .shell { max-width: 1680px; margin: 0 auto; padding: 24px; }
+  .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 18px; }
+  .eyebrow {
+    display: inline-flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 999px;
+    background: rgba(96,165,250,0.1); color: #bfdbfe; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  h1 { margin: 12px 0 8px; font-family: 'Space Grotesk', sans-serif; font-size: clamp(2rem, 4vw, 3.2rem); line-height: 0.96; letter-spacing: -0.05em; }
+  .lead { margin: 0; max-width: 980px; color: var(--muted); line-height: 1.65; font-size: 0.98rem; }
+  .actions, .backend-box { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn, .input, .select {
+    border-radius: 14px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: var(--text); font: inherit;
+  }
+  .btn { cursor: pointer; padding: 12px 16px; display: inline-flex; align-items: center; gap: 8px; }
+  .btn.primary { background: linear-gradient(135deg, rgba(96,165,250,0.22), rgba(45,212,191,0.14)); border-color: rgba(96,165,250,0.28); }
+  .input, .select { padding: 12px 14px; }
+  .backend-box .input { min-width: 320px; }
+  .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+  .card {
+    grid-column: span 12; background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 18px; backdrop-filter: blur(16px);
+    box-shadow: 0 22px 60px rgba(0,0,0,0.22);
+  }
+  .metric-card { grid-column: span 3; }
+  .wide-6 { grid-column: span 6; }
+  .metric-label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; }
+  .metric-value { margin-top: 14px; font-size: clamp(1.7rem, 3vw, 2.6rem); font-weight: 800; line-height: 1; }
+  .metric-copy { margin-top: 10px; color: var(--muted); font-size: 0.84rem; line-height: 1.55; }
+  .section-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .section-head h2 { margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 1.18rem; letter-spacing: -0.03em; }
+  .section-note { color: var(--muted); font-size: 0.84rem; }
+  .banner {
+    display: none; margin-bottom: 16px; padding: 14px 16px; border-radius: 18px; background: rgba(251,113,133,0.12); border: 1px solid rgba(251,113,133,0.24);
+    color: #ffe4e8;
+  }
+  .banner.show { display: block; }
+  .status-grid, .mini-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .status-item, .mini-card { border-radius: 18px; border: 1px solid var(--line); background: rgba(255,255,255,0.025); padding: 14px; }
+  .status-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .status-name { font-weight: 800; font-size: 0.95rem; }
+  .status-detail { margin-top: 8px; color: var(--muted); font-size: 0.84rem; line-height: 1.5; white-space: pre-wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .pill.active { background: rgba(45,212,191,0.14); color: #99f6e4; }
+  .pill.error { background: rgba(251,113,133,0.14); color: #fecdd3; }
+  .pill.missing, .pill.missing_key { background: rgba(251,191,36,0.14); color: #fde68a; }
+  .pill.untested, .pill.present_only, .pill.idle { background: rgba(148,163,184,0.12); color: #cbd5e1; }
+  .toolbar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .toolbar .input, .toolbar .select { flex: 1 1 220px; min-width: 0; }
+  .table-wrap { overflow: auto; border-radius: 18px; border: 1px solid var(--line); }
+  table { width: 100%; border-collapse: collapse; min-width: 1150px; background: rgba(3, 10, 20, 0.52); }
+  th, td { padding: 12px 14px; border-bottom: 1px solid rgba(148,163,184,0.1); text-align: left; vertical-align: top; }
+  th { color: #c7d7ee; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
+  td { font-size: 0.88rem; color: #d8e4f5; }
+  .connector-name { font-weight: 800; }
+  .meta-line { display: block; margin-top: 4px; color: var(--muted); font-size: 0.75rem; }
+  .tiny-btn { padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: var(--text); cursor: pointer; }
+  .list { display: grid; gap: 10px; }
+  .list-item { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,0.025); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.83rem; }
+  @media (max-width: 1200px) { .metric-card, .wide-6 { grid-column: span 6; } }
+  @media (max-width: 760px) {
+    .shell { padding: 14px; }
+    .topbar { flex-direction: column; }
+    .metric-card, .wide-6 { grid-column: span 12; }
+    .btn { width: 100%; justify-content: center; }
+    .backend-box .input { min-width: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div id="errorBanner" class="banner"></div>
+
+    <div class="topbar">
+      <div>
+        <div class="eyebrow"><span class="material-icons-outlined" style="font-size:16px;">admin_panel_settings</span> Administração Drekee</div>
+        <h1>Centro de controle do Drekee AI</h1>
+        <p class="lead">Painel administrativo completo para verificar backend, versão, saúde de chaves, catálogo real de conectores, discrepâncias do inventário, cobertura de auto-detecção, rotas administrativas e testes ativos em tempo real.</p>
+      </div>
+      <div>
+        <div class="backend-box" style="margin-bottom:10px;">
+          <input id="backendUrlInput" class="input mono" placeholder="URL do backend, ex: http://localhost:3000" />
+          <button id="saveBackendBtn" class="btn"><span class="material-icons-outlined">dns</span><span>Usar backend</span></button>
+        </div>
+        <div class="actions">
+          <button class="btn" id="refreshBtn"><span class="material-icons-outlined">refresh</span><span>Atualizar status</span></button>
+          <button class="btn primary" id="testAllBtn"><span class="material-icons-outlined">science</span><span>Testar todos os conectores</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="card metric-card">
+        <div class="metric-label">Versão</div>
+        <div class="metric-value" id="versionValue">--</div>
+        <div class="metric-copy" id="generatedAtValue">Aguardando leitura do servidor.</div>
+      </section>
+      <section class="card metric-card">
+        <div class="metric-label">Backend</div>
+        <div class="metric-value" id="backendHealthValue">--</div>
+        <div class="metric-copy" id="backendHealthCopy">Sem diagnóstico ainda.</div>
+      </section>
+      <section class="card metric-card">
+        <div class="metric-label">Conectores no código</div>
+        <div class="metric-value" id="connectorCountValue">--</div>
+        <div class="metric-copy" id="inventoryDeltaValue">Comparando código com inventário textual.</div>
+      </section>
+      <section class="card metric-card">
+        <div class="metric-label">Auto-detecção</div>
+        <div class="metric-value" id="autoDetectValue">--</div>
+        <div class="metric-copy" id="batchDetailValue">Cobertura heurística do Drekee.</div>
+      </section>
+
+      <section class="card wide-6">
+        <div class="section-head">
+          <h2>Resumo operacional</h2>
+          <div class="section-note">Leitura rápida para o admin.</div>
+        </div>
+        <div class="mini-grid">
+          <div class="mini-card">
+            <div class="metric-label">Ativos no último lote</div>
+            <div class="metric-value" id="batchSummaryValue">--</div>
+            <div class="metric-copy" id="batchSummaryCopy">Ainda não executado nesta sessão.</div>
+          </div>
+          <div class="mini-card">
+            <div class="metric-label">Falhas detectadas</div>
+            <div class="metric-value" id="failedCountValue">--</div>
+            <div class="metric-copy" id="failedCountCopy">Sem execução em lote ainda.</div>
+          </div>
+          <div class="mini-card">
+            <div class="metric-label">Chaves ativas</div>
+            <div class="metric-value" id="activeKeysValue">--</div>
+            <div class="metric-copy" id="activeKeysCopy">Sem leitura ainda.</div>
+          </div>
+          <div class="mini-card">
+            <div class="metric-label">Base do painel</div>
+            <div class="metric-value mono" id="backendBaseValue">--</div>
+            <div class="metric-copy">URL usada nas chamadas do painel.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card wide-6">
+        <div class="section-head">
+          <h2>Diagnóstico estrutural</h2>
+          <div class="section-note">Problemas de arquitetura que afetam administração.</div>
+        </div>
+        <div class="list" id="structuralList"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Saúde das chaves</h2>
+          <div class="section-note">Ativa, cadastrada com erro ou ausente.</div>
+        </div>
+        <div class="status-grid" id="keysGrid"></div>
+      </section>
+
+      <section class="card wide-6">
+        <div class="section-head">
+          <h2>Recomendações imediatas</h2>
+          <div class="section-note">Ações práticas para subir a confiabilidade.</div>
+        </div>
+        <div class="list" id="recommendationsList"></div>
+      </section>
+
+      <section class="card wide-6">
+        <div class="section-head">
+          <h2>Conectores problemáticos</h2>
+          <div class="section-note">Falhas mais importantes da última bateria.</div>
+        </div>
+        <div class="list" id="failedList"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Catálogo completo de conectores</h2>
+          <div class="section-note">Teste individual, filtro por status, auto-detecção e chaves exigidas.</div>
+        </div>
+        <div class="toolbar">
+          <input type="search" id="searchInput" class="input" placeholder="Filtrar por nome, chave, status ou mensagem..." />
+          <select id="statusFilter" class="select">
+            <option value="all">Todos os status</option>
+            <option value="active">Ativos</option>
+            <option value="error">Com erro</option>
+            <option value="missing_key">Sem chave</option>
+            <option value="untested">Não testados</option>
+            <option value="present_only">Só presentes</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Conector</th>
+                <th>Status</th>
+                <th>Auto</th>
+                <th>Chaves</th>
+                <th>Mensagem</th>
+                <th>Resumo</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="connectorsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+<script>
+  const state = {
+    version: '--',
+    diagnostics: null,
+    connectorResults: new Map(),
+    backendBase: '',
+  };
+
+  const keysGrid = document.getElementById('keysGrid');
+  const connectorsBody = document.getElementById('connectorsBody');
+  const versionValue = document.getElementById('versionValue');
+  const generatedAtValue = document.getElementById('generatedAtValue');
+  const backendHealthValue = document.getElementById('backendHealthValue');
+  const backendHealthCopy = document.getElementById('backendHealthCopy');
+  const connectorCountValue = document.getElementById('connectorCountValue');
+  const inventoryDeltaValue = document.getElementById('inventoryDeltaValue');
+  const autoDetectValue = document.getElementById('autoDetectValue');
+  const batchSummaryValue = document.getElementById('batchSummaryValue');
+  const batchSummaryCopy = document.getElementById('batchSummaryCopy');
+  const batchDetailValue = document.getElementById('batchDetailValue');
+  const failedCountValue = document.getElementById('failedCountValue');
+  const failedCountCopy = document.getElementById('failedCountCopy');
+  const activeKeysValue = document.getElementById('activeKeysValue');
+  const activeKeysCopy = document.getElementById('activeKeysCopy');
+  const backendBaseValue = document.getElementById('backendBaseValue');
+  const structuralList = document.getElementById('structuralList');
+  const recommendationsList = document.getElementById('recommendationsList');
+  const failedList = document.getElementById('failedList');
+  const searchInput = document.getElementById('searchInput');
+  const statusFilter = document.getElementById('statusFilter');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const testAllBtn = document.getElementById('testAllBtn');
+  const backendUrlInput = document.getElementById('backendUrlInput');
+  const saveBackendBtn = document.getElementById('saveBackendBtn');
+  const errorBanner = document.getElementById('errorBanner');
+  let batchRunning = false;
+
+  function getDefaultBackendBase() {
+    const saved = localStorage.getItem('drekeeAdminBackendBase');
+    if (saved) return saved;
+    if (location.protocol === 'file:') return 'http://localhost:3000';
+    return location.origin;
+  }
+
+  function setBackendBase(value) {
+    const normalized = String(value || '').trim().replace(/\/+$/, '');
+    state.backendBase = normalized || location.origin;
+    backendUrlInput.value = state.backendBase;
+    backendBaseValue.textContent = state.backendBase;
+    localStorage.setItem('drekeeAdminBackendBase', state.backendBase);
+  }
+
+  function apiUrl(path) {
+    return `${state.backendBase}${path}`;
+  }
+
+  function showError(message) {
+    errorBanner.textContent = message;
+    errorBanner.classList.add('show');
+  }
+
+  function clearError() {
+    errorBanner.textContent = '';
+    errorBanner.classList.remove('show');
+  }
+
+  function humanizeKey(key) {
+    return String(key || '').replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function statusClass(status) {
+    return ['active', 'error', 'configured_error', 'missing', 'missing_key', 'untested', 'present_only'].includes(status) ? status : 'idle';
+  }
+
+  function statusLabel(status) {
+    const labels = { active: 'Ativo', error: 'Erro', configured_error: 'Chave com erro', missing: 'Sem chave', missing_key: 'Sem chave', untested: 'Não testado', present_only: 'Só presente' };
+    return labels[status] || status || 'Indefinido';
+  }
+
+  function renderKeys(keys = []) {
+    keysGrid.innerHTML = keys.map(item => `
+      <article class="status-item">
+        <div class="status-top">
+          <div class="status-name">${item.env}</div>
+          <span class="pill ${statusClass(item.status)}">${statusLabel(item.status)}</span>
+        </div>
+        <div class="status-detail">${item.message || 'Sem mensagem'}</div>
+      </article>
+    `).join('');
+
+    const active = keys.filter(item => item.status === 'active').length;
+    activeKeysValue.textContent = `${active}/${keys.length}`;
+    activeKeysCopy.textContent = active === keys.length ? 'Todas as chaves testadas responderam.' : `${keys.length - active} chave(s) precisam de atenção.`;
+  }
+
+  function getMergedConnectors() {
+    const diagnostics = state.diagnostics || { connectors: [] };
+    return diagnostics.connectors.map(item => ({ ...item, ...(state.connectorResults.get(item.key) || {}), key: item.key }));
+  }
+
+  function renderConnectors() {
+    const query = searchInput.value.trim().toLowerCase();
+    const filter = statusFilter.value;
+    const rows = getMergedConnectors().filter(item => {
+      const status = item.status || 'untested';
+      if (filter !== 'all' && status !== filter) return false;
+      if (!query) return true;
+      const haystack = [item.key, humanizeKey(item.key), item.message, item.summary, status].join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+
+    connectorsBody.innerHTML = rows.map(item => `
+      <tr>
+        <td><span class="connector-name">${humanizeKey(item.key)}</span><span class="meta-line">${item.key}</span></td>
+        <td><span class="pill ${statusClass(item.status || 'untested')}">${statusLabel(item.status || 'untested')}</span></td>
+        <td>${item.autoDetected ? 'Sim' : 'Manual'}</td>
+        <td>${(item.requiresKeys || []).length ? item.requiresKeys.join(', ') : 'Pública / nenhuma'}</td>
+        <td>${item.message || 'Aguardando teste'}</td>
+        <td><span class="meta-line" style="margin-top:0;font-size:0.84rem;color:#d8e4f5;">${item.summary || 'Sem resumo ainda'}</span></td>
+        <td><button class="tiny-btn" data-key="${item.key}">Testar</button></td>
+      </tr>
+    `).join('');
+  }
+
+  function renderStructuralSummary() {
+    const diagnostics = state.diagnostics;
+    if (!diagnostics) return;
+    const list = [];
+    const codeCount = diagnostics.catalog.supportedConnectorCount;
+    const inventoryCount = diagnostics.catalog.inventoryFileCount;
+    const diff = inventoryCount == null ? null : codeCount - inventoryCount;
+    list.push(`Código atual: ${codeCount} conectores suportados.`);
+    list.push(`Inventário textual: ${inventoryCount == null ? 'não lido' : inventoryCount}.`);
+    if (diff !== null && diff !== 0) list.push(`Divergência detectada entre o catálogo do código e o inventário textual: ${diff > 0 ? '+' : ''}${diff}.`);
+    list.push(`Cobertura de auto-detecção: ${diagnostics.catalog.autoDetectedConnectorCount} conectores.`);
+    list.push(`Base do painel: ${state.backendBase}.`);
+    structuralList.innerHTML = list.map(item => `<div class="list-item">${item}</div>`).join('');
+  }
+
+  function renderRecommendations() {
+    const items = [];
+    const connectors = getMergedConnectors();
+    const failed = connectors.filter(item => (item.status || 'untested') === 'error');
+    const missing = connectors.filter(item => item.status === 'missing_key');
+    const manualOnly = connectors.filter(item => item.autoDetected === false);
+    if (missing.length) items.push(`Cadastrar chaves pendentes: ${missing.map(item => item.key).join(', ')}.`);
+    if (failed.length) items.push(`Atacar os conectores em erro primeiro, começando pelos que impactam ciência escolar: ${failed.slice(0, 8).map(item => item.key).join(', ')}.`);
+    if (manualOnly.length > 0) items.push(`${manualOnly.length} conectores estão fora da auto-detecção. Eles podem existir e ainda assim nunca entrar no fluxo sem seleção manual.`);
+    items.push('Se o painel mostrar 404, reinicie o servidor local ou confirme a URL do backend no topo da página.');
+    items.push('Abra este painel preferencialmente por http://localhost:3000/admin.html, não por file://admin.html.');
+    recommendationsList.innerHTML = items.map(item => `<div class="list-item">${item}</div>`).join('');
+  }
+
+  function renderFailures() {
+    const failed = getMergedConnectors().filter(item => (item.status || 'untested') === 'error');
+    failedCountValue.textContent = failed.length;
+    failedCountCopy.textContent = failed.length ? 'Falhas reais detectadas no último retrato do sistema.' : 'Nenhuma falha carregada nesta sessão.';
+    failedList.innerHTML = failed.length
+      ? failed.slice(0, 20).map(item => `<div class="list-item"><strong>${humanizeKey(item.key)}</strong><div class="status-detail">${item.message || 'Erro sem detalhe'}${item.summary ? `\nResumo: ${item.summary}` : ''}</div></div>`).join('')
+      : '<div class="list-item">Nenhuma falha carregada ainda.</div>';
+  }
+
+  async function fetchJson(url, options = {}) {
+    const res = await fetch(url, options);
+    if (res.status === 404) {
+      throw new Error(`404 em ${url}. Isso normalmente significa servidor antigo, rota ausente, ou admin aberto fora do backend correto.`);
+    }
+    const json = await res.json();
+    if (json && json.ok === false) throw new Error(json.error || `Falha em ${url}`);
+    return json;
+  }
+
+  async function loadStatus() {
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<span class="material-icons-outlined">sync</span><span>Lendo servidor...</span>';
+    try {
+      clearError();
+      const [health, status] = await Promise.all([
+        fetchJson(apiUrl('/api/health')),
+        fetchJson(apiUrl('/api/admin/status'))
+      ]);
+      state.version = status.version;
+      state.diagnostics = status.diagnostics;
+      versionValue.textContent = status.version;
+      generatedAtValue.textContent = `Snapshot gerado em ${new Date(status.diagnostics.generatedAt).toLocaleString('pt-BR')}`;
+      backendHealthValue.textContent = health.status || 'OK';
+      backendHealthCopy.textContent = `Servidor respondeu em ${apiUrl('/api/health')}.`;
+      connectorCountValue.textContent = status.diagnostics.catalog.supportedConnectorCount;
+      const inventoryCount = status.diagnostics.catalog.inventoryFileCount;
+      const codeCount = status.diagnostics.catalog.supportedConnectorCount;
+      inventoryDeltaValue.textContent = inventoryCount == null
+        ? 'Inventário textual indisponível.'
+        : `Inventário textual: ${inventoryCount}. Diferença para o código: ${codeCount - inventoryCount}.`;
+      autoDetectValue.textContent = status.diagnostics.catalog.autoDetectedConnectorCount;
+      batchDetailValue.textContent = 'Cobertura heurística do Drekee carregada.';
+      batchSummaryValue.textContent = '--';
+      batchSummaryCopy.textContent = 'Rode o teste em lote para medir atividade real.';
+      renderKeys(status.diagnostics.keys || []);
+      renderStructuralSummary();
+      renderRecommendations();
+      renderFailures();
+      renderConnectors();
+    } catch (error) {
+      backendHealthValue.textContent = 'Erro';
+      backendHealthCopy.textContent = 'Painel sem comunicação com o backend.';
+      showError(`${error.message} Use este painel via servidor e confira a URL do backend no topo. Se você acabou de alterar o código, reinicie o Node para carregar as rotas novas.`);
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = '<span class="material-icons-outlined">refresh</span><span>Atualizar status</span>';
+    }
+  }
+
+  async function testConnector(key, button) {
+    if (button) { button.disabled = true; button.textContent = 'Testando...'; }
+    try {
+      const json = await fetchJson(apiUrl('/api/admin/test-connector'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+      state.connectorResults.set(key, json.result);
+      renderRecommendations();
+      renderFailures();
+      renderConnectors();
+    } catch (error) {
+      state.connectorResults.set(key, { key, status: 'error', message: error.message });
+      showError(error.message);
+      renderRecommendations();
+      renderFailures();
+      renderConnectors();
+    } finally {
+      if (button) { button.disabled = false; button.textContent = 'Testar'; }
+    }
+  }
+
+  async function testAll() {
+    if (batchRunning) return;
+    batchRunning = true;
+    testAllBtn.disabled = true;
+    testAllBtn.innerHTML = '<span class="material-icons-outlined">hourglass_top</span><span>Testando tudo...</span>';
+    try {
+      clearError();
+      const connectorKeys = (state.diagnostics?.connectors || []).map(item => item.key);
+      if (!connectorKeys.length) throw new Error('Catálogo vazio no painel. Atualize o status primeiro.');
+
+      state.connectorResults = new Map();
+      renderConnectors();
+
+      let active = 0;
+      let error = 0;
+      let missingKey = 0;
+
+      for (let index = 0; index < connectorKeys.length; index += 1) {
+        const key = connectorKeys[index];
+        batchSummaryValue.textContent = `${index + 1}/${connectorKeys.length}`;
+        batchSummaryCopy.textContent = `Testando agora: ${humanizeKey(key)}`;
+        try {
+          const json = await fetchJson(apiUrl('/api/admin/test-connector'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key }),
+          });
+          state.connectorResults.set(key, json.result);
+          if (json.result.status === 'active') active += 1;
+          else if (json.result.status === 'missing_key') missingKey += 1;
+          else error += 1;
+        } catch (err) {
+          state.connectorResults.set(key, { key, status: 'error', message: err.message });
+          error += 1;
+        }
+        renderRecommendations();
+        renderFailures();
+        renderConnectors();
+      }
+
+      batchSummaryValue.textContent = `${active}/${connectorKeys.length}`;
+      batchSummaryCopy.textContent = `Ativos: ${active} | Erros: ${error} | Sem chave: ${missingKey}.`;
+    } catch (error) {
+      showError(error.message);
+      batchSummaryValue.textContent = 'Erro';
+      batchSummaryCopy.textContent = error.message;
+    } finally {
+      batchRunning = false;
+      testAllBtn.disabled = false;
+      testAllBtn.innerHTML = '<span class="material-icons-outlined">science</span><span>Testar todos os conectores</span>';
+    }
+  }
+
+  refreshBtn.addEventListener('click', loadStatus);
+  testAllBtn.addEventListener('click', testAll);
+  searchInput.addEventListener('input', renderConnectors);
+  statusFilter.addEventListener('change', renderConnectors);
+  connectorsBody.addEventListener('click', event => {
+    const button = event.target.closest('button[data-key]');
+    if (!button) return;
+    testConnector(button.dataset.key, button);
+  });
+  saveBackendBtn.addEventListener('click', () => {
+    setBackendBase(backendUrlInput.value);
+    loadStatus();
+  });
+
+  setBackendBase(getDefaultBackendBase());
+  loadStatus();
+</script>
+</body>
+</html>

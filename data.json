@@ -1,0 +1,449 @@
+{
+  "apis": [
+    {
+      "id": 2,
+      "nome": "Google CSE Authority",
+      "palavras_chave": ["busca oficial", "fontes autoritativas", "domínios oficiais", "pesquisa governamental", "resultado confiável", "busca instituição", "fonte acadêmica", "domínio .gov", "domínio .org", "fonte oficial", "busca confiável", "portal oficial", "autoridade", "instituição pública", "órgão governamental", "resultado verificado", "fonte primária", "documento oficial", "registro público", "informação autenticada", "domínio educacional", "site oficial"]
+    },
+    {
+      "id": 3,
+      "nome": "Google News (SerpApi)",
+      "palavras_chave": ["notícia", "notícia recente", "jornalismo", "cobertura jornalística", "últimas notícias", "news", "acontecimentos atuais", "reportagem", "breaking news", "manchete", "notícia hoje", "notícia agora", "atualidades", "jornal", "imprensa", "artigo jornalístico", "evento atual", "desenvolvimento atual", "flash news", "notícia rápida", "cobertura", "mídia jornalística", "redação jornalística"]
+    },
+    {
+      "id": 4,
+      "nome": "Google Lens (SerpApi)",
+      "palavras_chave": ["busca reversa imagem", "imagem", "foto", "reconhecimento visual", "identificar imagem", "análise visual", "reverse image search", "similar imagens", "busca por foto", "correspondência visual", "análise de foto", "identificação visual", "reconhecimento objeto", "imagem similar", "procurar foto", "encontrar imagem", "visual search", "correspondência imagem", "análise visual foto", "identificar objeto", "detecção visual", "busca visual"]
+    },
+    {
+      "id": 5,
+      "nome": "Wikipedia",
+      "palavras_chave": ["enciclopédia", "wikipedia", "resumo", "informação geral", "conceito", "história", "biografia", "definição", "conteúdo estruturado", "verbete", "artigo enciclopédico", "conhecimento geral", "background", "contexto histórico", "pessoa famosa", "evento histórico", "termo conceitual", "explicação clara", "visão geral", "resumo informativo", "dados biográficos", "informação contextual", "conhecimento estruturado"]
+    },
+    {
+      "id": 6,
+      "nome": "arXiv",
+      "palavras_chave": ["artigo científico", "física", "matemática", "computação", "pesquisa", "paper", "preprint", "artigo acadêmico", "teoria", "pesquisa teórica", "estudo científico", "publicação científica", "descoberta científica", "resultado pesquisa", "investigação acadêmica", "trabalho científico", "contribuição científica", "inovação científica", "artigo técnico", "publicação revisada", "ciência pura", "física teórica"]
+    },
+    {
+      "id": 7,
+      "nome": "SciELO",
+      "palavras_chave": ["artigo científico português", "pesquisa brasil", "América Latina", "artigo acadêmico", "revista científica", "pesquisa latino-americana", "publicação brasileira", "estudo brasil", "pesquisa portuguesa", "ciência brasil", "revista brasil", "artigo iberoamericano", "investigação brazil", "contribuição científica br", "periódico brasil", "estudos brasil", "pesquisa latino", "publicação brasil", "ciência brasileira", "revista periódica"]
+    },
+    {
+      "id": 8,
+      "nome": "Newton",
+      "palavras_chave": ["derivada", "integral", "cálculo", "fatoração", "equação", "resolução matemática", "limite", "polinômio", "raiz", "simplificação algébrica", "expansão", "resolução equação", "álgebra avançada", "cálculo diferencial", "cálculo integral", "série", "sequência", "fatorar", "expandir", "resolver polinômio", "operação algébrica", "fórmula matemática"]
+    },
+    {
+      "id": 9,
+      "nome": "SpaceX",
+      "palavras_chave": ["SpaceX", "lançamento foguete", "missão espacial", "Falcon", "Dragon", "Starship", "lançamento", "foguete", "voo espacial", "cápsula", "propulsão", "tecnologia espacial", "exploração espacial", "missão tripulada", "satélite lançamento", "carga útil", "órbita", "reuso foguete", "empresa privada espaço", "programa orbital"]
+    },
+    {
+      "id": 10,
+      "nome": "IBGE",
+      "palavras_chave": ["IBGE", "estatística brasil", "pesquisa brasil", "demografia", "censo", "dado público brasil", "indicador socioeconômico", "população brasil", "estatísticas brasileiras", "dados sociais", "pesquisa demográfica", "indicadores econômicos", "informação brasil", "levantamento estatístico", "survey brasil", "análise social", "dados públicos", "informação censo", "PIB brasil", "renda brasil", "educação brasil"]
+    },
+    {
+      "id": 11,
+      "nome": "Open-Meteo",
+      "palavras_chave": ["clima", "temperatura", "previsão tempo", "dados meteorológicos", "umidade", "precipitação", "vento", "coordenadas geográficas", "previsão", "tempo", "meteorologia", "clima hoje", "clima semana", "temperatura máxima", "temperatura mínima", "pressão atmosférica", "velocidade vento", "ponto orvalho", "índice UV", "visibilidade", "cobertura nuvem"]
+    },
+    {
+      "id": 12,
+      "nome": "NASA",
+      "palavras_chave": ["NASA", "imagem astronômica", "espaço", "observação astronômica", "missão espacial", "telescópio", "descoberta espacial", "astrofísica", "agência espacial", "exploração espacial", "programa lunar", "programa marciano", "Hubble", "James Webb", "satélite cientíco", "experimento espacial", "dados astronômicos", "observatório espacial"]
+    },
+    {
+      "id": 13,
+      "nome": "Open Library",
+      "palavras_chave": ["livro", "autor", "obra literária", "busca livro", "ISBN", "biblioteca digital", "ebook", "publicação", "título", "romance", "ficção", "não-ficção", "literatura", "busca editorial", "informação livro", "autores clássicos", "obras modernas", "catálogo livros", "editor", "gênero literário", "sinopse livro", "publicação ano"]
+    },
+    {
+      "id": 14,
+      "nome": "GBIF",
+      "palavras_chave": ["biodiversidade", "espécie", "taxonomia", "fauna", "flora", "organismo", "ecologia", "dados biodiversidade", "distribuição espécie", "registro biológico", "observação natureza", "dado ambiental", "ecossistema", "habitat", "conservação", "classificação biológica", "espécie rara", "espécie ameaçada", "padrão distribuição"]
+    },
+    {
+      "id": 15,
+      "nome": "USGS Earthquakes",
+      "palavras_chave": ["terremoto", "sismo", "tremor", "magnitude", "atividade sísmica", "geologia", "terremoto tempo real", "epicentro", "profundidade sismo", "intensidade", "onda sísmica", "foco terremoto", "escala Richter", "escala momento", "estrutura geológica", "falha geológica", "tremor terra", "zona sísmica", "previsão sismo"]
+    },
+    {
+      "id": 16,
+      "nome": "BrasilAPI",
+      "palavras_chave": ["feriado brasil", "banco brasil", "CEP", "dados públicos brasil", "código postal", "endereço brasil", "informação pública", "banco dados", "CNPJ", "CPF", "feriado nacional", "feriado estadual", "holiday brasil", "informação endereço", "código postal brasil", "localização cep", "validação cep"]
+    },
+    {
+      "id": 17,
+      "nome": "Câmara dos Deputados",
+      "palavras_chave": ["projeto lei", "proposição", "lei federal", "legislação brasil", "deputado", "congresso", "voto", "projeto", "PL", "projeto decreto", "emenda constitucional", "lei aprovada", "lei em votação", "projeto tramitação", "moção", "requerimento", "resolução", "ato legislativo", "tramitação projeto"]
+    },
+    {
+      "id": 18,
+      "nome": "ISS (Open Notify)",
+      "palavras_chave": ["ISS", "Estação Espacial Internacional", "posição ISS", "localização astronauta", "órbita", "rastreamento espacial", "localização estação", "velocidade ISS", "passagem ISS", "satélite habitado", "módulo espacial", "pesquisa orbital", "experimento orbital", "tripulação ISS", "observação terrestre"]
+    },
+    {
+      "id": 19,
+      "nome": "Sunrise Sunset",
+      "palavras_chave": ["nascer sol", "pôr sol", "horário", "amanhecer", "anoitecer", "coordenadas geográficas", "local", "localização", "latitude", "longitude", "duração dia", "horário amanhecer", "horário anoitecer", "hora nascer", "hora pôr", "variação sazonal"]
+    },
+    {
+      "id": 20,
+      "nome": "Free Dictionary (EN)",
+      "palavras_chave": ["definição inglês", "dicionário", "palavra", "significado", "fonética", "sinônimo", "tradução", "pronuncia", "etimologia", "exemplo uso", "parte fala", "variação palavra", "antônimo", "contexto uso", "definição técnica", "palavra rara", "gíria", "arcaísmo"]
+    },
+    {
+      "id": 21,
+      "nome": "Universities List",
+      "palavras_chave": ["universidade", "faculdade", "instituição educação", "campus", "educação superior", "busca universidade", "país", "ranking universidade", "programa educativo", "graduação", "pós-graduação", "bolsa estudos", "admissão universidade", "informação campus", "localização universidade", "ano fundação"]
+    },
+    {
+      "id": 22,
+      "nome": "PoetryDB",
+      "palavras_chave": ["poema", "poesia", "poeta", "verso", "literatura", "obra literária", "composição poética", "rima", "estrofe", "métrica", "prosa poética", "poesia clássica", "poesia moderna", "soneto", "balada", "épico", "lírico", "dramático", "autor poesia"]
+    },
+    {
+      "id": 23,
+      "nome": "PhET Simulations",
+      "palavras_chave": ["simulador", "simulação física", "educação", "interativo", "experimento", "ciência", "visualização", "aprendizado interativo", "laboratório virtual", "demonstração científica", "modelagem física", "simulação dinâmica", "ferramenta educação", "compreensão conceitual", "visualização dados", "animação científica"]
+    },
+    {
+      "id": 24,
+      "nome": "PubMed Central",
+      "palavras_chave": ["biomedicina", "saúde", "medicina", "pesquisa clínica", "artigo médico", "literatura biomédica", "farmacologia", "patologia", "diagnóstico", "tratamento", "terapêutica", "epidemiologia", "imunologia", "genética médica", "neurologia", "cardiologia", "oncologia", "pediatria", "cirurgia", "reabilitação", "saúde pública"]
+    },
+    {
+      "id": 25,
+      "nome": "Wikidata SPARQL",
+      "palavras_chave": ["Wikidata", "conhecimento estruturado", "dados abertos", "ontologia", "base conhecimento", "linked data", "SPARQL", "conhecimento grafo", "banco dados semântico", "busca estruturada", "query dados", "correlação dados", "dados interligados", "entidade vinculada"]
+    },
+    {
+      "id": 26,
+      "nome": "RCSB PDB",
+      "palavras_chave": ["proteína", "estrutura 3D", "biologia molecular", "cristalografia", "PDB", "macromolécula", "estrutura cristalina", "complexo proteico", "enzima", "receptor", "ligante", "validação estrutura", "resolução estrutural", "conformação molecular"]
+    },
+    {
+      "id": 27,
+      "nome": "AntWeb",
+      "palavras_chave": ["formiga", "himenóptera", "inseto", "imagem formiga", "banco dados formiga", "entomologia", "comportamento formiga", "espécie formiga", "colônia formiga", "ninhos", "organização social", "biologia formiga"]
+    },
+    {
+      "id": 28,
+      "nome": "Tabela Periódica",
+      "palavras_chave": ["elemento químico", "química", "tabela periódica", "átomo", "número atômico", "propriedade química", "massa atômica", "configuração eletrônica", "valência", "reatividade", "grupo químico", "período", "bloco", "série transição", "elemento raro", "halógeno", "calcogênio", "halogênio"]
+    },
+    {
+      "id": 29,
+      "nome": "FishWatch",
+      "palavras_chave": ["peixe", "pesca", "pesca sustentável", "recurso marinho", "espécie aquática", "informação pesqueira", "conservação marinha", "ecossistema aquático", "biodiversidade marinha", "reprodução peixe", "padrão migração", "alimentação peixe", "habitat aquático"]
+    },
+    {
+      "id": 30,
+      "nome": "Project Gutenberg",
+      "palavras_chave": ["ebook gratuito", "livro digital", "domínio público", "literatura clássica", "texto completo", "arquivo", "livro grátis", "biblioteca digital", "obra pública", "digitalização", "arquivo texto", "literatura acessível", "acesso livre", "publicação antiga"]
+    },
+    {
+      "id": 31,
+      "nome": "Bible API",
+      "palavras_chave": ["bíblia", "versículo", "capítulo", "escritura", "religião", "texto bíblico", "testamento", "evangelho", "salmo", "profecia", "epístola", "referência bíblica", "passagem sagrada", "livro bíblico", "verso"]
+    },
+    {
+      "id": 32,
+      "nome": "OpenAQ",
+      "palavras_chave": ["qualidade ar", "poluição", "índice poluição", "ambiente", "monitoramento ar", "dados tempo real", "poluente", "PM2.5", "PM10", "dióxido nitrogênio", "ozônio", "dióxido sulfuroso", "monóxido carbono", "emissão", "saúde ambiental"]
+    },
+    {
+      "id": 33,
+      "nome": "Solar System Data",
+      "palavras_chave": ["planeta", "sistema solar", "corpo celeste", "órbita", "órbita solar", "astrofísica", "satélite natural", "asteroide", "cometa", "propriedade planeta", "órbita elíptica", "período orbital", "distância solar", "raio planeta"]
+    },
+    {
+      "id": 34,
+      "nome": "The Space Devs",
+      "palavras_chave": ["calendário lançamento", "evento espacial", "foguete", "agência espacial", "missão", "lançamento", "agenda espacial", "próximos lançamentos", "cronograma missão", "agência espacial", "operadora comercial", "data lançamento", "local lançamento", "veículo lançamento"]
+    },
+    {
+      "id": 35,
+      "nome": "Quotes API",
+      "palavras_chave": ["citação", "frase", "inspiração", "quote", "aforismo", "pensamento", "sabedoria", "motivação", "reflexão", "perspectiva", "ensinamento", "lição", "autoria frase", "frase célebre", "pensador"]
+    },
+    {
+      "id": 36,
+      "nome": "Dog Images",
+      "palavras_chave": ["cão", "cachorro", "raça cão", "imagem cão", "informação raça", "pet", "animal", "características raça", "tamanho cão", "temperamento", "origem raça", "padrão raça", "cuidado cão", "saúde cão", "treinamento cão"]
+    },
+    {
+      "id": 37,
+      "nome": "CelesTrak",
+      "palavras_chave": ["satélite", "rastreamento satélite", "orbital", "elemento orbital", "órbita", "espaço", "elemento TLE", "linha elementos", "posição satélite", "velocidade orbital", "período orbital", "inclinação órbita", "satélite ativo", "rastreamento tempo real"]
+    },
+    {
+      "id": 38,
+      "nome": "CODATA Constants",
+      "palavras_chave": ["constante física", "física fundamental", "valor físico", "fórmula", "cálculo científico", "constante Planck", "velocidade luz", "número Avogadro", "gravidade", "carga eletrônica", "constante Boltzmann", "valor preciso", "incerteza", "unidade padrão"]
+    },
+    {
+      "id": 39,
+      "nome": "Quotes Free API",
+      "palavras_chave": ["citação", "frase inspiradora", "quote", "pensamento", "aforismo", "motivação", "sabedoria", "reflexão", "ensinamento", "perspectiva positiva", "frase motivadora", "inspiração diária", "lição vida", "pensamento profundo"]
+    },
+    {
+      "id": 40,
+      "nome": "Open Food Facts",
+      "palavras_chave": ["alimento", "produto alimentício", "nutrição", "ingrediente", "composição alimento", "comida", "bebida", "informação nutricional", "valor calórico", "proteína", "gordura", "carboidrato", "aditivo alimentar", "rótulo alimento", "código barras", "fabricante"]
+    },
+    {
+      "id": 41,
+      "nome": "Lorem Picsum",
+      "palavras_chave": ["imagem aleatória", "foto placeholder", "imagem gerada", "imagem qualidade", "foto temporária", "imagem padrão", "mockup imagem", "placeholder visual", "imagem teste"]
+    },
+    {
+      "id": 42,
+      "nome": "OpenUniverse",
+      "palavras_chave": ["astronomia", "dado astronômico", "universo", "exploração cósmica", "observação estelar", "cosmologia", "astrofísica", "estrutura universo", "expansão universo", "radiação fundo", "galáxia", "aglomerado galáctico", "via láctea"]
+    },
+    {
+      "id": 43,
+      "nome": "Stellarium Web",
+      "palavras_chave": ["planetário", "céu noturno", "estrela", "constelação", "observação estelar", "mapa celeste", "carta estelar", "posição estrela", "nome constelação", "mitologia constelação", "brilho estrela", "identificação estrela", "observação astronômica amadora"]
+    },
+    {
+      "id": 44,
+      "nome": "LIGO Gravitational Waves",
+      "palavras_chave": ["onda gravitacional", "LIGO", "gravitação", "relatividade", "detecção onda", "física", "relatividade geral", "buraco negro", "estrela nêutron", "fusão", "detecção LIGO", "sensibilidade detector", "gravidade quântica"]
+    },
+    {
+      "id": 45,
+      "nome": "Solar Dynamics (SDO)",
+      "palavras_chave": ["sol", "atividade solar", "dinâmica solar", "observação solar", "tempo real", "radiação solar", "campo magnético solar", "mancha solar", "erupção solar", "flare solar", "vento solar", "coroa solar", "fotosfera", "cromosfera"]
+    },
+    {
+      "id": 46,
+      "nome": "NOAA Space Weather",
+      "palavras_chave": ["clima espacial", "previsão espacial", "tempestade solar", "radiação cósmica", "NOAA", "aurora boreal", "tempestade geomagnética", "índice Kp", "radiação corpuscular", "ejeção massa coronal", "previsão espaço", "alerta espaço"]
+    },
+    {
+      "id": 47,
+      "nome": "NASA Exoplanets",
+      "palavras_chave": ["exoplaneta", "planeta extrassolar", "busca planeta", "astronomia", "dados confirmado", "banco exoplaneta", "zona habitável", "planeta habitável", "descoberta planeta", "método detecção", "planeta transitante", "planeta pulsante", "características planeta"]
+    },
+    {
+      "id": 48,
+      "nome": "Kepler/TESS Data",
+      "palavras_chave": ["Kepler", "TESS", "missão planeta", "descoberta exoplaneta", "resultado missão", "dados missão", "arquivo missão", "performance missão", "exoplanet encontrado", "estatísticas descoberta"]
+    },
+    {
+      "id": 49,
+      "nome": "Math.js Advanced",
+      "palavras_chave": ["cálculo matemático", "álgebra", "geometria", "expressão matemática", "operação", "função", "derivada", "integral", "limite", "série", "fatoração", "simplificação", "resolução equação", "matrix", "número complexo"]
+    },
+    {
+      "id": 50,
+      "nome": "Numberempire",
+      "palavras_chave": ["plotagem função", "gráfico", "análise numérica", "função matemática", "visualização", "plot gráfico", "equação gráfica", "curva matemática", "superfície 3D", "cálculo integral", "raiz função"]
+    },
+    {
+      "id": 51,
+      "nome": "PubChem 3D",
+      "palavras_chave": ["estrutura química 3D", "molécula", "composto químico", "química", "visualização 3D", "propriedade molecular", "conformação molecular", "ligação química", "orbital molecular", "espectroscopia", "reação química"]
+    },
+    {
+      "id": 52,
+      "nome": "Ensembl Genomics",
+      "palavras_chave": ["genoma", "genômica", "gene", "navegador genômico", "sequência DNA", "biologia molecular", "variante genética", "annotação gênica", "expressão gênica", "regulação gênica", "informação genômica", "banco genômico", "sequência alinhamento"]
+    },
+    {
+      "id": 53,
+      "nome": "MyGene.info",
+      "palavras_chave": ["gene", "anotação gene", "informação genética", "sequência gênica", "biologia molecular", "função gênica", "localização cromossômica", "ID gene", "nomenclatura gene", "sinônimos gene", "vias gênicas"]
+    },
+    {
+      "id": 54,
+      "nome": "UniProt Proteins",
+      "palavras_chave": ["proteína", "base dados proteína", "sequência proteica", "anotação proteína", "biologia", "função proteína", "estrutura proteica", "localização proteína", "interação proteína", "modificação pós-traducional", "homologia proteica"]
+    },
+    {
+      "id": 55,
+      "nome": "InterPro Domains",
+      "palavras_chave": ["domínio proteico", "família proteína", "motivo", "análise proteica", "bioinformática", "assinatura proteica", "superfamília", "scan domínio", "conservação domínio", "função domínio"]
+    },
+    {
+      "id": 56,
+      "nome": "EMBL / ENA",
+      "palavras_chave": ["sequência nucleotídeo", "DNA", "RNA", "banco nucleotídeo", "anotação sequência", "banco dados nucleotídeo", "NCBI", "sequência genômica", "EST", "cDNA", "genoma completo", "metagenômica"]
+    },
+    {
+      "id": 57,
+      "nome": "MGI Mouse Genetics",
+      "palavras_chave": ["mouse", "genética mouse", "fenótipo", "rato", "genômica mamífero", "linhagem mouse", "mutante mouse", "cromossomo mouse", "genes mouse", "comparação mamífero", "modelo animal"]
+    },
+    {
+      "id": 58,
+      "nome": "FlyBase",
+      "palavras_chave": ["Drosophila", "mosca-da-fruta", "genética inseto", "genômica", "dados Drosophila", "linhagem drosophila", "mutações drosophila", "cromossomo drosophila", "genes drosophila", "fenótipo drosophila"]
+    },
+    {
+      "id": 59,
+      "nome": "WormBase",
+      "palavras_chave": ["Caenorhabditis elegans", "verme nematóide", "genética verme", "modelo genético", "C. elegans", "genoma verme", "mapeamento genético", "fenotipagem verme", "neurobiologia verme"]
+    },
+    {
+      "id": 60,
+      "nome": "SGD Yeast Genetics",
+      "palavras_chave": ["levedura", "Saccharomyces", "genética levedura", "biologia levedura", "Saccharomyces cerevisiae", "cromossomo levedura", "genes levedura", "plasminética levedura", "metabolismo levedura"]
+    },
+    {
+      "id": 61,
+      "nome": "PDBe Structures",
+      "palavras_chave": ["estrutura biomolécula", "cristalografia europeia", "PDB", "proteína estrutura", "banco europeu", "estrutura experimental", "cristalografia raio-X", "RMN", "crioEM", "validação estrutura"]
+    },
+    {
+      "id": 62,
+      "nome": "Reactome Pathway",
+      "palavras_chave": ["via biológica", "pathway", "processo celular", "reação bioquímica", "ciclo celular", "sinalização celular", "metabolismo", "apoptose", "resposta imune", "transporte", "transcrição", "metabolismo especial"]
+    },
+    {
+      "id": 63,
+      "nome": "STRING Interaction",
+      "palavras_chave": ["interação proteína", "rede proteica", "gene interação", "biologia sistemas", "busca proteína", "rede biológica", "associação proteica", "dados experimentais", "conhecimento validado", "previsão interação"]
+    },
+    {
+      "id": 64,
+      "nome": "OpenFDA",
+      "palavras_chave": ["medicamento", "FDA", "droga", "fármaco", "alimento", "segurança medicamento", "aprovação FDA", "reação adversa", "efeito colateral", "bula medicamento", "regulamentação FDA", "segurança alimento", "recalls", "advertências medicamento"]
+    },
+    {
+      "id": 65,
+      "nome": "PubChem Bioassay",
+      "palavras_chave": ["bioensaio", "teste biológico", "atividade química", "resultado ensaio", "química biológica", "dados bioatividade", "avaliação atividade", "teste célula", "ensaio proteína", "resultado screening"]
+    },
+    {
+      "id": 66,
+      "nome": "Wolfram Alpha",
+      "palavras_chave": ["Wolfram Alpha", "motor computacional", "resolução simbólica", "cálculo avançado", "resposta computada", "computação", "álgebra simbólica", "equação diferencial", "solução exata", "gráfico interativo", "análise dados"]
+    },
+    {
+      "id": 67,
+      "nome": "ClinVar Variations",
+      "palavras_chave": ["variação genética", "mutação", "risco saúde", "variante genética", "medicina genômica", "SNP", "polimorfismo", "inserção deleção", "variação clínica", "fenótipo variação", "patogenicidade", "classificação variante"]
+    },
+    {
+      "id": 68,
+      "nome": "COSMIC Cancer",
+      "palavras_chave": ["mutação câncer", "oncologia", "somaticamente mutado", "dados câncer", "tumor", "mutação somática", "banco câncer", "tipo câncer", "linhagem tumoral", "gene câncer", "transformação celular"]
+    },
+    {
+      "id": 69,
+      "nome": "Johns Hopkins COVID-19",
+      "palavras_chave": ["COVID-19", "pandemia", "histórico COVID", "dados pandemia", "coronavírus", "casos COVID", "mortes COVID", "vacinação", "variante COVID", "estatísticas pandemia", "rastreamento COVID", "dados históricos"]
+    },
+    {
+      "id": 70,
+      "nome": "NOAA Climate",
+      "palavras_chave": ["clima histórico", "variação climática", "padrão clima", "temperatura histórica", "precipitação", "dados climáticos", "série temporal", "reconstrução climática", "anomalia clima", "ciclo climático", "mudança clima"]
+    },
+    {
+      "id": 71,
+      "nome": "World Bank Climate",
+      "palavras_chave": ["indicador climático", "país", "mudança climática", "desenvolvimento sustentável", "emissão carbono", "dados climáticos país", "indicador ambiental", "estatísticas sustentabilidade", "clima país", "vulnerabilidade climática"]
+    },
+    {
+      "id": 72,
+      "nome": "USGS Water",
+      "palavras_chave": ["água", "recurso hídrico", "monitoramento água", "hidrologia", "qualidade água", "nível água", "vazão rio", "recarga aquífero", "infiltração", "escoamento superficial", "ciclo hidrológico"]
+    },
+    {
+      "id": 73,
+      "nome": "Met Museum",
+      "palavras_chave": ["obra arte", "coleção museu", "Metropolitan", "arte clássica", "cultura", "pintura clássica", "escultura", "arte medieval", "arte moderna", "arte decorativa", "metadados obra", "história arte"]
+    },
+    {
+      "id": 74,
+      "nome": "Getty Museum",
+      "palavras_chave": ["arte", "Getty", "obra arte", "imagem arte", "metadados arte", "pintura", "fotografia", "escultura", "arte gráfica", "arte manuscrito", "obra mestre", "coleção getty"]
+    },
+    {
+      "id": 75,
+      "nome": "Sketchfab 3D",
+      "palavras_chave": ["modelo 3D", "visualização 3D", "objeto 3D", "escultura digital", "arte 3D", "design 3D", "impressão 3D", "animação 3D", "renderização", "malha 3D", "geometria 3D"]
+    },
+    {
+      "id": 76,
+      "nome": "Open Science OSF",
+      "palavras_chave": ["projeto científico", "ciência aberta", "pesquisa aberta", "colaboração científica", "compartilhamento dados", "repositório pesquisa", "pré-registro", "preprint", "protocolo pesquisa"]
+    },
+    {
+      "id": 77,
+      "nome": "Earth Timelapse",
+      "palavras_chave": ["timelapse planeta", "vídeo temporal", "mudança terra", "satélite terra", "meio ambiente", "mudança ambiental", "desflorestamento", "urbanização", "mudança paisagem", "evolução temporal"]
+    },
+    {
+      "id": 78,
+      "nome": "NASA Horizons",
+      "palavras_chave": ["efeméride", "posição corpo celeste", "órbita", "astronomia posicional", "cálculo efeméride", "estado objeto", "velocidade corpo celeste", "observação astronômica", "correção atmosférica"]
+    },
+    {
+      "id": 79,
+      "nome": "SDO Solar Dynamics",
+      "palavras_chave": ["dinâmica solar", "sol", "observação solar", "radiação solar", "manchas solares", "campo magnético", "dinâmica plasma", "atividade solar real"]
+    },
+    {
+      "id": 80,
+      "nome": "Kepler/TESS Search",
+      "palavras_chave": ["busca exoplaneta", "Kepler", "TESS", "planeta confirmado", "descoberta exoplaneta", "banco exoplanetário", "estatísticas descoberta"]
+    },
+    {
+      "id": 81,
+      "nome": "Numberempire Math",
+      "palavras_chave": ["ferramenta matemática", "cálculo avançado", "gráfico função", "análise", "plotagem", "resolução equação", "matriz", "função", "série", "limite"]
+    },
+    {
+      "id": 82,
+      "nome": "PubChem Bioassay",
+      "palavras_chave": ["ensaio biológico", "teste atividade", "química biológica", "resultado ensaio", "bioensaio", "atividade composto", "dados bioatividade", "screen composto"]
+    },
+    {
+      "id": 83,
+      "nome": "ClinVar Genetic",
+      "palavras_chave": ["variante genética", "consulta genética", "medicina genômica", "mutação", "variação", "polimorfismo", "fenótipo genético", "patogenicidade variante"]
+    },
+    {
+      "id": 84,
+      "nome": "COSMIC Cancer",
+      "palavras_chave": ["pesquisa câncer", "mutação somática", "oncologia", "genômica câncer", "tumor", "clone tumoral", "gene supressor", "oncogene"]
+    },
+    {
+      "id": 85,
+      "nome": "Sentinel/Copernicus",
+      "palavras_chave": ["satélite observação", "terra", "monitoramento ambiental", "geoespacial", "observação terrestre", "imagem satélite", "mudança terra", "monitoramento ambiental", "dados cobertura terra"]
+    },
+    {
+      "id": 86,
+      "nome": "NASA FIRMS (Fogo)",
+      "palavras_chave": ["incêndio", "fogo", "detecção incêndio", "desastre natural", "satélite fogo", "monitoramento queimada", "mapas incêndio", "hotspot térmico", "alerta fogo"]
+    },
+    {
+      "id": 87,
+      "nome": "edX Open Courses",
+      "palavras_chave": ["curso online", "educação aberta", "curso acadêmico", "aprendizado", "plataforma educação", "aula virtual", "conteúdo gratuito", "certificação online", "universidade online"]
+    },
+    {
+      "id": 88,
+      "nome": "MIT OpenCourseWare",
+      "palavras_chave": ["curso MIT", "material educação", "educação aberta", "aprendizado MIT", "conteúdo acadêmico", "palestra MIT", "problemas conjuntos", "exames MIT", "currículo MIT"]
+    },
+    {
+      "id": 89,
+      "nome": "MEC e-Jovem",
+      "palavras_chave": ["inclusão digital brasil", "educação digital", "programa educação", "tecnologia brasil", "programa jovem", "capacitação digital", "acesso internet", "letramento digital"]
+    },
+    {
+      "id": 90,
+      "nome": "Educ4Share",
+      "palavras_chave": ["recurso educacional", "material educação", "compartilhamento conhecimento", "aprendizado", "plataforma educação", "conteúdo educativo", "material didático", "recurso didático"]
+    }
+  ]
+}

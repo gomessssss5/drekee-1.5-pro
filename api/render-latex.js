@@ -1,99 +1,3 @@
-require('./load-env');
-
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const packageJson = require('./package.json');
-
-// Import the chat handler
-const chatHandler = require('./api/chat.js');
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname)));
-
-// API routes
-app.post('/api/chat', async (req, res) => {
-  try {
-<<<<<<< HEAD
-    await chatHandler(req, res);
-=======
-    const result = await chatHandler(req, res);
-    // The handler should handle the response
->>>>>>> ded0eea65d63e2bdacb3fc377d88eb01842a083d
-  } catch (error) {
-    console.error('Server error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/admin/status', async (req, res) => {
-  try {
-    const diagnostics = await chatHandler.getAdminDiagnostics();
-    return res.json({
-      ok: true,
-      version: packageJson.version,
-      diagnostics,
-    });
-  } catch (error) {
-    console.error('Admin status error:', error);
-    return res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-app.post('/api/admin/test-connector', async (req, res) => {
-  try {
-    const key = String(req.body?.key || '').trim().toLowerCase();
-    if (!key) {
-      return res.status(400).json({ ok: false, error: 'Missing connector key' });
-    }
-    const result = await chatHandler.probeConnector(key, { userContext: req.body?.userContext || {} });
-    return res.json({ ok: true, result });
-  } catch (error) {
-    console.error('Admin connector test error:', error);
-    return res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-app.post('/api/admin/test-all', async (req, res) => {
-  try {
-    const connectors = Array.isArray(chatHandler.supportedConnectors) ? chatHandler.supportedConnectors : [];
-    const concurrency = 6;
-    const results = [];
-    let index = 0;
-
-    async function worker() {
-      while (index < connectors.length) {
-        const current = connectors[index++];
-        const result = await chatHandler.probeConnector(current, { userContext: req.body?.userContext || {} });
-        results.push(result);
-      }
-    }
-
-    await Promise.all(Array.from({ length: Math.min(concurrency, connectors.length) }, () => worker()));
-    results.sort((a, b) => a.key.localeCompare(b.key));
-
-    return res.json({
-      ok: true,
-      total: results.length,
-      counts: {
-        active: results.filter(item => item.status === 'active').length,
-        error: results.filter(item => item.status === 'error').length,
-        missing_key: results.filter(item => item.status === 'missing_key').length,
-        present_only: results.filter(item => item.status === 'present_only').length,
-      },
-      results,
-    });
-  } catch (error) {
-    console.error('Admin test-all error:', error);
-    return res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
 function sanitizeLatexDocument(rawCode = '') {
   return String(rawCode || '')
     .replace(/^```(?:latex)?\s*/i, '')
@@ -291,6 +195,7 @@ async function compileWithTexlive(code) {
   form.append('return', 'pdf');
   form.append('filename[]', 'document.tex');
   form.append('filecontents[]', code);
+
   const upstream = await fetch('https://texlive.net/cgi-bin/latexcgi', {
     method: 'POST',
     body: form,
@@ -314,10 +219,19 @@ async function compileWithTexlive(code) {
   };
 }
 
-app.post('/api/render-latex', async (req, res) => {
+async function handler(req, res) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
-    const code = sanitizeLatexDocument(req.body?.code || '');
-    const format = String(req.body?.format || 'png').trim().toLowerCase() || 'png';
+    const body = typeof req.body === 'string'
+      ? JSON.parse(req.body || '{}')
+      : (req.body || {});
+
+    const code = sanitizeLatexDocument(body.code || '');
+    const format = String(body.format || 'png').trim().toLowerCase() || 'png';
 
     if (!code) {
       return res.status(400).json({ error: 'Missing LaTeX code' });
@@ -377,26 +291,9 @@ app.post('/api/render-latex', async (req, res) => {
       details: text.slice(0, 1600),
     });
   } catch (error) {
-    console.error('LaTeX render proxy error:', error);
+    console.error('render-latex API error:', error);
     return res.status(500).json({ error: 'Failed to render LaTeX graph' });
   }
-});
+}
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', version: packageJson.version });
-});
-
-// Serve index.html for root
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'admin.html'));
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 Drekee AI 1.5 Pro running on http://localhost:${PORT}`);
-  console.log(`📡 API endpoint: http://localhost:${PORT}/api/chat`);
-});
+module.exports = handler;

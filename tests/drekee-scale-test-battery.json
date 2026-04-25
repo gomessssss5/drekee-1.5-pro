@@ -1,0 +1,167 @@
+{
+  "version": "1.0",
+  "created_at": "2026-03-29",
+  "purpose": "Bateria de testes em escala para confiabilidade textual, graficos e mapas mentais do Drekee.",
+  "domains": [
+    {
+      "domain": "ibge",
+      "cases": [
+        {
+          "id": "ibge-01",
+          "prompt": "Populacao do Brasil segundo o IBGE e comparacao com 2010.",
+          "expected": ["fonte ibge", "sem numero inventado", "comparacao discreta em barras se houver visual"]
+        },
+        {
+          "id": "ibge-02",
+          "prompt": "Taxa de desemprego no Brasil entre 2022 e 2025 com grafico.",
+          "expected": ["serie temporal com dados confirmados", "sem preencher anos ausentes com zero", "linha de base y=0 se percentual"]
+        },
+        {
+          "id": "ibge-03",
+          "prompt": "Explique o que o IBGE mede no Censo Demografico com mapa mental.",
+          "expected": ["mapa mental radial", "ramos conceituais sustentados pela resposta", "sem relacao causal inventada"]
+        }
+      ]
+    },
+    {
+      "domain": "clima",
+      "cases": [
+        {
+          "id": "clima-01",
+          "prompt": "Evolucao da anomalia de temperatura global na ultima decada com grafico.",
+          "expected": ["serie temporal", "eixo Y tecnico", "sem distorcao de escala", "fontes institucionais"]
+        },
+        {
+          "id": "clima-02",
+          "prompt": "Composicao dos gases de efeito estufa e impacto relativo com grafico.",
+          "expected": ["comparacao ou composicao coerente", "sem percentuais falsos", "sem visual artistico enganoso"]
+        },
+        {
+          "id": "clima-03",
+          "prompt": "Explique aquecimento global com mapa mental.",
+          "expected": ["tema conceitual", "sem simplificacao excessiva de tema sensivel", "mapa mental compacto"]
+        }
+      ]
+    },
+    {
+      "domain": "saude",
+      "cases": [
+        {
+          "id": "saude-01",
+          "prompt": "Compare incidencia e mortalidade por dengue no Brasil com base em fontes oficiais.",
+          "expected": ["nao misturar incidencia com mortalidade", "sem causalidade inventada", "grafico so se houver dados confirmados"]
+        },
+        {
+          "id": "saude-02",
+          "prompt": "Explique como funciona uma vacina de mRNA com mapa mental.",
+          "expected": ["mapa mental conceitual", "sem simplificacao perigosa", "ramos rastreaveis ao texto"]
+        },
+        {
+          "id": "saude-03",
+          "prompt": "Mostre a evolucao de casos confirmados de sarampo no Brasil em anos recentes.",
+          "expected": ["serie temporal confirmada", "sem preencher anos faltantes", "aviso se dados nao forem localizados"]
+        }
+      ]
+    },
+    {
+      "domain": "energia",
+      "cases": [
+        {
+          "id": "energia-01",
+          "prompt": "Compare matriz eletrica do Brasil com a media mundial em fontes renovaveis com grafico.",
+          "expected": ["nao confundir matriz eletrica com matriz energetica", "comparacao discreta em barras", "fonte institucional"]
+        },
+        {
+          "id": "energia-02",
+          "prompt": "Participacao de hidreletrica, solar, eolica e termica na eletricidade brasileira.",
+          "expected": ["template de composicao ou barras", "dados consistentes", "sem soma incoerente"]
+        },
+        {
+          "id": "energia-03",
+          "prompt": "Explique diferenca entre energia, potencia e consumo com mapa mental.",
+          "expected": ["ramos conceituais distintos", "sem misturar conceitos", "sem visual gigante"]
+        }
+      ]
+    },
+    {
+      "domain": "astronomia",
+      "cases": [
+        {
+          "id": "astro-01",
+          "prompt": "Compare tamanho relativo da Terra, Jupiter e Sol com grafico informativo.",
+          "expected": ["comparacao discreta", "unidade clara", "sem ordem de grandeza absurda"]
+        },
+        {
+          "id": "astro-02",
+          "prompt": "Explique o ciclo de vida de uma estrela com mapa mental.",
+          "expected": ["mapa mental radial", "sem etapas inventadas", "subtopicos curtos"]
+        },
+        {
+          "id": "astro-03",
+          "prompt": "Mostre lancamentos recentes da SpaceX por ano com grafico.",
+          "expected": ["serie temporal so com anos confirmados", "sem linha continua se periodo estiver incompleto"]
+        }
+      ]
+    },
+    {
+      "domain": "series_historicas",
+      "cases": [
+        {
+          "id": "hist-01",
+          "prompt": "PIB do Brasil de 2019 a 2024 com grafico.",
+          "expected": ["sem zeros artificiais", "aviso de ano ausente se necessario", "serie temporal coerente"]
+        },
+        {
+          "id": "hist-02",
+          "prompt": "Safra de graos do Brasil entre 2018 e 2025 com grafico.",
+          "expected": ["sem triangulo ou cunha", "sem extrapolacao entre anos nao confirmados", "preferir barras se faltarem anos"]
+        },
+        {
+          "id": "hist-03",
+          "prompt": "Evolucao da populacao brasileira entre 1950 e 2025.",
+          "expected": ["escala proporcional", "eixo Y tecnico", "fonte consistente"]
+        }
+      ]
+    },
+    {
+      "domain": "comparacao_paises",
+      "cases": [
+        {
+          "id": "pais-01",
+          "prompt": "Compare expectativa de vida entre Brasil, Japao e Nigeria com dados recentes.",
+          "expected": ["barras", "unidade clara", "sem linha ligando categorias"]
+        },
+        {
+          "id": "pais-02",
+          "prompt": "Compare emissoes de CO2 entre China, Estados Unidos, India e Brasil.",
+          "expected": ["ordem de grandeza correta", "fonte internacional", "sem percentuais falsos"]
+        },
+        {
+          "id": "pais-03",
+          "prompt": "Mapa mental sobre fatores que diferenciam IDH entre paises.",
+          "expected": ["mapa conceitual sem causalidade forte inventada", "ramos equilibrados"]
+        }
+      ]
+    },
+    {
+      "domain": "temas_conceituais",
+      "cases": [
+        {
+          "id": "conc-01",
+          "prompt": "Explique fotossintese com mapa mental.",
+          "expected": ["mapa mental radial", "sem texto sobreposto", "ramos curtos"]
+        },
+        {
+          "id": "conc-02",
+          "prompt": "Explique inteligencia artificial e vies algoritmico com mapa mental.",
+          "expected": ["tema sensivel com cuidado", "sem simplificacao excessiva", "sem relacao causal inventada"]
+        },
+        {
+          "id": "conc-03",
+          "prompt": "Explique diferenca entre gene, DNA e cromossomo com mapa mental.",
+          "expected": ["conceitos distintos", "sem confusao hierarquica", "estrutura compacta"]
+        }
+      ]
+    }
+  ]
+}

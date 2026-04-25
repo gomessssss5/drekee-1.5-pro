@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Drekee Noticias</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<link rel="icon" href="data:,"/>
+<style>
+  :root {
+    --bg: #0d1526;
+    --bg2: #111d32;
+    --surface: #162038;
+    --surface2: #1c2a45;
+    --surface3: rgba(18, 28, 48, 0.88);
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e2e8f0;
+    --text-soft: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --blue: #3b82f6;
+    --blue-strong: #2563eb;
+    --blue-glow: rgba(59,130,246,0.18);
+    --violet: #818cf8;
+    --success: #34d399;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    min-height: 100%;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  body {
+    overflow-x: hidden;
+    background:
+      radial-gradient(circle at top center, rgba(59,130,246,0.16), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(129,140,248,0.1), transparent 22%),
+      var(--bg);
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .page-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 19rem minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 1.5rem 1rem;
+    background: rgba(13, 20, 38, 0.97);
+    border-right: 1px solid var(--border);
+    backdrop-filter: blur(24px);
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 0.45rem;
+  }
+  .brand-mark {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.7rem;
+    background: linear-gradient(135deg, rgba(59,130,246,0.25), rgba(129,140,248,0.28));
+    border: 1px solid rgba(147,197,253,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 14px 30px rgba(37, 99, 235, 0.2);
+  }
+  .brand-mark span { color: #f8fafc; font-size: 1.2rem; }
+  .brand-title {
+    font-size: 1.02rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #60a5fa, #a5b4fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .brand-subtitle {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-top: 0.1rem;
+  }
+
+  .sidebar-nav {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.72rem;
+    padding: 0.85rem 0.95rem;
+    border-radius: 1rem;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+  }
+  .nav-link:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.05);
+    color: var(--text);
+  }
+  .nav-link.is-active {
+    background: rgba(59,130,246,0.1);
+    border-color: rgba(96,165,250,0.2);
+    color: #dbeafe;
+  }
+  .nav-link .material-icons-outlined { font-size: 1.08rem; }
+  .nav-copy {
+    min-width: 0;
+  }
+  .nav-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+  }
+  .nav-text {
+    margin-top: 0.14rem;
+    font-size: 0.74rem;
+    color: var(--text-dim);
+  }
+
+  .sidebar-panel {
+    margin-top: auto;
+    padding: 1rem;
+    border-radius: 1.2rem;
+    background: linear-gradient(180deg, rgba(18,28,48,0.95), rgba(14,22,38,0.95));
+    border: 1px solid rgba(96,165,250,0.16);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .sidebar-panel-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #93c5fd;
+  }
+  .sidebar-panel h3 {
+    margin-top: 0.65rem;
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+  .sidebar-panel p {
+    margin-top: 0.45rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+  .sidebar-cta {
+    margin-top: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.8rem 1rem;
+    border-radius: 999px;
+    background: rgba(59,130,246,0.12);
+    border: 1px solid rgba(96,165,250,0.16);
+    color: #dbeafe;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .main {
+    min-width: 0;
+    padding: 1.4rem 1.6rem 2.5rem;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-copy h1 {
+    font-size: clamp(1.7rem, 2.4vw, 2.45rem);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+  }
+  .topbar-copy p {
+    margin-top: 0.35rem;
+    max-width: 46rem;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+  .topbar-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.86rem 1.1rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    color: var(--text-soft);
+    font-weight: 700;
+  }
+
+  .hero {
+    margin-top: 1.4rem;
+    padding: 1.6rem;
+    border-radius: 1.6rem;
+    background:
+      radial-gradient(circle at top right, rgba(59,130,246,0.18), transparent 30%),
+      linear-gradient(180deg, rgba(22,32,56,0.98), rgba(16,24,42,0.98));
+    border: 1px solid rgba(96,165,250,0.14);
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+    gap: 1.4rem;
+    overflow: hidden;
+  }
+  .hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(59,130,246,0.12);
+    color: #bfdbfe;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hero h2 {
+    margin-top: 1rem;
+    font-size: clamp(2rem, 3vw, 3.2rem);
+    line-height: 1.02;
+    letter-spacing: -0.05em;
+    max-width: 12ch;
+  }
+  .hero p {
+    margin-top: 1rem;
+    max-width: 52rem;
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+  .hero-meta {
+    margin-top: 1.3rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+  }
+  .hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: var(--text-soft);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .hero-card {
+    align-self: stretch;
+    padding: 1.15rem;
+    border-radius: 1.35rem;
+    background: rgba(9,14,27,0.48);
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 100%;
+  }
+  .hero-card-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #93c5fd;
+    font-weight: 800;
+  }
+  .hero-card h3 {
+    margin-top: 0.7rem;
+    font-size: 1.2rem;
+    line-height: 1.3;
+  }
+  .hero-card ul {
+    list-style: none;
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .hero-card li {
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    color: var(--text-muted);
+    font-size: 0.83rem;
+    line-height: 1.55;
+  }
+  .hero-card strong { color: var(--text); }
+
+  .news-grid {
+    margin-top: 1.4rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.85fr);
+    gap: 1.3rem;
+  }
+  .panel {
+    border-radius: 1.45rem;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 18px 48px rgba(2, 8, 23, 0.16);
+  }
+  .panel-header {
+    padding: 1rem 1.15rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+  }
+  .panel-header h3 {
+    font-size: 0.94rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .panel-header span {
+    font-size: 0.74rem;
+    color: var(--text-dim);
+  }
+
+  .post-card {
+    padding: 1.25rem;
+  }
+  .post-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    align-items: center;
+    color: var(--text-dim);
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .post-title {
+    margin-top: 0.95rem;
+    font-size: clamp(1.7rem, 2.3vw, 2.35rem);
+    line-height: 1.05;
+    letter-spacing: -0.05em;
+    max-width: 18ch;
+  }
+  .post-dek {
+    margin-top: 0.95rem;
+    color: var(--text-muted);
+    font-size: 0.97rem;
+    line-height: 1.75;
+    max-width: 58rem;
+  }
+  .post-visual {
+    margin-top: 1.2rem;
+    padding: 1rem;
+    border-radius: 1.3rem;
+    background:
+      linear-gradient(180deg, rgba(59,130,246,0.14), rgba(59,130,246,0.04)),
+      rgba(8, 13, 26, 0.62);
+    border: 1px solid rgba(96,165,250,0.16);
+  }
+  .post-visual-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .metric-card {
+    padding: 0.9rem;
+    border-radius: 1rem;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .metric-label {
+    color: #93c5fd;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .metric-value {
+    margin-top: 0.45rem;
+    font-size: 1.2rem;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+  .metric-copy {
+    margin-top: 0.4rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .article-body {
+    margin-top: 1.25rem;
+    display: grid;
+    gap: 1.15rem;
+  }
+  .article-section {
+    padding: 1.15rem;
+    border-radius: 1.2rem;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .article-section h4 {
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .article-section p {
+    margin-top: 0.7rem;
+    color: var(--text-soft);
+    font-size: 0.92rem;
+    line-height: 1.75;
+  }
+  .article-section ul {
+    margin-top: 0.85rem;
+    padding-left: 1.1rem;
+    color: var(--text-soft);
+    display: grid;
+    gap: 0.55rem;
+    line-height: 1.6;
+  }
+
+  .stack {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  .brief-card {
+    padding: 1rem;
+    border-radius: 1.1rem;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .brief-card .tag {
+    display: inline-flex;
+    padding: 0.32rem 0.58rem;
+    border-radius: 999px;
+    background: rgba(52,211,153,0.12);
+    color: #a7f3d0;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .brief-card h4 {
+    margin-top: 0.7rem;
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+  .brief-card p {
+    margin-top: 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    line-height: 1.6;
+  }
+  .brief-link {
+    margin-top: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: #93c5fd;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .feed-section {
+    margin-top: 1.5rem;
+  }
+  .feed-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.95rem;
+  }
+  .feed-head h3 {
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+  .feed-head p {
+    color: var(--text-dim);
+    font-size: 0.82rem;
+  }
+  .post-list {
+    display: grid;
+    gap: 0.9rem;
+  }
+  .mini-post {
+    display: grid;
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 1.2rem;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .mini-post-visual {
+    border-radius: 1rem;
+    background:
+      radial-gradient(circle at top left, rgba(59,130,246,0.24), transparent 38%),
+      linear-gradient(180deg, rgba(22,32,56,1), rgba(13,21,38,1));
+    border: 1px solid rgba(96,165,250,0.18);
+    min-height: 100px;
+  }
+  .mini-post h4 {
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+  .mini-post p {
+    margin-top: 0.45rem;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 1100px) {
+    .page-shell {
+      grid-template-columns: 1fr;
+    }
+    .sidebar {
+      position: static;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero,
+    .news-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .main {
+      padding: 1rem 0.9rem 2rem;
+    }
+    .topbar {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .post-visual-grid,
+    .mini-post {
+      grid-template-columns: 1fr;
+    }
+    .post-card,
+    .stack {
+      padding: 0.95rem;
+    }
+    .hero {
+      padding: 1.2rem;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="page-shell">
+    <aside class="sidebar">
+      <div class="brand-row">
+        <div class="brand-mark"><span class="material-icons-outlined">auto_stories</span></div>
+        <div>
+          <div class="brand-title">Drekee Noticias</div>
+          <div class="brand-subtitle">Produto, ciencia e atualizacoes do Drekee</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a class="nav-link is-active" href="sobre.html">
+          <span class="material-icons-outlined">newspaper</span>
+          <div class="nav-copy">
+            <div class="nav-title">Capa</div>
+            <div class="nav-text">Destaques e postagens</div>
+          </div>
+        </a>
+        <a class="nav-link" href="index.html">
+          <span class="material-icons-outlined">forum</span>
+          <div class="nav-copy">
+            <div class="nav-title">Voltar para IA</div>
+            <div class="nav-text">Abrir o laboratorio Drekee</div>
+          </div>
+        </a>
+        <a class="nav-link" href="#feed">
+          <span class="material-icons-outlined">view_agenda</span>
+          <div class="nav-copy">
+            <div class="nav-title">Feed editorial</div>
+            <div class="nav-text">Leituras e proximas pautas</div>
+          </div>
+        </a>
+      </nav>
+
+      <div class="sidebar-panel">
+        <div class="sidebar-panel-kicker">
+          <span class="material-icons-outlined" style="font-size:0.95rem;">flare</span>
+          <span>Versao editorial</span>
+        </div>
+        <h3>Um portal para explicar o que o Drekee AI 1.5 Pro realmente faz.</h3>
+        <p>Esta pagina resume o produto com a mesma linguagem visual do app principal: foco em ciencia, contexto tecnico e espaco para notas de produto, capacidades e bastidores.</p>
+        <a class="sidebar-cta" href="#post-teste">
+          <span class="material-icons-outlined" style="font-size:1rem;">arrow_downward</span>
+          <span>Ler o destaque</span>
+        </a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <h1>Drekee AI 1.5 Pro, explicado com fatos do proprio projeto</h1>
+          <p>Um resumo editorial do agente cientifico local: versao atual, integracoes reais, estrutura tecnica e o tipo de problema que a plataforma foi desenhada para resolver.</p>
+        </div>
+        <a class="topbar-link" href="index.html">
+          <span class="material-icons-outlined" style="font-size:1rem;">west</span>
+          <span>Voltar ao chat</span>
+        </a>
+      </header>
+
+      <section class="hero">
+        <div>
+          <div class="hero-kicker">
+            <span class="material-icons-outlined" style="font-size:0.95rem;">bolt</span>
+            <span>Destaque da versao</span>
+          </div>
+          <h2>Drekee AI 1.5 Pro e a proposta de um agente cientifico conectado</h2>
+          <p>O projeto combina interface local, backend em Node/Express e um conjunto amplo de conectores para responder perguntas cientificas com mais contexto, mais fontes e melhor navegacao entre temas tecnicos.</p>
+          <div class="hero-meta">
+            <div class="hero-chip"><span class="material-icons-outlined" style="font-size:0.95rem;">sell</span><span>Versao 1.5.3</span></div>
+            <div class="hero-chip"><span class="material-icons-outlined" style="font-size:0.95rem;">dns</span><span>Servidor local em localhost:3000</span></div>
+            <div class="hero-chip"><span class="material-icons-outlined" style="font-size:0.95rem;">hub</span><span>Mais de 80 conectores catalogados</span></div>
+          </div>
+        </div>
+
+        <div class="hero-card">
+          <div>
+            <div class="hero-card-label">Radar da versao</div>
+            <h3>Capacidades confirmadas no codigo</h3>
+          </div>
+          <ul>
+            <li><strong>Busca e contexto:</strong> o app integra Tavily para pesquisa web e combina isso com fontes academicas e tecnicas.</li>
+            <li><strong>Fontes cientificas:</strong> ha conectores reais para NASA, arXiv, SciELO, Wikipedia, PubMed, RCSB PDB, IBGE, SpaceX e varios outros.</li>
+            <li><strong>Execucao local:</strong> o frontend roda em HTML unico e o backend expoe <code>/api/chat</code> com health check em <code>/api/health</code>.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="news-grid" id="post-teste">
+        <article class="panel">
+          <div class="panel-header">
+            <h3>O que existe hoje no Drekee AI 1.5 Pro</h3>
+            <span>Leitura de 3 min</span>
+          </div>
+
+          <div class="post-card">
+            <div class="post-meta">
+              <span>Ciencia</span>
+              <span>•</span>
+              <span>Produto</span>
+              <span>•</span>
+              <span>Infraestrutura</span>
+            </div>
+
+            <h2 class="post-title">Um agente cientifico com base local, API propria e conectores especializados</h2>
+            <p class="post-dek">Pelo que o repositorio mostra, o Drekee AI 1.5 Pro foi organizado como um agente voltado a perguntas cientificas, com interface unica em <code>index.html</code>, servidor Node/Express e uma lista extensa de conectores para dados, busca, clima, educacao e pesquisa.</p>
+
+            <div class="post-visual">
+              <div class="post-visual-grid">
+                <div class="metric-card">
+                  <div class="metric-label">Conectores</div>
+                  <div class="metric-value">80+</div>
+                  <div class="metric-copy">Catalogo amplo com NASA, IBGE, SpaceX, arXiv, SciELO, Wikipedia, PubMed, Open-Meteo e varios outros.</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">Runtime</div>
+                  <div class="metric-value">Node + Express</div>
+                  <div class="metric-copy">Servidor local com rota principal <code>/api/chat</code>, health check em <code>/api/health</code> e porta 3000 por padrao.</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">Servicos-base</div>
+                  <div class="metric-value">Groq, Gemini, Tavily</div>
+                  <div class="metric-copy">O setup do projeto referencia esses provedores para raciocinio, analise de imagem, revisao e busca atualizada.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="article-body">
+              <section class="article-section">
+                <h4>O que isso significa na pratica</h4>
+                <p>Na pratica, o Drekee nao fica limitado a resposta generica de chat. Ele foi montado para acionar conectores conforme o tema da pergunta e reunir contexto de fontes externas, o que faz mais sentido para uso cientifico, escolar e tecnico.</p>
+              </section>
+
+              <section class="article-section">
+                <h4>Quais areas o projeto cobre melhor</h4>
+                <p>A lista atual de conectores indica uma cobertura forte em ciencia, espaco, clima, matematica, biologia, saude, bibliotecas abertas e dados publicos. Isso posiciona o produto muito bem para explicacao de conceitos, pesquisa guiada e descoberta de fontes.</p>
+                <ul>
+                  <li>espaco e astronomia com NASA, SpaceX, Solar Dynamics, NOAA Space Weather e exoplanetas;</li>
+                  <li>pesquisa academica com arXiv, SciELO, PubMed, Wikipedia e Open Library;</li>
+                  <li>dados publicos e educacionais com IBGE, BrasilAPI, Camara, MIT OpenCourseWare e edX.</li>
+                </ul>
+              </section>
+
+              <section class="article-section">
+                <h4>Base tecnica resumida</h4>
+                <p>Hoje a base local ja deixa claro o formato do produto: <code>index.html</code> como frontend principal, <code>api/chat.js</code> como nucleo do backend, <code>server.js</code> para servir a aplicacao e <code>package.json</code> marcando a versao atual como 1.5.3.</p>
+              </section>
+            </div>
+          </div>
+        </article>
+
+        <aside class="panel">
+          <div class="panel-header">
+            <h3>Radar</h3>
+            <span>Pontos reais do projeto</span>
+          </div>
+
+          <div class="stack">
+            <article class="brief-card">
+              <span class="tag">Infra</span>
+              <h4>O app sobe localmente com um comando simples</h4>
+              <p>O repositorio ja vem pronto para <code>npm start</code> ou <code>npm run dev</code>, servindo a interface em <code>http://localhost:3000</code>.</p>
+              <a class="brief-link" href="#feed">
+                <span>Ver feed editorial</span>
+                <span class="material-icons-outlined" style="font-size:0.95rem;">east</span>
+              </a>
+            </article>
+
+            <article class="brief-card">
+              <span class="tag" style="background:rgba(59,130,246,0.12);color:#bfdbfe;">Stack</span>
+              <h4>O backend esta organizado como API unica para chat</h4>
+              <p>A rota principal do produto fica em <code>/api/chat</code>, enquanto <code>/api/health</code> expoe o status da aplicacao e a versao 1.5.3.</p>
+            </article>
+
+            <article class="brief-card">
+              <span class="tag" style="background:rgba(129,140,248,0.14);color:#c7d2fe;">Integracoes</span>
+              <h4>As fontes mais fortes do produto ja aparecem no catalogo de conectores</h4>
+              <p>NASA, SpaceX, IBGE, Open-Meteo, Tavily, PubMed, SciELO, arXiv e outras APIs deixam claro que o foco principal e ciencia com dados externos.</p>
+            </article>
+          </div>
+        </aside>
+      </section>
+
+      <section class="feed-section" id="feed">
+        <div class="feed-head">
+          <div>
+            <h3>Mais do feed editorial</h3>
+            <p>Blocos prontos para continuar documentando o produto sem inventar numeros nem promessas.</p>
+          </div>
+        </div>
+
+        <div class="post-list">
+          <article class="mini-post">
+            <div class="mini-post-visual"></div>
+            <div>
+              <h4>Especial em preparacao: mapa completo dos conectores cientificos do Drekee</h4>
+              <p>Um bom proximo artigo e detalhar por categoria quais conectores existem hoje, quais fontes eles cobrem e quando vale acionar cada um.</p>
+            </div>
+          </article>
+
+          <article class="mini-post">
+            <div class="mini-post-visual" style="background:radial-gradient(circle at bottom left, rgba(129,140,248,0.24), transparent 38%), linear-gradient(180deg, rgba(22,32,56,1), rgba(13,21,38,1));"></div>
+            <div>
+              <h4>Outro proximo passo: documentar a arquitetura entre frontend, API e provedores externos</h4>
+              <p>Esse segundo bloco pode virar uma nota tecnica curta explicando como a interface, o servidor local e as chaves de servico se conectam no fluxo do produto.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
