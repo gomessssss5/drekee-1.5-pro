@@ -3589,7 +3589,9 @@ ${candidates.map(source => `${source.id} | bucket=${source.authorityBucket} | sc
 
 async function buildAuthoritySourcePackage(sources = [], { domain = 'geral', userQuestion = '', logs = [] } = {}) {
   const ranked = rankSourcesByAuthority(sources, domain, userQuestion);
-  const primarySource = await chooseAuthorityLeadSourceWithGroq(ranked, { domain, userQuestion, logs });
+  // Juiz rápido DESATIVADO - usa ranking automático (muito mais rápido)
+  const primarySource = ranked[0] || null;
+  if (primarySource && logs) logs.push(`📌 Fonte principal selecionada: ${primarySource.id} (score: ${primarySource.authorityScore})`);
   const secondarySources = ranked.filter(source => !primarySource || source.id !== primarySource.id).slice(0, 7);
   return {
     ranked,
